@@ -2,7 +2,9 @@ import { Renderer } from "../renderer/Renderer";
 import { Shader } from "../renderer/Shader";
 import { vertexShaderSource, fragmentShaderSource } from "../renderer/shaders/ChunkShader";
 import { World } from "../world/World";
-import { mat4 } from "gl-matrix";
+import { Camera } from "./Camera";
+import { Input } from "./Input";
+import { mat4, vec3 } from "gl-matrix";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -14,6 +16,9 @@ export class Engine {
     private shader: Shader;
     private world: World;
 
+    private camera: Camera;
+    private input: Input;
+
     constructor(canvasId: string) {
         const canvasElement = document.getElementById(canvasId) as HTMLCanvasElement | null;
         if (!canvasElement) throw new Error(`Canvas with ID '${canvasId}' not found.`);
@@ -23,6 +28,9 @@ export class Engine {
 
         this.shader = new Shader(this.renderer.gl, vertexShaderSource, fragmentShaderSource);
         this.world = new World(this.renderer.gl);
+
+        this.input = new Input(this.canvas);
+        this.camera = new Camera(vec3.fromValues(4, 4, 10));
 
         window.addEventListener("resize", () => this.onResize());
         this.onResize();
@@ -46,9 +54,26 @@ export class Engine {
 
         const deltaTime = (time - this.lastTime) * 0.001;
         this.lastTime = time;
-
+        this.update(deltaTime);
         this.render();
         requestAnimationFrame((time) => this.loop(time));
+    }
+
+    private update(deltaTime: number): void {
+        if (!this.input.isLocked) return;
+
+        const mouse = this.input.consumeMouseDeltas();
+        if (mouse.x !== 0 || mouse.y !== 0) {
+            this.camera.processMouseMovement(mouse.x, mouse.y);
+        }
+
+        if (this.input.isKeyPressed("KeyW")) this.camera.processKeyboard("FORWARD", deltaTime);
+        if (this.input.isKeyPressed("KeyS")) this.camera.processKeyboard("BACKWARD", deltaTime);
+        if (this.input.isKeyPressed("KeyA")) this.camera.processKeyboard("LEFT", deltaTime);
+        if (this.input.isKeyPressed("KeyD")) this.camera.processKeyboard("RIGHT", deltaTime);
+        
+        if (this.input.isKeyPressed("Space")) this.camera.processKeyboard("UP", deltaTime);
+        if (this.input.isKeyPressed("ShiftLeft")) this.camera.processKeyboard("DOWN", deltaTime);
     }
 
     private render(): void {
@@ -60,16 +85,16 @@ export class Engine {
         const projection = mat4.create();
         mat4.perspective(projection, Math.PI / 4, this.canvas.width / this.canvas.height, 0.1, 100.0);
 
-        const view = mat4.create();
-        mat4.lookAt(view, [8, 8, 12], [1.5, 1.5, 1.5], [0, 1, 0]);
+        const view = this.camera.getViewMatrix(); 
 
         const mvp = mat4.create();
         mat4.multiply(mvp, projection, view);
-
 
         this.shader.bind();
         this.shader.setMat4("u_MVP", mvp as Float32Array); 
 
         this.renderer.draw(chunkVAO, this.shader, this.world.chunk.vertexCount);
     }
+
+
 }

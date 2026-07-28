@@ -71,7 +71,7 @@ export class ChunkMesher {
         };
     }
 
-    // --- Private Helpers ---
+  
 
     /**
      * Appends face geometry to the target buffers, scaling down to unit size (1.0).

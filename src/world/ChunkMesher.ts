@@ -33,7 +33,13 @@ export class ChunkMesher {
                     if (blockId === 0) continue;
 
                     // Mock RGB fetching (replace with Palette registry later)
-                    const r = 1.0, g = 1.0, b = 1.0; 
+                    let r = 1.0, g = 1.0, b = 1.0; 
+
+                    if (blockId === 2) { //debri
+                        r = 1.0; 
+                        g = 0.0; 
+                        b = 0.0;
+                    }
 
                     // +Y (Top)
                     if (this.isTransparent(center, neighbors.top, x, y + 1, z)) {

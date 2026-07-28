@@ -6,6 +6,7 @@ import { Camera } from "./Camera";
 import { Input } from "./Input";
 import { mat4, vec3 } from "gl-matrix";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
+import { StructuralIntegrity } from "../physics/StructuralIntegrity";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -116,6 +117,7 @@ export class Engine {
         if (result.hit) {
             const [x, y, z] = result.blockPos;
             this.world.chunk.setBlock(x, y, z, 0);
+            StructuralIntegrity.checkSupport(x,y,z, this.world);
             
             this.world.updateMesh();
         }

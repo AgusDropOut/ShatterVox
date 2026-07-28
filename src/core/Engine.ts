@@ -21,6 +21,8 @@ export class Engine {
     private camera: Camera;
     private input: Input;
 
+    private structuralIntegrity: StructuralIntegrity;
+
     constructor(canvasId: string) {
         const canvasElement = document.getElementById(canvasId) as HTMLCanvasElement | null;
         if (!canvasElement) throw new Error(`Canvas with ID '${canvasId}' not found.`);
@@ -33,6 +35,9 @@ export class Engine {
 
         this.input = new Input(this.canvas);
         this.camera = new Camera(vec3.fromValues(4, 4, 10));
+
+        this.structuralIntegrity = new StructuralIntegrity(this.world);
+        
 
         window.addEventListener("resize", () => this.onResize());
         this.canvas.addEventListener("mousedown", (e) => {
@@ -117,7 +122,7 @@ export class Engine {
         if (result.hit) {
             const [x, y, z] = result.blockPos;
             this.world.chunk.setBlock(x, y, z, 0);
-            StructuralIntegrity.checkSupport(x,y,z, this.world);
+            this.structuralIntegrity.checkSupport(x, y, z);
             
             this.world.updateMesh();
         }

@@ -7,6 +7,7 @@ import { Input } from "./Input";
 import { mat4, vec3 } from "gl-matrix";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 import { StructuralIntegrity } from "../physics/StructuralIntegrity";
+import { TerrainPhysics } from "../physics/TerrainPhysics";
 import RAPIER from "@dimforge/rapier3d-compat";
 
 export class Engine {
@@ -38,6 +39,7 @@ export class Engine {
 
         this.shader = new Shader(this.renderer.gl, vertexShaderSource, fragmentShaderSource);
         this.world = new World(this.renderer.gl);
+        
 
         this.input = new Input(this.canvas);
         this.camera = new Camera(vec3.fromValues(4, 4, 10));
@@ -45,6 +47,10 @@ export class Engine {
         this.physicsWorld = new RAPIER.World(Engine.gravity);
 
         this.structuralIntegrity = new StructuralIntegrity(this.world, this.physicsWorld);
+
+        const terrainPhysics = new TerrainPhysics(this.physicsWorld);
+
+        terrainPhysics.buildColliders(this.world.chunk);
         
 
         window.addEventListener("resize", () => this.onResize());

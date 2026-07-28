@@ -7,11 +7,13 @@ import { Input } from "./Input";
 import { mat4, vec3 } from "gl-matrix";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 import { StructuralIntegrity } from "../physics/StructuralIntegrity";
+import RAPIER from "@dimforge/rapier3d-compat";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
     private readonly renderer: Renderer;
-    
+    public static readonly gravity = { x: 0.0, y: -9.81, z: 0.0 };
+
     private isRunning: boolean = false;
     private lastTime: number = 0;
 
@@ -21,7 +23,11 @@ export class Engine {
     private camera: Camera;
     private input: Input;
 
+    public physicsWorld: RAPIER.World;
+
     private structuralIntegrity: StructuralIntegrity;
+
+    
 
     constructor(canvasId: string) {
         const canvasElement = document.getElementById(canvasId) as HTMLCanvasElement | null;
@@ -36,7 +42,9 @@ export class Engine {
         this.input = new Input(this.canvas);
         this.camera = new Camera(vec3.fromValues(4, 4, 10));
 
-        this.structuralIntegrity = new StructuralIntegrity(this.world);
+        this.physicsWorld = new RAPIER.World(Engine.gravity);
+
+        this.structuralIntegrity = new StructuralIntegrity(this.world, this.physicsWorld);
         
 
         window.addEventListener("resize", () => this.onResize());
@@ -87,6 +95,8 @@ export class Engine {
         
         if (this.input.isKeyPressed("Space")) this.camera.processKeyboard("UP", deltaTime);
         if (this.input.isKeyPressed("ShiftLeft")) this.camera.processKeyboard("DOWN", deltaTime);
+
+        this.physicsWorld.step();
     }
 
     private render(): void {

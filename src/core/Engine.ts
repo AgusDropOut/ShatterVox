@@ -5,6 +5,7 @@ import { World } from "../world/World";
 import { Camera } from "./Camera";
 import { Input } from "./Input";
 import { mat4, vec3 } from "gl-matrix";
+import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -33,6 +34,12 @@ export class Engine {
         this.camera = new Camera(vec3.fromValues(4, 4, 10));
 
         window.addEventListener("resize", () => this.onResize());
+        this.canvas.addEventListener("mousedown", (e) => {
+            if (this.input.isLocked && e.button === 0) {
+                this.handleLeftClick();
+            }
+        });
+
         this.onResize();
     }
 
@@ -94,6 +101,24 @@ export class Engine {
         this.shader.setMat4("u_MVP", mvp as Float32Array); 
 
         this.renderer.draw(chunkVAO, this.shader, this.world.chunk.vertexCount);
+    }
+
+    private handleLeftClick(): void {
+        const reach = 5.0; 
+        
+        const result = VoxelRaycaster.raycast(
+            this.camera.position,
+            this.camera.front,
+            reach,
+            this.world
+        );
+
+        if (result.hit) {
+            const [x, y, z] = result.blockPos;
+            this.world.chunk.setBlock(x, y, z, 0);
+            
+            this.world.updateMesh();
+        }
     }
 
 

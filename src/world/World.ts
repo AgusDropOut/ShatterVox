@@ -27,4 +27,9 @@ export class World {
         });
         this.chunk.updateGraphics(meshData);
     }
+
+    public getBlock(worldX: number, worldY: number, worldZ: number): number {
+        // TODO: Map world coordinates to the correct Chunk once we have multiple chunks.
+        return this.chunk.getBlock(worldX, worldY, worldZ);
+    }
 }

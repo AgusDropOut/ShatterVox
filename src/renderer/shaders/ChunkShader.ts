@@ -24,9 +24,8 @@ in vec3 vNormal;
 out vec4 FragColor;
 
 void main() {
-    // Iluminación direccional falsa súper básica para dar volumen
     vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-    float diff = max(dot(vNormal, lightDir), 0.2); // 0.2 es la luz ambiental
+    float diff = max(dot(vNormal, lightDir), 0.2); 
     FragColor = vec4(vColor * diff, 1.0);
 }
 `;

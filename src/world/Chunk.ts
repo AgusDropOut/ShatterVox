@@ -1,0 +1,83 @@
+import { VAO } from "../renderer/buffers/VAO";
+import { VBO } from "../renderer/buffers/VBO";
+import type { MeshData } from "./ChunkMesher"; 
+
+export class Chunk {
+    public static readonly WIDTH = 16;
+    public static readonly HEIGHT = 16;
+    public static readonly DEPTH = 16;
+
+    public vao: VAO | null = null;
+    public vertexCount: number = 0;
+
+    private readonly gl: WebGL2RenderingContext;
+    private readonly blocks: Uint8Array;
+    
+    private vboPositions: VBO | null = null;
+    private vboNormals: VBO | null = null;
+    private vboColors: VBO | null = null;
+
+    constructor(gl: WebGL2RenderingContext) {
+        this.gl = gl;
+        const volume = Chunk.WIDTH * Chunk.HEIGHT * Chunk.DEPTH;
+        this.blocks = new Uint8Array(volume);
+    }
+
+    public getBlock(x: number, y: number, z: number): number {
+        if (!this.inBounds(x, y, z)) return 0;
+        return this.blocks[this.getIndex(x, y, z)];
+    }
+
+    public setBlock(x: number, y: number, z: number, id: number): void {
+        if (!this.inBounds(x, y, z)) return;
+        this.blocks[this.getIndex(x, y, z)] = id;
+    }
+
+   
+    public updateGraphics(meshData: MeshData): void {
+        if (meshData.vertexCount === 0) {
+            this.deleteGraphics();
+            return;
+        }
+
+        if (!this.vao) {
+            this.vboPositions = new VBO(this.gl, meshData.positions, this.gl.DYNAMIC_DRAW);
+            this.vboNormals = new VBO(this.gl, meshData.normals, this.gl.DYNAMIC_DRAW);
+            this.vboColors = new VBO(this.gl, meshData.colors, this.gl.DYNAMIC_DRAW);
+
+            this.vao = new VAO(this.gl);
+            this.vao.linkAttrib(this.vboPositions, 0, 3, this.gl.FLOAT, false, 0, 0);
+            this.vao.linkAttrib(this.vboNormals, 1, 3, this.gl.FLOAT, false, 0, 0);
+            this.vao.linkAttrib(this.vboColors, 2, 3, this.gl.FLOAT, false, 0, 0);
+        } else {
+            this.vboPositions!.updateData(meshData.positions, this.gl.DYNAMIC_DRAW);
+            this.vboNormals!.updateData(meshData.normals, this.gl.DYNAMIC_DRAW);
+            this.vboColors!.updateData(meshData.colors, this.gl.DYNAMIC_DRAW);
+        }
+        
+        this.vertexCount = meshData.vertexCount;
+    }
+
+    public deleteGraphics(): void {
+        if (this.vao) this.vao.delete();
+        if (this.vboPositions) this.vboPositions.delete();
+        if (this.vboNormals) this.vboNormals.delete();
+        if (this.vboColors) this.vboColors.delete();
+        
+        this.vao = null;
+        this.vboPositions = null;
+        this.vboNormals = null;
+        this.vboColors = null;
+        this.vertexCount = 0;
+    }
+
+    private getIndex(x: number, y: number, z: number): number {
+        return x + (y * Chunk.WIDTH) + (z * Chunk.WIDTH * Chunk.HEIGHT);
+    }
+
+    private inBounds(x: number, y: number, z: number): boolean {
+        return x >= 0 && x < Chunk.WIDTH && 
+               y >= 0 && y < Chunk.HEIGHT && 
+               z >= 0 && z < Chunk.DEPTH;
+    }
+}

@@ -1,4 +1,5 @@
 
+import type { PhysicsCommand } from "../physics/PhysicsProtocol";
 import { Debri } from "../world/Debri";
 
 export interface GameEvents {
@@ -6,6 +7,8 @@ export interface GameEvents {
     "BLOCK_MINED_DYNAMIC": { debri: Debri, handle: number, localX: number, localY: number, localZ: number };
     "WINDOW_RESIZE": { width: number, height: number };
     "TOGGLE_PHYSICS_DEBUG": {}; 
+    "PHYSICS_COMMAND": PhysicsCommand;
+    "SYNC_TRANSFORMS": { buffer: Float32Array };
 }
 
 class EventBus {

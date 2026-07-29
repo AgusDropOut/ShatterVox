@@ -10,6 +10,7 @@ import { PlayerController } from "./PlayerController";
 import { StructuralIntegrity } from "../physics/StructuralIntegrity";
 import { Window } from "./Window";
 import { globalEventBus } from "./EventBus";
+import { PhysicsFacade } from "../physics/PhysicsFacade";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -33,6 +34,8 @@ export class Engine {
     private isRunning: boolean = false;
     private lastTime: number = 0;
 
+    private physicsFacade: PhysicsFacade;
+
     constructor(canvasId: string) {
         const canvasElement = document.getElementById(canvasId) as HTMLCanvasElement | null;
         if (!canvasElement) throw new Error(`Canvas with ID '${canvasId}' not found.`);
@@ -54,6 +57,14 @@ export class Engine {
         
         this.structuralIntegrity = new StructuralIntegrity(this.renderer.gl, this.world, this.physicsWorld, this.terrainPhysics);
         this.player = new PlayerController(this.canvas, this.world, this.physicsWorld);
+
+        this.physicsFacade = new PhysicsFacade();
+
+       
+        globalEventBus.emit("PHYSICS_COMMAND", { 
+            type: 'INIT', 
+            gravity: { x: 0.0, y: -9.81, z: 0.0 } 
+        });
         
         
 

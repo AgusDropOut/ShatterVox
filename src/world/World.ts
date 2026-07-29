@@ -12,14 +12,8 @@ export class World {
         this.chunk = new Chunk(gl);
         this.mesher = new ChunkMesher();
         this.debri = [];
-        for (let x = 0; x < 16; x++) {
-            for (let y = 0; y < 16; y++) {
-                for (let z = 0; z < 16; z++) {
-                    if(x == 1) {
-                        this.chunk.setBlock(x, y, z, 1);
-                    }
-                }
-            }
+        for (let y = 0; y < 10; y++) {
+            this.chunk.setBlock(5, y, 5, 1);
         }
 
         this.updateMesh();

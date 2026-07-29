@@ -2,73 +2,57 @@ import { Renderer } from "../renderer/Renderer";
 import { Shader } from "../renderer/Shader";
 import { vertexShaderSource, fragmentShaderSource } from "../renderer/shaders/ChunkShader";
 import { World } from "../world/World";
-import { Camera } from "./Camera";
-import { Input } from "./Input";
-import { mat4, vec3 } from "gl-matrix";
-import { VoxelRaycaster } from "../physics/VoxelRaycaster";
-import { StructuralIntegrity } from "../physics/StructuralIntegrity";
+import { mat4 } from "gl-matrix";
 import { TerrainPhysics } from "../physics/TerrainPhysics";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { PhysicsDebugRenderer } from "../physics/PhysicsDebugRenderet";
-import { ColliderRegistry } from "../physics/ColliderRegistry";
-import { globalEventBus } from "./EventBus";
+import { PlayerController } from "./PlayerController";
+import { StructuralIntegrity } from "../physics/StructuralIntegrity";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
     private readonly renderer: Renderer;
+    private readonly shader: Shader;
+    
+    private world: World;
+    public physicsWorld: RAPIER.World;
+    
+    private terrainPhysics: TerrainPhysics;
+  
+    
+
+    private player: PlayerController;
+    
     private physicsDebugRenderer: PhysicsDebugRenderer;
     private showPhysicsDebug: boolean = false;
     public static readonly gravity = { x: 0.0, y: -9.81, z: 0.0 };
-    
-
-    private isRunning: boolean = false;
-    private lastTime: number = 0;
-
-    private shader: Shader;
-    private world: World;
-
-    private camera: Camera;
-    private input: Input;
-
-    public physicsWorld: RAPIER.World;
 
     private structuralIntegrity: StructuralIntegrity;
-    private terrainPhysics: TerrainPhysics;
-
     
+    private isRunning: boolean = false;
+    private lastTime: number = 0;
 
     constructor(canvasId: string) {
         const canvasElement = document.getElementById(canvasId) as HTMLCanvasElement | null;
         if (!canvasElement) throw new Error(`Canvas with ID '${canvasId}' not found.`);
-        
         this.canvas = canvasElement;
-        this.renderer = new Renderer(this.canvas);
-        this.physicsDebugRenderer = new PhysicsDebugRenderer(this.renderer.gl);
-
-        this.shader = new Shader(this.renderer.gl, vertexShaderSource, fragmentShaderSource);
-        this.world = new World(this.renderer.gl);
         
 
-        this.input = new Input(this.canvas);
-        this.camera = new Camera(vec3.fromValues(4, 4, 10));
+        this.renderer = new Renderer(this.canvas);
+        this.shader = new Shader(this.renderer.gl, vertexShaderSource, fragmentShaderSource);
+        this.physicsDebugRenderer = new PhysicsDebugRenderer(this.renderer.gl);
+        
 
         this.physicsWorld = new RAPIER.World(Engine.gravity);
-
-        
-
+        this.world = new World(this.renderer.gl);
         this.terrainPhysics = new TerrainPhysics(this.physicsWorld);
-
-        this.structuralIntegrity = new StructuralIntegrity(this.renderer.gl,this.world, this.physicsWorld, this.terrainPhysics);
-
         this.terrainPhysics.buildColliders(this.world.chunk);
-        
 
+        this.player = new PlayerController(this.canvas, this.world, this.physicsWorld);
+
+        this.structuralIntegrity = new StructuralIntegrity(this.renderer.gl, this.world, this.physicsWorld, this.terrainPhysics);
+        
         window.addEventListener("resize", () => this.onResize());
-        this.canvas.addEventListener("mousedown", (e) => {
-            if (this.input.isLocked && e.button === 0) {
-                this.handleLeftClick();
-            }
-        });
         window.addEventListener("keydown", (e) => {
             if (e.code === "KeyP") {
                 this.showPhysicsDebug = !this.showPhysicsDebug;
@@ -97,30 +81,15 @@ export class Engine {
 
         const deltaTime = (time - this.lastTime) * 0.001;
         this.lastTime = time;
+        
         this.update(deltaTime);
         this.render();
-        this.world.debri.forEach(debri => {
-           console.log(`[Engine] Debris block count: ${debri.getBlockCount()}`);
-        });
+        
         requestAnimationFrame((time) => this.loop(time));
     }
 
     private update(deltaTime: number): void {
-        if (!this.input.isLocked) return;
-
-        const mouse = this.input.consumeMouseDeltas();
-        if (mouse.x !== 0 || mouse.y !== 0) {
-            this.camera.processMouseMovement(mouse.x, mouse.y);
-        }
-
-        if (this.input.isKeyPressed("KeyW")) this.camera.processKeyboard("FORWARD", deltaTime);
-        if (this.input.isKeyPressed("KeyS")) this.camera.processKeyboard("BACKWARD", deltaTime);
-        if (this.input.isKeyPressed("KeyA")) this.camera.processKeyboard("LEFT", deltaTime);
-        if (this.input.isKeyPressed("KeyD")) this.camera.processKeyboard("RIGHT", deltaTime);
-        
-        if (this.input.isKeyPressed("Space")) this.camera.processKeyboard("UP", deltaTime);
-        if (this.input.isKeyPressed("ShiftLeft")) this.camera.processKeyboard("DOWN", deltaTime);
-
+        this.player.update(deltaTime);
         this.physicsWorld.step();
     }
 
@@ -129,35 +98,32 @@ export class Engine {
 
         const projection = mat4.create();
         mat4.perspective(projection, Math.PI / 4, this.canvas.width / this.canvas.height, 0.1, 100.0);
-        const view = this.camera.getViewMatrix(); 
+        
+
+        const view = this.player.camera.getViewMatrix(); 
+        
         this.drawChunks(projection, view);
         this.drawDebris(projection, view);
-        this.drawPhysicsDebug(projection, view);
-
-        
-        
+        this.drawPhysicsDebug(projection, view); 
     }
 
     private drawChunks(projection: mat4, view: mat4): void {
         const chunkVAO = this.world.chunk.vao;
         if (!chunkVAO || this.world.chunk.vertexCount === 0) return;
 
-        
-
         const mvp = mat4.create();
         mat4.multiply(mvp, projection, view);
 
         this.shader.bind();
         this.shader.setMat4("u_MVP", mvp as Float32Array); 
-
         this.renderer.draw(chunkVAO, this.shader, this.world.chunk.vertexCount);
     }
 
     private drawDebris(projection: mat4, view: mat4): void {
         for (const debri of this.world.debri) {
-            console.log(`[Render] Rendering debris with ${debri.vertexCount} vertices.`);
             const debriVAO = debri.vao;
             if (!debriVAO || debri.vertexCount === 0) continue;
+            
             const modelMatrix = debri.getModelMatrix();
             const mvp = mat4.create();
 
@@ -166,9 +132,7 @@ export class Engine {
 
             this.shader.bind();
             this.shader.setMat4("u_MVP", mvp as Float32Array);
-
             this.renderer.draw(debriVAO, this.shader, debri.vertexCount);
-
         }
     }
 
@@ -180,48 +144,7 @@ export class Engine {
 
         const gl = this.renderer.gl;
         gl.disable(gl.DEPTH_TEST);
-        
         this.physicsDebugRenderer.render(this.physicsWorld, mvp);
-        
         gl.enable(gl.DEPTH_TEST);
     }
-
-    private handleLeftClick(): void {
-        const reach = 5.0; 
-        
-        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
-        const physicsHit = VoxelRaycaster.raycastPhysics(this.camera.position, this.camera.front, reach, this.physicsWorld);
-
-        if (!gridHit.hit && !physicsHit.hit) return;
-
-        if (gridHit.distance < physicsHit.distance) {
-            const [x, y, z] = gridHit.blockPos;
-            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z });
-
-        } else {
-
-            const handle = physicsHit.colliderHandle!;
-            const voxelData = ColliderRegistry.get(handle);
-
-            if (voxelData) {
-
-                const colliderToDestroy = this.physicsWorld.getCollider(handle);
-                if (colliderToDestroy) {
-                    this.physicsWorld.removeCollider(colliderToDestroy, true);
-                }
-                ColliderRegistry.delete(handle);
-                
-
-                globalEventBus.emit("BLOCK_MINED_DYNAMIC", { 
-                    debri: voxelData.debri, 
-                    handle: handle, 
-                    localX: voxelData.localX, 
-                    localY: voxelData.localY, 
-                    localZ: voxelData.localZ 
-                });
-            }
-        }
-    }
-
-
 }

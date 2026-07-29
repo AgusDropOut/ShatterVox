@@ -28,6 +28,8 @@ export class StructuralIntegrity {
     }
 
     public checkSupport(x: number, y: number, z: number): void {
+
+        console.log(`[StructuralIntegrity] Checking support for block at (${x}, ${y}, ${z})`);
         const neighbors = [
             [x + 1, y, z], [x - 1, y, z],
             [x, y + 1, z], [x, y - 1, z],
@@ -100,6 +102,7 @@ export class StructuralIntegrity {
         return { isAnchored, blocks: islandBlocks, visitedKeys: visited };
     }
 
+
     private markAsDebris(blocks: number[][]): void {
         if (blocks.length === 0) return;
 
@@ -154,6 +157,8 @@ export class StructuralIntegrity {
 
   
     public evaluateShatter(debri: Debri): void {
+
+        console.log(`[StructuralIntegrity] Evaluating shatter for Debri ID ${debri}`);
         const visitedGlobal = new Set<string>();
         const islands: number[][][] = [];
 

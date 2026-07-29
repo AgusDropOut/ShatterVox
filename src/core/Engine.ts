@@ -220,7 +220,7 @@ export class Engine {
                 ColliderRegistry.delete(handle);
                 
               
-                this.world.updateDebriMesh(voxelData.debri);
+                this.structuralIntegrity.evaluateShatter(voxelData.debri);
                 
                 
 

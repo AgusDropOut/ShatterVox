@@ -17,8 +17,8 @@ export class PlayerController {
 
     private rigidBody: RAPIER.RigidBody;
     private collider: RAPIER.Collider;
-    private speed: number = 150.0;
-    private jumpForce: number = 1000.0;
+    private speed: number = 2.0; 
+    private jumpForce: number = 4.0;
 
     constructor(canvas: HTMLCanvasElement, world: World, physicsWorld: RAPIER.World) {
         this.world = world;
@@ -52,16 +52,13 @@ export class PlayerController {
     public update(deltaTime: number): void {
         if (!this.input.isLocked) return;
 
-     
         const mouse = this.input.consumeMouseDeltas();
         if (mouse.x !== 0 || mouse.y !== 0) {
             this.camera.processMouseMovement(mouse.x, mouse.y);
         }
 
-       
         const velocity = vec3.create();
         
-    
         const front = vec3.fromValues(this.camera.front[0], 0, this.camera.front[2]);
         vec3.normalize(front, front);
         
@@ -69,21 +66,19 @@ export class PlayerController {
         vec3.cross(right, front, [0, 1, 0]);
         vec3.normalize(right, right);
 
-        if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(velocity, velocity, front, this.speed * deltaTime);
-        if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(velocity, velocity, front, -this.speed * deltaTime);
-        if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(velocity, velocity, right, -this.speed * deltaTime);
-        if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(velocity, velocity, right, this.speed * deltaTime);
+        // ¡SIN deltaTime! SetLinvel necesita la velocidad objetivo, Rapier hace el resto.
+        if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(velocity, velocity, front, this.speed);
+        if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(velocity, velocity, front, -this.speed);
+        if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(velocity, velocity, right, -this.speed);
+        if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(velocity, velocity, right, this.speed);
 
-       
         const currentLinVel = this.rigidBody.linvel();
         let velY = currentLinVel.y;
 
-       
         if (this.input.isKeyPressed("Space") && Math.abs(currentLinVel.y) < 0.01) {
-            velY = this.jumpForce * deltaTime;
+            velY = this.jumpForce;
         }
 
-      
         this.rigidBody.setLinvel({ x: velocity[0], y: velY, z: velocity[2] }, true);
         const pos = this.rigidBody.translation();
         vec3.set(this.camera.position, pos.x, pos.y + 0.8, pos.z);

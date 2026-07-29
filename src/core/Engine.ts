@@ -28,6 +28,7 @@ export class Engine {
     private physicsDebugRenderer: PhysicsDebugRenderer;
     private showPhysicsDebug: boolean = false;
     public static readonly gravity = { x: 0.0, y: -9.81, z: 0.0 };
+    public static readonly voxelSize = 0.30;
     
     private isRunning: boolean = false;
     private lastTime: number = 0;
@@ -42,6 +43,11 @@ export class Engine {
         this.physicsDebugRenderer = new PhysicsDebugRenderer(this.renderer.gl);
         
         this.physicsWorld = new RAPIER.World(Engine.gravity);
+
+        this.physicsWorld.integrationParameters.numSolverIterations = 1; 
+
+        this.physicsWorld.integrationParameters.maxCcdSubsteps = 1;
+
         this.world = new World(this.renderer.gl);
         this.terrainPhysics = new TerrainPhysics(this.physicsWorld);
         this.terrainPhysics.buildColliders(this.world);

@@ -4,6 +4,7 @@ import { Debri} from "../world/Debri";
 import type { TerrainPhysics } from "./TerrainPhysics";
 import { ColliderRegistry } from "./ColliderRegistry";
 import { globalEventBus } from "../core/EventBus";
+import { Engine } from "../core/Engine";
 
 export class StructuralIntegrity {
     private readonly world: World;
@@ -110,9 +111,9 @@ export class StructuralIntegrity {
         let minX = Infinity, minY = Infinity, minZ = Infinity;
 
         for (const [x, y, z] of blocks) {
-            cx += x + 0.5;
-            cy += y + 0.5;
-            cz += z + 0.5;
+            cx += x;
+            cy += y;
+            cz += z;
 
             if (x < minX) minX = x;
             if (y < minY) minY = y;
@@ -126,18 +127,25 @@ export class StructuralIntegrity {
             this.world.setBlock(x, y, z, 0); 
         }
 
-        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(cx, cy, cz);
+
+        const worldCx = cx * Engine.voxelSize + Engine.voxelSize / 2;
+        const worldCy = cy * Engine.voxelSize + Engine.voxelSize / 2;
+        const worldCz = cz * Engine.voxelSize + Engine.voxelSize / 2;
+
+        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(worldCx, worldCy, worldCz);
         const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
+        
         let debri = new Debri(this.gl, rigidBody, blocks, cx, cy, cz);
     
-        for (const [x, y, z] of blocks) {
-            const localX = x - cx + 0.5;
-            const localY = y - cy + 0.5;
-            const localZ = z - cz + 0.5;
+        const half = Engine.voxelSize / 2;
 
-           
-            const colliderDesc = RAPIER.ColliderDesc.cuboid(0.50, 0.50, 0.50)
-                .setTranslation(localX, localY, localZ); 
+        for (const [x, y, z] of blocks) {
+            const localX = (x - cx) * Engine.voxelSize;
+            const localY = (y - cy) * Engine.voxelSize;
+            const localZ = (z - cz) * Engine.voxelSize;
+
+            const colliderDesc = RAPIER.ColliderDesc.cuboid(half, half, half)
+                .setTranslation(localX, localY, localZ);
             
             const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
        
@@ -226,7 +234,7 @@ export class StructuralIntegrity {
             (newDebri as any).offsetY = pOffsetY;
             (newDebri as any).offsetZ = pOffsetZ;
 
-           
+           const half = Engine.voxelSize / 2;
             for (const [lx, ly, lz] of island) {
                 debri.setBlock(lx, ly, lz, 0);   
                 newDebri.setBlock(lx, ly, lz, 1); 
@@ -241,11 +249,12 @@ export class StructuralIntegrity {
                     }
                 }
 
-                const physLocalX = lx - pOffsetX + 0.5;
-                const physLocalY = ly - pOffsetY + 0.5;
-                const physLocalZ = lz - pOffsetZ + 0.5;
+                const physLocalX = (lx - pOffsetX) * Engine.voxelSize;
+                const physLocalY = (ly - pOffsetY) * Engine.voxelSize;
+                const physLocalZ = (lz - pOffsetZ) * Engine.voxelSize;
 
-                const colliderDesc = RAPIER.ColliderDesc.cuboid(0.50, 0.50, 0.50)
+
+                const colliderDesc = RAPIER.ColliderDesc.cuboid(half, half, half)
                     .setTranslation(physLocalX, physLocalY, physLocalZ);
                 
                 const newCollider = this.physicsWorld.createCollider(colliderDesc, newRb);

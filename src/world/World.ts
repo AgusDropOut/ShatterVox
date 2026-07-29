@@ -117,63 +117,117 @@ export class World {
     }
 
     private generateTestMap(gl: WebGL2RenderingContext): void {
-        for (let cx = 0; cx < 2; cx++) {
-            for (let cz = 0; cz < 2; cz++) {
-                const chunk = new Chunk(gl, cx, 0, cz);
-                this.chunks.set(`${cx},0,${cz}`, chunk);
+        const CHUNKS_X = 4;
+        const CHUNKS_Y = 2; 
+        const CHUNKS_Z = 4;
+
+        for (let cx = 0; cx < CHUNKS_X; cx++) {
+            for (let cy = 0; cy < CHUNKS_Y; cy++) {
+                for (let cz = 0; cz < CHUNKS_Z; cz++) {
+                    const chunk = new Chunk(gl, cx, cy, cz);
+                    this.chunks.set(`${cx},${cy},${cz}`, chunk);
+                }
+            }
+        }
+
+        const WORLD_WIDTH = CHUNKS_X * Chunk.WIDTH;
+        const WORLD_DEPTH = CHUNKS_Z * Chunk.DEPTH;
+
+      
+        for (let x = 0; x < WORLD_WIDTH; x++) {
+            for (let z = 0; z < WORLD_DEPTH; z++) {
+                this.setBlock(x, 0, z, 1);
                 
-           
-                for (let x = 0; x < 16; x++) {
-                    for (let z = 0; z < 16; z++) {
-                        chunk.setBlock(x, 0, z, 1);
+             
+                if (Math.random() > 0.99) {
+                    this.setBlock(x, 1, z, 1);
+                }
+            }
+        }
+
+       
+        const templeX = 40, templeZ = 40, templeY = 1; 
+        const templeWidth = 40, templeDepth = 26;
+
+        for (let x = templeX; x < templeX + templeWidth; x++) {
+            for (let z = templeZ; z < templeZ + templeDepth; z++) {
+                this.setBlock(x, templeY, z, 1);
+                this.setBlock(x, templeY + 1, z, 1);
+                this.setBlock(x, templeY + 2, z, 1); 
+            }
+        }
+
+        const columnSpacing = 8;
+        for (let x = templeX + 3; x < templeX + templeWidth - 3; x += columnSpacing) {
+            for (let z of [templeZ + 3, templeZ + templeDepth - 6]) {
+                for (let y = templeY + 3; y < templeY + 18; y++) {
+                    for(let cx = 0; cx < 3; cx++) {
+                        for(let cz = 0; cz < 3; cz++) {
+                            this.setBlock(x + cx, y, z + cz, 1);
+                        }
                     }
                 }
             }
         }
-        
-  
 
-  
-        this.setBlock(15, 1, 15, 1);
-        this.setBlock(15, 2, 15, 1);
-        this.setBlock(15, 3, 15, 1);
-
-
-        for (let y = 1; y <= 4; y++) {
-            this.setBlock(5, y, 5, 1);
-        }
-        for (let x = 4; x <= 6; x++) {
-            for (let y = 4; y <= 5; y++) {
-                for (let z = 4; z <= 6; z++) {
-                    this.setBlock(x, y, z, 1);
+        for (let x = templeX - 2; x < templeX + templeWidth + 2; x++) {
+            for (let z = templeZ - 2; z < templeZ + templeDepth + 2; z++) {
+                this.setBlock(x, templeY + 18, z, 1);
+                this.setBlock(x, templeY + 19, z, 1);
+                this.setBlock(x, templeY + 20, z, 1);
+                
+                if (x > templeX + 2 && x < templeX + templeWidth - 2) {
+                    this.setBlock(x, templeY + 21, z, 1);
+                    this.setBlock(x, templeY + 22, z, 1);
+                    if (z > templeZ + 6 && z < templeZ + templeDepth - 6) {
+                        this.setBlock(x, templeY + 23, z, 1);
+                    }
                 }
             }
         }
 
+       
+        const treeX = 90, treeZ = 90;
+        const treeBaseY = 1; 
 
-        for (let y = 1; y <= 4; y++) {
-            this.setBlock(10, y, 20, 1);
-            this.setBlock(11, y, 20, 1);
-        }
-
-        for (let y = 1; y <= 4; y++) {
-            this.setBlock(18, y, 20, 1);
-            this.setBlock(19, y, 20, 1);
-        }
-
-        for (let x = 10; x <= 19; x++) {
-            this.setBlock(x, 4, 20, 1);
-            this.setBlock(x, 5, 20, 1);
-        }
-
-
-        for (let x = 25; x <= 29; x++) {
-            for (let z = 5; z <= 9; z++) {
-                this.setBlock(x, 3, z, 1);
+        for (let y = treeBaseY; y < treeBaseY + 20; y++) {
+            for (let x = treeX - 2; x <= treeX + 2; x++) {
+                for (let z = treeZ - 2; z <= treeZ + 2; z++) {
+                    if (Math.random() > 0.05) this.setBlock(x, y, z, 1);
+                }
             }
         }
-      
-        this.setBlock(27, 1, 7, 1);
-        this.setBlock(27, 2, 7, 1);
+
+        const radius = 12;
+        const canopyCenterY = treeBaseY + 22;
+        for (let x = treeX - radius; x <= treeX + radius; x++) {
+            for (let y = canopyCenterY - radius; y <= canopyCenterY + radius; y++) {
+                for (let z = treeZ - radius; z <= treeZ + radius; z++) {
+                    const dx = x - treeX;
+                    const dy = y - canopyCenterY;
+                    const dz = z - treeZ;
+                    if (dx*dx + dy*dy + dz*dz <= radius*radius - Math.random() * 8) {
+                        this.setBlock(x, y, z, 1);
+                    }
+                }
+            }
+        }
+
+   
+        const archX = 15, archZ = 90, archY = 1;
+        for (let i = 0; i < 15; i++) { 
+            this.setBlock(archX, archY + i, archZ, 1);
+            this.setBlock(archX + 1, archY + i, archZ, 1);
+        }
+        for (let i = 0; i < 15; i++) { 
+            this.setBlock(archX + 16, archY + i, archZ, 1);
+            this.setBlock(archX + 17, archY + i, archZ, 1);
+        }
+        for (let i = 0; i <= 16; i++) { 
+            if (i < 6 || i > 10) { 
+                this.setBlock(archX + i, archY + 14, archZ, 1);
+                this.setBlock(archX + i, archY + 15, archZ, 1);
+            }
+        }
     }
 }

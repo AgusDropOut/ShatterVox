@@ -5,9 +5,9 @@ import type { MeshData } from "./ChunkMesher";
 import { mat4 } from "gl-matrix";
 
 export class Chunk implements Mesheable {
-    public static readonly WIDTH = 16;
-    public static readonly HEIGHT = 16;
-    public static readonly DEPTH = 16;
+    public static readonly WIDTH = 32;
+    public static readonly HEIGHT = 32;
+    public static readonly DEPTH = 32;
 
     public vao: VAO | null = null;
     public vertexCount: number = 0;

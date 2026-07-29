@@ -1,6 +1,7 @@
 import { vec3 } from "gl-matrix";
 import { World } from "../world/World";
 import RAPIER from "@dimforge/rapier3d-compat";
+import { Engine } from "../core/Engine";
 
 export interface RaycastResult {
     hit: boolean;
@@ -20,9 +21,17 @@ export class VoxelRaycaster {
      * @param world The world instance to query blocks from
      */
     public static raycastGrid(origin: vec3, direction: vec3, maxDistance: number, world: World): RaycastResult {
-        let x = Math.floor(origin[0]);
-        let y = Math.floor(origin[1]);
-        let z = Math.floor(origin[2]);
+        
+        const gridOrigin = vec3.fromValues(
+            origin[0] / Engine.voxelSize,
+            origin[1] / Engine.voxelSize,
+            origin[2] / Engine.voxelSize
+        );
+        const gridMaxDist = maxDistance / Engine.voxelSize;
+
+        let x = Math.floor(gridOrigin[0]);
+        let y = Math.floor(gridOrigin[1]);
+        let z = Math.floor(gridOrigin[2]);
 
         const stepX = Math.sign(direction[0]);
         const stepY = Math.sign(direction[1]);
@@ -36,20 +45,20 @@ export class VoxelRaycaster {
         const tDeltaY = Math.abs(1.0 / dirY);
         const tDeltaZ = Math.abs(1.0 / dirZ);
 
-        let tMaxX = (stepX > 0 ? (x + 1.0 - origin[0]) : (origin[0] - x)) * tDeltaX;
-        let tMaxY = (stepY > 0 ? (y + 1.0 - origin[1]) : (origin[1] - y)) * tDeltaY;
-        let tMaxZ = (stepZ > 0 ? (z + 1.0 - origin[2]) : (origin[2] - z)) * tDeltaZ;
+        let tMaxX = (stepX > 0 ? (x + 1.0 - gridOrigin[0]) : (gridOrigin[0] - x)) * tDeltaX;
+        let tMaxY = (stepY > 0 ? (y + 1.0 - gridOrigin[1]) : (gridOrigin[1] - y)) * tDeltaY;
+        let tMaxZ = (stepZ > 0 ? (z + 1.0 - gridOrigin[2]) : (gridOrigin[2] - z)) * tDeltaZ;
 
         const normal = vec3.create();
         let currentDistance = 0.0;
 
-        while (currentDistance <= maxDistance) {
+        while (currentDistance <= gridMaxDist) {
             if (world.getBlock(x, y, z) !== 0) {
                 return {
                     hit: true,
                     blockPos: vec3.fromValues(x, y, z),
                     normal: normal,
-                    distance: currentDistance // <- Lo devolvemos acá
+                    distance: currentDistance * Engine.voxelSize 
                 };
             }
 

@@ -1,3 +1,4 @@
+import { Engine } from "../core/Engine";
 import { VAO } from "../renderer/buffers/VAO";
 import { VBO } from "../renderer/buffers/VBO";
 import type { Mesheable } from "../types/Mesheable";
@@ -13,9 +14,9 @@ export interface VoxelPhysicsData {
 }
 
 export class Debri implements Mesheable {
-    public static readonly WIDTH = 16;
-    public static readonly HEIGHT = 16;
-    public static readonly DEPTH = 16;
+    public static readonly WIDTH = 32;
+    public static readonly HEIGHT = 32;
+    public static readonly DEPTH = 32;
 
     public vao: VAO | null = null;
     public vertexCount: number = 0;
@@ -110,7 +111,11 @@ export class Debri implements Mesheable {
         const modelMatrix = mat4.create();
         mat4.fromRotationTranslation(modelMatrix, [rotation.x, rotation.y, rotation.z, rotation.w], [translation.x, translation.y, translation.z]);
 
-        mat4.translate(modelMatrix, modelMatrix, [-this.offsetX, -this.offsetY, -this.offsetZ]);
+        mat4.translate(modelMatrix, modelMatrix, [
+            -this.offsetX * Engine.voxelSize - (Engine.voxelSize / 2), 
+            -this.offsetY * Engine.voxelSize - (Engine.voxelSize / 2), 
+            -this.offsetZ * Engine.voxelSize - (Engine.voxelSize / 2)
+        ]);
 
         return modelMatrix;
     }

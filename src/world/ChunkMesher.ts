@@ -1,6 +1,7 @@
 import { Chunk } from "./Chunk";
 import { GeometryGenerator } from "../geometry/GeometryGenerator";
 import type { Mesheable } from "../types/Mesheable";
+import {Engine} from "../core/Engine";
 
 export interface MeshData {
     positions: Float32Array;
@@ -83,10 +84,10 @@ export class ChunkMesher {
         for (let i = 0; i < vertexCount; i++) {
             const idx = i * 3;
 
-            posArray.push(
-                (facePositions[idx + 0] * 0.5 + 0.5) + x + offX,
-                (facePositions[idx + 1] * 0.5 + 0.5) + y + offY,
-                (facePositions[idx + 2] * 0.5 + 0.5) + z + offZ
+           posArray.push(
+                (facePositions[idx + 0] * 0.5 + 0.5 + x + offX) * Engine.voxelSize,
+                (facePositions[idx + 1] * 0.5 + 0.5 + y + offY) * Engine.voxelSize,
+                (facePositions[idx + 2] * 0.5 + 0.5 + z + offZ) * Engine.voxelSize
             );
 
             normArray.push(

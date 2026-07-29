@@ -15,7 +15,7 @@ export class Engine {
     private readonly canvas: HTMLCanvasElement;
     private readonly renderer: Renderer;
     private readonly shader: Shader;
-    
+    private window: Window; 
     private world: World;
     public physicsWorld: RAPIER.World;
     
@@ -23,7 +23,7 @@ export class Engine {
     private structuralIntegrity: StructuralIntegrity;
     
     private player: PlayerController;
-    private window: Window; 
+    
     
     private physicsDebugRenderer: PhysicsDebugRenderer;
     private showPhysicsDebug: boolean = false;
@@ -49,7 +49,7 @@ export class Engine {
         this.structuralIntegrity = new StructuralIntegrity(this.renderer.gl, this.world, this.physicsWorld, this.terrainPhysics);
         this.player = new PlayerController(this.canvas, this.world, this.physicsWorld);
         
-        this.window = new Window(this.canvas);
+        
 
 
         globalEventBus.on("WINDOW_RESIZE", (data) => {
@@ -60,6 +60,8 @@ export class Engine {
             this.showPhysicsDebug = !this.showPhysicsDebug;
             console.log(`Physics Debug: ${this.showPhysicsDebug ? 'ON' : 'OFF'}`);
         });
+
+        this.window = new Window(this.canvas);
     }
 
     public start(): void {

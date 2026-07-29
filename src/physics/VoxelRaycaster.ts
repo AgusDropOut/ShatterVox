@@ -90,17 +90,18 @@ export class VoxelRaycaster {
      * @param direction Normalized direction vector (e.g., Camera front)
      * @param maxDistance Maximum reach of the ray in world units
      * @param physicsWorld The Rapier physics world instance
+     * @param playerCollider The player's collider to exclude from the raycast
      */
-    public static raycastPhysics(origin: vec3, direction: vec3, maxDistance: number, physicsWorld: RAPIER.World): RaycastResult {
+    public static raycastPhysics(origin: vec3, direction: vec3, maxDistance: number, physicsWorld: RAPIER.World, playerCollider: RAPIER.Collider): RaycastResult {
         const ray = new RAPIER.Ray(
             { x: origin[0], y: origin[1], z: origin[2] },
             { x: direction[0], y: direction[1], z: direction[2] }
         );
 
      
-        const hit = physicsWorld.castRay(ray, maxDistance, true);
+        const hit = physicsWorld.castRay(ray, maxDistance, true, undefined, undefined, playerCollider);
 
-        if (hit) {
+        if (hit ) {
             return {
                 hit: true,
                 blockPos: vec3.create(), 

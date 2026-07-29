@@ -3,6 +3,8 @@ import { CommandRegistry } from "./commands/CommandRegistry";
 import { InitCommand } from "./commands/InitCommand";
 import { CreateStaticBoxCommand } from "./commands/CreateStaticBoxCommand";
 import type { PhysicsCommand } from "./PhysicsProtocol";
+import { SetPlayerVelocityCommand } from "./commands/SetPlayerVelocityCommand";
+import { CreatePlayerCommand } from "./commands/CreatePlayerCommand";
 
 
 const context = new PhysicsContext();
@@ -10,6 +12,8 @@ const registry = new CommandRegistry();
 
 registry.register('INIT', new InitCommand());
 registry.register('CREATE_STATIC_BOX', new CreateStaticBoxCommand());
+registry.register('CREATE_PLAYER', new CreatePlayerCommand());
+registry.register('SET_PLAYER_VELOCITY', new SetPlayerVelocityCommand());
 
 self.onmessage = async (e: MessageEvent<PhysicsCommand>) => {
     const cmd = e.data;

@@ -42,6 +42,13 @@ export class World {
         }
     }
 
+    public updateDebriMesh(debri: Debri): void {
+        const meshData = this.mesher.buildMesh(debri, {
+            top: null, bottom: null, left: null, right: null, front: null, back: null
+        });
+        debri.updateGraphics(meshData);
+    }
+
     public getBlock(worldX: number, worldY: number, worldZ: number): number {
         // TODO: Map world coordinates to the correct Chunk once we have multiple chunks.
         return this.chunk.getBlock(worldX, worldY, worldZ);

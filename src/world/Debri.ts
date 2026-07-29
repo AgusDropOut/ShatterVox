@@ -5,6 +5,13 @@ import type { MeshData } from "./ChunkMesher";
 import type {RigidBody} from "@dimforge/rapier3d-compat";
 import { mat4 } from "gl-matrix";
 
+export interface VoxelPhysicsData {
+    debri: Debri;
+    localX: number;
+    localY: number;
+    localZ: number;
+}
+
 export class Debri implements Mesheable {
     public static readonly WIDTH = 16;
     public static readonly HEIGHT = 16;
@@ -130,4 +137,33 @@ export class Debri implements Mesheable {
                y >= 0 && y < Debri.HEIGHT && 
                z >= 0 && z < Debri.DEPTH;
     }
+
+    public printBlocks(): void {
+        for (let y = Debri.HEIGHT - 1; y >= 0; y--) {
+            console.log(`Layer Y=${y}:`);
+            for (let z = 0; z < Debri.DEPTH; z++) {
+                let row = '';
+                for (let x = 0; x < Debri.WIDTH; x++) {
+                    row += this.getBlock(x, y, z) + ' ';
+                }
+                console.log(row);
+            }
+            console.log('\n');
+        }
+    }
+
+    public getBlockCount(): number {
+        let count = 0;
+        for (let x = 0; x < Debri.WIDTH; x++) {
+            for (let y = 0; y < Debri.HEIGHT; y++) {
+                for (let z = 0; z < Debri.DEPTH; z++) {
+                    if (this.getBlock(x, y, z) !== 0) {
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
+    }
+    
 }

@@ -10,6 +10,7 @@ import { StructuralIntegrity } from "../physics/StructuralIntegrity";
 import { TerrainPhysics } from "../physics/TerrainPhysics";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { PhysicsDebugRenderer } from "../physics/PhysicsDebugRenderet";
+import { ColliderRegistry } from "../physics/ColliderRegistry";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -97,6 +98,9 @@ export class Engine {
         this.lastTime = time;
         this.update(deltaTime);
         this.render();
+        this.world.debri.forEach(debri => {
+           console.log(`[Engine] Debris block count: ${debri.getBlockCount()}`);
+        });
         requestAnimationFrame((time) => this.loop(time));
     }
 
@@ -163,6 +167,7 @@ export class Engine {
             this.shader.setMat4("u_MVP", mvp as Float32Array);
 
             this.renderer.draw(debriVAO, this.shader, debri.vertexCount);
+
         }
     }
 
@@ -183,20 +188,45 @@ export class Engine {
     private handleLeftClick(): void {
         const reach = 5.0; 
         
-        const result = VoxelRaycaster.raycast(
-            this.camera.position,
-            this.camera.front,
-            reach,
-            this.world
-        );
+        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
+        const physicsHit = VoxelRaycaster.raycastPhysics(this.camera.position, this.camera.front, reach, this.physicsWorld);
 
-        if (result.hit) {
-            const [x, y, z] = result.blockPos;
+        if (!gridHit.hit && !physicsHit.hit) return;
+
+        if (gridHit.distance < physicsHit.distance) {
+
+            const [x, y, z] = gridHit.blockPos;
+            
             this.world.chunk.setBlock(x, y, z, 0);
             this.terrainPhysics.removeColliderAt(x, y, z);
             this.structuralIntegrity.checkSupport(x, y, z);
             
             this.world.updateMesh();
+        } else {
+
+            const handle = physicsHit.colliderHandle!;
+            const voxelData = ColliderRegistry.get(handle);
+
+            if (voxelData) {
+                
+                voxelData.debri.setBlock(voxelData.localX, voxelData.localY, voxelData.localZ, 0);
+                
+                const colliderToDestroy = this.physicsWorld.getCollider(handle);
+                if (colliderToDestroy) {
+                    this.physicsWorld.removeCollider(colliderToDestroy, true);
+                }
+                
+
+                ColliderRegistry.delete(handle);
+                
+              
+                this.world.updateDebriMesh(voxelData.debri);
+                
+                
+
+
+                console.log(`[Physics] Removed block from debris at local position (${voxelData.localX}, ${voxelData.localY}, ${voxelData.localZ})`);
+            }
         }
     }
 

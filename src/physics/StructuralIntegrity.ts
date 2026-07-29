@@ -1,13 +1,20 @@
 import { World } from "../world/World";
 import RAPIER from "@dimforge/rapier3d-compat";
+import { Debri } from "../world/Debri";
+import type { TerrainPhysics } from "./TerrainPhysics";
+
 
 export class StructuralIntegrity {
     private readonly world: World;
     private readonly physicsWorld: RAPIER.World;
+    private readonly gl: WebGL2RenderingContext;
+    private readonly terrainPhysics: TerrainPhysics;
 
-    constructor(world: World, physicsWorld: RAPIER.World) {
+    constructor(gl: WebGL2RenderingContext, world: World, physicsWorld: RAPIER.World, terrainPhysics: TerrainPhysics) {
+        this.gl = gl;
         this.world = world;
         this.physicsWorld = physicsWorld;
+        this.terrainPhysics = terrainPhysics;
     }
 
     public checkSupport(x: number, y: number, z: number): void {
@@ -73,19 +80,20 @@ export class StructuralIntegrity {
     private markAsDebris(blocks: number[][]): void {
         if (blocks.length === 0) return;
 
-        // center of grav
         let cx = 0, cy = 0, cz = 0;
         for (const [x, y, z] of blocks) {
-            cx += x; cy += y; cz += z;
+            cx += x + 0.5;
+            cy += y + 0.5;
+            cz += z + 0.5;
         }
         cx /= blocks.length;
         cy /= blocks.length;
         cz /= blocks.length;
 
-
         for (const [x, y, z] of blocks) {
             this.world.chunk.setBlock(x, y, z, 0); 
         }
+
 
 
         const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(cx, cy, cz);
@@ -93,11 +101,20 @@ export class StructuralIntegrity {
 
     
         for (const [x, y, z] of blocks) {
+            const localX = x - cx + 0.5;
+            const localY = y - cy + 0.5;
+            const localZ = z - cz + 0.5;
+
             const colliderDesc = RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5)
-                .setTranslation(x - cx, y - cy, z - cz); 
+                .setTranslation(localX, localY, localZ); 
             
             this.physicsWorld.createCollider(colliderDesc, rigidBody);
         }
+
+        let debri = new Debri(this.gl, rigidBody, blocks, cx, cy, cz);
+        this.terrainPhysics.removeColliders(blocks);
+        this.world.addDebri(debri);
+
 
         console.log(`[Physics] Spawned debris with ${blocks.length} blocks at ${cx.toFixed(1)}, ${cy.toFixed(1)}, ${cz.toFixed(1)}`);
     }

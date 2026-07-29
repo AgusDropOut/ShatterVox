@@ -2,8 +2,10 @@ import { VAO } from "../renderer/buffers/VAO";
 import { VBO } from "../renderer/buffers/VBO";
 import type { Mesheable } from "../types/Mesheable";
 import type { MeshData } from "./ChunkMesher"; 
+import type {RigidBody} from "@dimforge/rapier3d-compat";
+import { mat4 } from "gl-matrix";
 
-export class Chunk implements Mesheable {
+export class Debri implements Mesheable {
     public static readonly WIDTH = 16;
     public static readonly HEIGHT = 16;
     public static readonly DEPTH = 16;
@@ -18,10 +20,18 @@ export class Chunk implements Mesheable {
     private vboNormals: VBO | null = null;
     private vboColors: VBO | null = null;
 
-    constructor(gl: WebGL2RenderingContext) {
+    private rigidBody: RigidBody;
+
+    private offsetX: number = 0;
+    private offsetY: number = 0;
+    private offsetZ: number = 0;
+
+    constructor(gl: WebGL2RenderingContext, rigidBody: RigidBody, blocks: number[][], cx: number, cy: number, cz: number) {
         this.gl = gl;
-        const volume = Chunk.WIDTH * Chunk.HEIGHT * Chunk.DEPTH;
+        this.rigidBody = rigidBody;
+        const volume = Debri.WIDTH * Debri.HEIGHT * Debri.DEPTH;
         this.blocks = new Uint8Array(volume);
+        this.populateBlocks(blocks, cx, cy, cz);
     }
 
     public getBlock(x: number, y: number, z: number): number {
@@ -34,6 +44,34 @@ export class Chunk implements Mesheable {
         this.blocks[this.getIndex(x, y, z)] = id;
     }
 
+    private populateBlocks(blocks: number[][], cx: number, cy: number, cz: number): void {
+        if (blocks.length === 0) return;
+
+        let minX = Infinity, minY = Infinity, minZ = Infinity;
+        for (const [x, y, z] of blocks) {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (z < minZ) minZ = z;
+        }
+
+      
+        
+
+        this.offsetX = cx - minX;
+        this.offsetY = cy - minY;
+        this.offsetZ = cz - minZ;
+
+
+        for (const [x, y, z] of blocks) {
+            const gridX = x - minX;
+            const gridY = y - minY;
+            const gridZ = z - minZ;
+
+            if (this.inBounds(gridX, gridY, gridZ)) {
+                this.setBlock(gridX, gridY, gridZ, 1);
+            }
+        }
+    }
    
     public updateGraphics(meshData: MeshData): void {
         if (meshData.vertexCount === 0) {
@@ -59,6 +97,17 @@ export class Chunk implements Mesheable {
         this.vertexCount = meshData.vertexCount;
     }
 
+    public getModelMatrix(): mat4 {
+        const translation = this.rigidBody.translation();
+        const rotation = this.rigidBody.rotation();
+        const modelMatrix = mat4.create();
+        mat4.fromRotationTranslation(modelMatrix, [rotation.x, rotation.y, rotation.z, rotation.w], [translation.x, translation.y, translation.z]);
+
+        mat4.translate(modelMatrix, modelMatrix, [-this.offsetX, -this.offsetY, -this.offsetZ]);
+
+        return modelMatrix;
+    }
+
     public deleteGraphics(): void {
         if (this.vao) this.vao.delete();
         if (this.vboPositions) this.vboPositions.delete();
@@ -73,12 +122,12 @@ export class Chunk implements Mesheable {
     }
 
     private getIndex(x: number, y: number, z: number): number {
-        return x + (y * Chunk.WIDTH) + (z * Chunk.WIDTH * Chunk.HEIGHT);
+        return x + (y * Debri.WIDTH) + (z * Debri.WIDTH * Debri.HEIGHT);
     }
 
     private inBounds(x: number, y: number, z: number): boolean {
-        return x >= 0 && x < Chunk.WIDTH && 
-               y >= 0 && y < Chunk.HEIGHT && 
-               z >= 0 && z < Chunk.DEPTH;
+        return x >= 0 && x < Debri.WIDTH && 
+               y >= 0 && y < Debri.HEIGHT && 
+               z >= 0 && z < Debri.DEPTH;
     }
 }

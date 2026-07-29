@@ -1,5 +1,6 @@
 import { Chunk } from "./Chunk";
 import { GeometryGenerator } from "../geometry/GeometryGenerator";
+import type { Mesheable } from "../types/Mesheable";
 
 export interface MeshData {
     positions: Float32Array;
@@ -9,22 +10,24 @@ export interface MeshData {
 }
 
 export interface ChunkNeighbors {
-    top: Chunk | null;
-    bottom: Chunk | null;
-    left: Chunk | null;
-    right: Chunk | null;
-    front: Chunk | null;
-    back: Chunk | null;
+    top: Mesheable | null;
+    bottom: Mesheable | null;
+    left: Mesheable | null;
+    right: Mesheable | null;
+    front: Mesheable | null;
+    back: Mesheable | null;
 }
 
 export class ChunkMesher {
     
 
-    public buildMesh(center: Chunk, neighbors: ChunkNeighbors): MeshData {
+    public buildMesh(center: Mesheable, neighbors: ChunkNeighbors): MeshData {
         const positions: number[] = [];
         const normals: number[] = [];
         const colors: number[] = [];
 
+        // for now I assume that debri and chunk have the same dimensions, but this might change in the future 
+        // //TODO: Consider making the dimensions configurable or part of the Mesheable interface.
         for (let x = 0; x < Chunk.WIDTH; x++) {
             for (let y = 0; y < Chunk.HEIGHT; y++) {
                 for (let z = 0; z < Chunk.DEPTH; z++) {
@@ -79,9 +82,7 @@ export class ChunkMesher {
 
   
 
-    /**
-     * Appends face geometry to the target buffers, scaling down to unit size (1.0).
-     */
+   
     private addFace(
         posArray: number[], normArray: number[], colArray: number[],
         facePositions: Float32Array, faceNormals: Int8Array,
@@ -109,8 +110,8 @@ export class ChunkMesher {
         }
     }
 
-    
-    private isTransparent(center: Chunk, neighbor: Chunk | null, x: number, y: number, z: number): boolean {
+
+    private isTransparent(center:  Mesheable, neighbor: Mesheable | null, x: number, y: number, z: number): boolean {
         if (x < 0) return neighbor ? neighbor.getBlock(Chunk.WIDTH - 1, y, z) === 0 : true;
         if (x >= Chunk.WIDTH) return neighbor ? neighbor.getBlock(0, y, z) === 0 : true;
         

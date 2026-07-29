@@ -11,6 +11,7 @@ import { TerrainPhysics } from "../physics/TerrainPhysics";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { PhysicsDebugRenderer } from "../physics/PhysicsDebugRenderet";
 import { ColliderRegistry } from "../physics/ColliderRegistry";
+import { globalEventBus } from "./EventBus";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -194,38 +195,30 @@ export class Engine {
         if (!gridHit.hit && !physicsHit.hit) return;
 
         if (gridHit.distance < physicsHit.distance) {
-
             const [x, y, z] = gridHit.blockPos;
-            
-            this.world.chunk.setBlock(x, y, z, 0);
-            this.terrainPhysics.removeColliderAt(x, y, z);
-            this.structuralIntegrity.checkSupport(x, y, z);
-            
-            this.world.updateMesh();
+            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z });
+
         } else {
 
             const handle = physicsHit.colliderHandle!;
             const voxelData = ColliderRegistry.get(handle);
 
             if (voxelData) {
-                
-                voxelData.debri.setBlock(voxelData.localX, voxelData.localY, voxelData.localZ, 0);
-                
+
                 const colliderToDestroy = this.physicsWorld.getCollider(handle);
                 if (colliderToDestroy) {
                     this.physicsWorld.removeCollider(colliderToDestroy, true);
                 }
-                
-
                 ColliderRegistry.delete(handle);
                 
-              
-                this.structuralIntegrity.evaluateShatter(voxelData.debri);
-                
-                
 
-
-                console.log(`[Physics] Removed block from debris at local position (${voxelData.localX}, ${voxelData.localY}, ${voxelData.localZ})`);
+                globalEventBus.emit("BLOCK_MINED_DYNAMIC", { 
+                    debri: voxelData.debri, 
+                    handle: handle, 
+                    localX: voxelData.localX, 
+                    localY: voxelData.localY, 
+                    localZ: voxelData.localZ 
+                });
             }
         }
     }

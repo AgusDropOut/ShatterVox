@@ -3,6 +3,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { Debri} from "../world/Debri";
 import type { TerrainPhysics } from "./TerrainPhysics";
 import { ColliderRegistry } from "./ColliderRegistry";
+import { globalEventBus } from "../core/EventBus";
 
 export class StructuralIntegrity {
     private readonly world: World;
@@ -15,6 +16,15 @@ export class StructuralIntegrity {
         this.world = world;
         this.physicsWorld = physicsWorld;
         this.terrainPhysics = terrainPhysics;
+
+        globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
+            this.checkSupport(data.x, data.y, data.z);
+        });
+
+      
+        globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
+            this.evaluateShatter(data.debri);
+        });
     }
 
     public checkSupport(x: number, y: number, z: number): void {
@@ -24,17 +34,24 @@ export class StructuralIntegrity {
             [x, y, z + 1], [x, y, z - 1]
         ];
 
+        let chunkModified = false; 
+
         for (const [nx, ny, nz] of neighbors) {
             const blockId = this.world.getBlock(nx, ny, nz);
 
             if (blockId === 0 || blockId === 2) continue;
 
-       
             const island = this.findIsland(nx, ny, nz, (bx, by, bz) => this.world.getBlock(bx, by, bz), true);
             
             if (!island.isAnchored) {
                 this.markAsDebris(island.blocks);
+                chunkModified = true; 
             }
+        }
+
+      
+        if (chunkModified) {
+            this.world.updateMesh();
         }
     }
 
@@ -207,7 +224,7 @@ export class StructuralIntegrity {
            
             for (const [lx, ly, lz] of island) {
                 debri.setBlock(lx, ly, lz, 0);   
-                newDebri.setBlock(lx, ly, lz, 2); 
+                newDebri.setBlock(lx, ly, lz, 1); 
                 
                 
                 for (const [handle, data] of ColliderRegistry.entries()) {
@@ -223,7 +240,7 @@ export class StructuralIntegrity {
                 const physLocalY = ly - pOffsetY + 0.5;
                 const physLocalZ = lz - pOffsetZ + 0.5;
 
-                const colliderDesc = RAPIER.ColliderDesc.cuboid(0.48, 0.48, 0.48)
+                const colliderDesc = RAPIER.ColliderDesc.cuboid(0.50, 0.50, 0.50)
                     .setTranslation(physLocalX, physLocalY, physLocalZ);
                 
                 const newCollider = this.physicsWorld.createCollider(colliderDesc, newRb);

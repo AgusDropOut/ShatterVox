@@ -1,5 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { Chunk } from "../world/Chunk";
+import { globalEventBus } from "../core/EventBus";
 
 export class TerrainPhysics {
     public readonly rigidBody: RAPIER.RigidBody;
@@ -15,6 +16,10 @@ export class TerrainPhysics {
         const groundColliderDesc = RAPIER.ColliderDesc.cuboid(17.0, 0.5, 17.0)
             .setTranslation(0, -0.5, 0); 
         this.physicsWorld.createCollider(groundColliderDesc, this.rigidBody);
+
+        globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
+            this.removeColliderAt(data.x, data.y, data.z);
+        });
     }
 
  

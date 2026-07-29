@@ -1,3 +1,4 @@
+import { globalEventBus } from "../core/EventBus";
 import { Chunk } from "./Chunk";
 import { ChunkMesher } from "./ChunkMesher";
 import type { Debri } from "./Debri";
@@ -22,6 +23,15 @@ export class World {
         }
 
         this.updateMesh();
+
+        globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
+            this.chunk.setBlock(data.x, data.y, data.z, 0);
+            this.updateMesh(); 
+        });
+
+        globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
+            data.debri.setBlock(data.localX, data.localY, data.localZ, 0);
+        });
     }
 
     public updateMesh(): void {

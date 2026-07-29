@@ -41,7 +41,7 @@ export class StructuralIntegrity {
         for (const [nx, ny, nz] of neighbors) {
             const blockId = this.world.getBlock(nx, ny, nz);
 
-            if (blockId === 0 || blockId === 2) continue;
+            if (blockId === 0 ) continue;
 
             const island = this.findIsland(nx, ny, nz, (bx, by, bz) => this.world.getBlock(bx, by, bz), true);
             
@@ -50,10 +50,10 @@ export class StructuralIntegrity {
                 chunkModified = true; 
             }
         }
-
+        
       
         if (chunkModified) {
-            this.world.updateMesh();
+            this.world.updateAllMeshes();
         }
     }
 
@@ -123,7 +123,7 @@ export class StructuralIntegrity {
         cz /= blocks.length;
 
         for (const [x, y, z] of blocks) {
-            this.world.chunk.setBlock(x, y, z, 0); 
+            this.world.setBlock(x, y, z, 0); 
         }
 
         const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(cx, cy, cz);

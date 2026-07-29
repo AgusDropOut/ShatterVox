@@ -20,14 +20,12 @@ export interface ChunkNeighbors {
 
 export class ChunkMesher {
     
-
-    public buildMesh(center: Mesheable, neighbors: ChunkNeighbors): MeshData {
+   
+    public buildMesh(center: Mesheable, neighbors: ChunkNeighbors, offX: number = 0, offY: number = 0, offZ: number = 0): MeshData {
         const positions: number[] = [];
         const normals: number[] = [];
         const colors: number[] = [];
 
-        // for now I assume that debri and chunk have the same dimensions, but this might change in the future 
-        // //TODO: Consider making the dimensions configurable or part of the Mesheable interface.
         for (let x = 0; x < Chunk.WIDTH; x++) {
             for (let y = 0; y < Chunk.HEIGHT; y++) {
                 for (let z = 0; z < Chunk.DEPTH; z++) {
@@ -35,7 +33,6 @@ export class ChunkMesher {
                     
                     if (blockId === 0) continue;
 
-                    // Mock RGB fetching (replace with Palette registry later)
                     let r = 1.0, g = 1.0, b = 1.0; 
 
                     if (blockId === 2) { //debri
@@ -44,29 +41,23 @@ export class ChunkMesher {
                         b = 0.0;
                     }
 
-                    // +Y (Top)
                     if (this.isTransparent(center, neighbors.top, x, y + 1, z)) {
-                        this.addFace(positions, normals, colors, GeometryGenerator.getTopFace(), GeometryGenerator.getTopNormal(), x, y, z, r, g, b);
+                        this.addFace(positions, normals, colors, GeometryGenerator.getTopFace(), GeometryGenerator.getTopNormal(), x, y, z, r, g, b, offX, offY, offZ);
                     }
-                    // -Y (Bottom)
                     if (this.isTransparent(center, neighbors.bottom, x, y - 1, z)) {
-                        this.addFace(positions, normals, colors, GeometryGenerator.getBottomFace(), GeometryGenerator.getBottomNormal(), x, y, z, r, g, b);
+                        this.addFace(positions, normals, colors, GeometryGenerator.getBottomFace(), GeometryGenerator.getBottomNormal(), x, y, z, r, g, b, offX, offY, offZ);
                     }
-                    // +X (Right)
                     if (this.isTransparent(center, neighbors.right, x + 1, y, z)) {
-                        this.addFace(positions, normals, colors, GeometryGenerator.getRightFace(), GeometryGenerator.getRightNormal(), x, y, z, r, g, b);
+                        this.addFace(positions, normals, colors, GeometryGenerator.getRightFace(), GeometryGenerator.getRightNormal(), x, y, z, r, g, b, offX, offY, offZ);
                     }
-                    // -X (Left)
                     if (this.isTransparent(center, neighbors.left, x - 1, y, z)) {
-                        this.addFace(positions, normals, colors, GeometryGenerator.getLeftFace(), GeometryGenerator.getLeftNormal(), x, y, z, r, g, b);
+                        this.addFace(positions, normals, colors, GeometryGenerator.getLeftFace(), GeometryGenerator.getLeftNormal(), x, y, z, r, g, b, offX, offY, offZ);
                     }
-                    // +Z (Front)
                     if (this.isTransparent(center, neighbors.front, x, y, z + 1)) {
-                        this.addFace(positions, normals, colors, GeometryGenerator.getFrontFace(), GeometryGenerator.getFrontNormal(), x, y, z, r, g, b);
+                        this.addFace(positions, normals, colors, GeometryGenerator.getFrontFace(), GeometryGenerator.getFrontNormal(), x, y, z, r, g, b, offX, offY, offZ);
                     }
-                    // -Z (Back)
                     if (this.isTransparent(center, neighbors.back, x, y, z - 1)) {
-                        this.addFace(positions, normals, colors, GeometryGenerator.getBackFace(), GeometryGenerator.getBackNormal(), x, y, z, r, g, b);
+                        this.addFace(positions, normals, colors, GeometryGenerator.getBackFace(), GeometryGenerator.getBackNormal(), x, y, z, r, g, b, offX, offY, offZ);
                     }
                 }
             }
@@ -80,24 +71,22 @@ export class ChunkMesher {
         };
     }
 
-  
-
-   
     private addFace(
         posArray: number[], normArray: number[], colArray: number[],
         facePositions: Float32Array, faceNormals: Int8Array,
         x: number, y: number, z: number,
-        r: number, g: number, b: number
+        r: number, g: number, b: number,
+        offX: number, offY: number, offZ: number 
     ): void {
         const vertexCount = facePositions.length / 3;
 
         for (let i = 0; i < vertexCount; i++) {
             const idx = i * 3;
- 
+
             posArray.push(
-                (facePositions[idx + 0] * 0.5 + 0.5) + x,
-                (facePositions[idx + 1] * 0.5 + 0.5) + y,
-                (facePositions[idx + 2] * 0.5 + 0.5) + z
+                (facePositions[idx + 0] * 0.5 + 0.5) + x + offX,
+                (facePositions[idx + 1] * 0.5 + 0.5) + y + offY,
+                (facePositions[idx + 2] * 0.5 + 0.5) + z + offZ
             );
 
             normArray.push(
@@ -109,7 +98,6 @@ export class ChunkMesher {
             colArray.push(r, g, b);
         }
     }
-
 
     private isTransparent(center:  Mesheable, neighbor: Mesheable | null, x: number, y: number, z: number): boolean {
         if (x < 0) return neighbor ? neighbor.getBlock(Chunk.WIDTH - 1, y, z) === 0 : true;

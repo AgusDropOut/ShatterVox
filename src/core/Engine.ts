@@ -44,7 +44,7 @@ export class Engine {
         this.physicsWorld = new RAPIER.World(Engine.gravity);
         this.world = new World(this.renderer.gl);
         this.terrainPhysics = new TerrainPhysics(this.physicsWorld);
-        this.terrainPhysics.buildColliders(this.world.chunk);
+        this.terrainPhysics.buildColliders(this.world);
         
         this.structuralIntegrity = new StructuralIntegrity(this.renderer.gl, this.world, this.physicsWorld, this.terrainPhysics);
         this.player = new PlayerController(this.canvas, this.world, this.physicsWorld);
@@ -102,15 +102,17 @@ export class Engine {
     }
 
     private drawChunks(projection: mat4, view: mat4): void {
-        const chunkVAO = this.world.chunk.vao;
-        if (!chunkVAO || this.world.chunk.vertexCount === 0) return;
-
         const mvp = mat4.create();
-        mat4.multiply(mvp, projection, view);
+        mat4.multiply(mvp, projection, view); 
 
         this.shader.bind();
         this.shader.setMat4("u_MVP", mvp as Float32Array); 
-        this.renderer.draw(chunkVAO, this.shader, this.world.chunk.vertexCount);
+
+      
+        for (const chunk of this.world.chunks.values()) {
+            if (!chunk.vao || chunk.vertexCount === 0) continue;
+            this.renderer.draw(chunk.vao, this.shader, chunk.vertexCount);
+        }
     }
 
     private drawDebris(projection: mat4, view: mat4): void {

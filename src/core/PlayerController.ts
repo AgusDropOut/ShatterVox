@@ -17,8 +17,8 @@ export class PlayerController {
 
     private rigidBody: RAPIER.RigidBody;
     private collider: RAPIER.Collider;
-    private speed: number = 1.0;
-    private jumpForce: number = 7.0;
+    private speed: number = 150.0;
+    private jumpForce: number = 1000.0;
 
     constructor(canvas: HTMLCanvasElement, world: World, physicsWorld: RAPIER.World) {
         this.world = world;
@@ -69,10 +69,10 @@ export class PlayerController {
         vec3.cross(right, front, [0, 1, 0]);
         vec3.normalize(right, right);
 
-        if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(velocity, velocity, front, this.speed);
-        if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(velocity, velocity, front, -this.speed);
-        if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(velocity, velocity, right, -this.speed);
-        if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(velocity, velocity, right, this.speed);
+        if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(velocity, velocity, front, this.speed * deltaTime);
+        if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(velocity, velocity, front, -this.speed * deltaTime);
+        if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(velocity, velocity, right, -this.speed * deltaTime);
+        if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(velocity, velocity, right, this.speed * deltaTime);
 
        
         const currentLinVel = this.rigidBody.linvel();
@@ -80,7 +80,7 @@ export class PlayerController {
 
        
         if (this.input.isKeyPressed("Space") && Math.abs(currentLinVel.y) < 0.01) {
-            velY = this.jumpForce;
+            velY = this.jumpForce * deltaTime;
         }
 
       

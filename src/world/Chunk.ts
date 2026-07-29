@@ -2,6 +2,7 @@ import { VAO } from "../renderer/buffers/VAO";
 import { VBO } from "../renderer/buffers/VBO";
 import type { Mesheable } from "../types/Mesheable";
 import type { MeshData } from "./ChunkMesher"; 
+import { mat4 } from "gl-matrix";
 
 export class Chunk implements Mesheable {
     public static readonly WIDTH = 16;
@@ -10,6 +11,11 @@ export class Chunk implements Mesheable {
 
     public vao: VAO | null = null;
     public vertexCount: number = 0;
+    
+
+    public readonly chunkX: number;
+    public readonly chunkY: number;
+    public readonly chunkZ: number;
 
     private readonly gl: WebGL2RenderingContext;
     private readonly blocks: Uint8Array;
@@ -18,8 +24,11 @@ export class Chunk implements Mesheable {
     private vboNormals: VBO | null = null;
     private vboColors: VBO | null = null;
 
-    constructor(gl: WebGL2RenderingContext) {
+    constructor(gl: WebGL2RenderingContext, chunkX: number, chunkY: number, chunkZ: number) {
         this.gl = gl;
+        this.chunkX = chunkX;
+        this.chunkY = chunkY;
+        this.chunkZ = chunkZ;
         const volume = Chunk.WIDTH * Chunk.HEIGHT * Chunk.DEPTH;
         this.blocks = new Uint8Array(volume);
     }
@@ -34,7 +43,6 @@ export class Chunk implements Mesheable {
         this.blocks[this.getIndex(x, y, z)] = id;
     }
 
-   
     public updateGraphics(meshData: MeshData): void {
         if (meshData.vertexCount === 0) {
             this.deleteGraphics();
@@ -57,6 +65,17 @@ export class Chunk implements Mesheable {
         }
         
         this.vertexCount = meshData.vertexCount;
+    }
+
+
+    public getModelMatrix(): mat4 {
+        const modelMatrix = mat4.create();
+        mat4.translate(modelMatrix, modelMatrix, [
+            this.chunkX * Chunk.WIDTH,
+            this.chunkY * Chunk.HEIGHT,
+            this.chunkZ * Chunk.DEPTH
+        ]);
+        return modelMatrix;
     }
 
     public deleteGraphics(): void {

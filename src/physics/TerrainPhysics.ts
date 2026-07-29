@@ -1,6 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import { Chunk } from "../world/Chunk";
 import { globalEventBus } from "../core/EventBus";
+import type { World } from "../world/World";
 
 export class TerrainPhysics {
     public readonly rigidBody: RAPIER.RigidBody;
@@ -23,36 +23,35 @@ export class TerrainPhysics {
     }
 
  
-    public buildColliders(chunk: Chunk): void {
+    public buildColliders(world: World): void {
+        for (const chunk of world.chunks.values()) {
+            for (let x = 0; x < 16; x++) {
+                for (let y = 0; y < 16; y++) {
+                    for (let z = 0; z < 16; z++) {
+                        const blockId = chunk.getBlock(x, y, z);
 
+                        if (blockId !== 0) {
+                            const worldX = chunk.chunkX * 16 + x;
+                            const worldY = chunk.chunkY * 16 + y;
+                            const worldZ = chunk.chunkZ * 16 + z;
 
-        for (let x = 0; x < Chunk.WIDTH; x++) {
-            for (let y = 0; y < Chunk.HEIGHT; y++) {
-                for (let z = 0; z < Chunk.DEPTH; z++) {
-                    const blockId = chunk.getBlock(x, y, z);
-                    
-                    if (blockId === 0) continue;
-
-                   
-                    const colliderDesc = RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5)
-                        .setTranslation(x + 0.5, y + 0.5, z + 0.5);
-
-                    this.colliders.set(`${x},${y},${z}`, this.physicsWorld.createCollider(colliderDesc, this.rigidBody));
-                    
+                            const colliderDesc = RAPIER.ColliderDesc.cuboid(0.5, 0.5, 0.5)
+                                .setTranslation(worldX + 0.5, worldY + 0.5, worldZ + 0.5);
+                            
+                            const collider = this.physicsWorld.createCollider(colliderDesc, this.rigidBody);
+                            
+                       
+                            this.colliders.set(`${worldX},${worldY},${worldZ}`, collider);
+                        }
+                    }
                 }
             }
         }
     }
 
-    public removeColliders(blocks: number[][]): void {
+   public removeColliders(blocks: number[][]): void {
         for (const [x, y, z] of blocks) {
-            const key = `${x},${y},${z}`;
-            const collider = this.colliders.get(key);
-            if (collider) {
-                this.physicsWorld.removeCollider(collider, true);
-                this.colliders.delete(key);
-                console.log(`[TerrainPhysics] Removed collider at (${x}, ${y}, ${z})`);
-            }
+            this.removeColliderAt(x, y, z);
         }
     }
 
@@ -62,7 +61,7 @@ export class TerrainPhysics {
         if (collider) {
             this.physicsWorld.removeCollider(collider, true);
             this.colliders.delete(key);
-            console.log(`[TerrainPhysics] Removed collider at (${x}, ${y}, ${z})`);
+            console.log(`[TerrainPhysics] Removed collider at global (${x}, ${y}, ${z})`);
         }
     }
 

@@ -1,5 +1,5 @@
 
-// this shit is for typescript stfo owo
+// this shit is for typescript stfo 
 export type VBOTypedArray = Float32Array | Int8Array | Uint8Array | Uint16Array | Uint32Array;
 
 export class VBO {

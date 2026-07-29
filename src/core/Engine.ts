@@ -8,6 +8,8 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { PhysicsDebugRenderer } from "../physics/PhysicsDebugRenderet";
 import { PlayerController } from "./PlayerController";
 import { StructuralIntegrity } from "../physics/StructuralIntegrity";
+import { Window } from "./Window";
+import { globalEventBus } from "./EventBus";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -18,16 +20,14 @@ export class Engine {
     public physicsWorld: RAPIER.World;
     
     private terrainPhysics: TerrainPhysics;
-  
+    private structuralIntegrity: StructuralIntegrity;
     
-
     private player: PlayerController;
+    private window: Window; 
     
     private physicsDebugRenderer: PhysicsDebugRenderer;
     private showPhysicsDebug: boolean = false;
     public static readonly gravity = { x: 0.0, y: -9.81, z: 0.0 };
-
-    private structuralIntegrity: StructuralIntegrity;
     
     private isRunning: boolean = false;
     private lastTime: number = 0;
@@ -37,30 +37,29 @@ export class Engine {
         if (!canvasElement) throw new Error(`Canvas with ID '${canvasId}' not found.`);
         this.canvas = canvasElement;
         
-
         this.renderer = new Renderer(this.canvas);
         this.shader = new Shader(this.renderer.gl, vertexShaderSource, fragmentShaderSource);
         this.physicsDebugRenderer = new PhysicsDebugRenderer(this.renderer.gl);
         
-
         this.physicsWorld = new RAPIER.World(Engine.gravity);
         this.world = new World(this.renderer.gl);
         this.terrainPhysics = new TerrainPhysics(this.physicsWorld);
         this.terrainPhysics.buildColliders(this.world.chunk);
-
-        this.player = new PlayerController(this.canvas, this.world, this.physicsWorld);
-
-        this.structuralIntegrity = new StructuralIntegrity(this.renderer.gl, this.world, this.physicsWorld, this.terrainPhysics);
         
-        window.addEventListener("resize", () => this.onResize());
-        window.addEventListener("keydown", (e) => {
-            if (e.code === "KeyP") {
-                this.showPhysicsDebug = !this.showPhysicsDebug;
-                console.log(`Physics Debug: ${this.showPhysicsDebug ? 'ON' : 'OFF'}`);
-            }
+        this.structuralIntegrity = new StructuralIntegrity(this.renderer.gl, this.world, this.physicsWorld, this.terrainPhysics);
+        this.player = new PlayerController(this.canvas, this.world, this.physicsWorld);
+        
+        this.window = new Window(this.canvas);
+
+
+        globalEventBus.on("WINDOW_RESIZE", (data) => {
+            this.renderer.setViewport(data.width, data.height);
         });
 
-        this.onResize();
+        globalEventBus.on("TOGGLE_PHYSICS_DEBUG", () => {
+            this.showPhysicsDebug = !this.showPhysicsDebug;
+            console.log(`Physics Debug: ${this.showPhysicsDebug ? 'ON' : 'OFF'}`);
+        });
     }
 
     public start(): void {
@@ -68,12 +67,6 @@ export class Engine {
         this.isRunning = true;
         this.renderer.setClearColor(0.0, 0.4, 1.0, 1.0);
         requestAnimationFrame((time) => this.loop(time));
-    }
-
-    private onResize(): void {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        this.renderer.setViewport(this.canvas.width, this.canvas.height);
     }
 
     private loop(time: number): void {
@@ -99,7 +92,6 @@ export class Engine {
         const projection = mat4.create();
         mat4.perspective(projection, Math.PI / 4, this.canvas.width / this.canvas.height, 0.1, 100.0);
         
-
         const view = this.player.camera.getViewMatrix(); 
         
         this.drawChunks(projection, view);

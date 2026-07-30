@@ -1,6 +1,5 @@
 import { vec3 } from "gl-matrix";
 import { World } from "../world/World";
-import RAPIER from "@dimforge/rapier3d-compat";
 import { Engine } from "../core/Engine";
 
 export interface RaycastResult {
@@ -8,7 +7,6 @@ export interface RaycastResult {
     blockPos: vec3;
     normal: vec3;
     distance: number;          
-    colliderHandle?: number;  
 }
 
 export class VoxelRaycaster {
@@ -21,7 +19,6 @@ export class VoxelRaycaster {
      * @param world The world instance to query blocks from
      */
     public static raycastGrid(origin: vec3, direction: vec3, maxDistance: number, world: World): RaycastResult {
-        
         const gridOrigin = vec3.fromValues(
             origin[0] / Engine.voxelSize,
             origin[1] / Engine.voxelSize,
@@ -64,27 +61,15 @@ export class VoxelRaycaster {
 
             if (tMaxX < tMaxY) {
                 if (tMaxX < tMaxZ) {
-                    x += stepX;
-                    currentDistance = tMaxX;
-                    tMaxX += tDeltaX;
-                    vec3.set(normal, -stepX, 0, 0);
+                    x += stepX; currentDistance = tMaxX; tMaxX += tDeltaX; vec3.set(normal, -stepX, 0, 0);
                 } else {
-                    z += stepZ;
-                    currentDistance = tMaxZ;
-                    tMaxZ += tDeltaZ;
-                    vec3.set(normal, 0, 0, -stepZ);
+                    z += stepZ; currentDistance = tMaxZ; tMaxZ += tDeltaZ; vec3.set(normal, 0, 0, -stepZ);
                 }
             } else {
                 if (tMaxY < tMaxZ) {
-                    y += stepY;
-                    currentDistance = tMaxY;
-                    tMaxY += tDeltaY;
-                    vec3.set(normal, 0, -stepY, 0);
+                    y += stepY; currentDistance = tMaxY; tMaxY += tDeltaY; vec3.set(normal, 0, -stepY, 0);
                 } else {
-                    z += stepZ;
-                    currentDistance = tMaxZ;
-                    tMaxZ += tDeltaZ;
-                    vec3.set(normal, 0, 0, -stepZ);
+                    z += stepZ; currentDistance = tMaxZ; tMaxZ += tDeltaZ; vec3.set(normal, 0, 0, -stepZ);
                 }
             }
         }
@@ -93,34 +78,6 @@ export class VoxelRaycaster {
     }
 
 
-    /**
-     * Executes a raycast using the physics engine (Rapier) to find the first collider hit.
-     * @param origin Starting point of the ray (e.g., Camera position)
-     * @param direction Normalized direction vector (e.g., Camera front)
-     * @param maxDistance Maximum reach of the ray in world units
-     * @param physicsWorld The Rapier physics world instance
-     * @param playerCollider The player's collider to exclude from the raycast
-     */
-    public static raycastPhysics(origin: vec3, direction: vec3, maxDistance: number, physicsWorld: RAPIER.World, playerCollider: RAPIER.Collider): RaycastResult {
-        const ray = new RAPIER.Ray(
-            { x: origin[0], y: origin[1], z: origin[2] },
-            { x: direction[0], y: direction[1], z: direction[2] }
-        );
-
-     
-        const hit = physicsWorld.castRay(ray, maxDistance, true, undefined, undefined, playerCollider);
-
-        if (hit ) {
-            return {
-                hit: true,
-                blockPos: vec3.create(), 
-                normal: vec3.create(), 
-                distance: hit.timeOfImpact,      
-                colliderHandle: hit.collider.handle
-            };
-        }
-
-        return { hit: false, blockPos: vec3.create(), normal: vec3.create(), distance: Infinity };
-    }
+   
 
 }

@@ -5,8 +5,13 @@ import type { PhysicsCommand } from "../PhysicsProtocol";
 
 export class CreatePlayerCommand implements CommandHandler<Extract<PhysicsCommand, { type: 'CREATE_PLAYER' }>> {
     public execute(command: Extract<PhysicsCommand, { type: 'CREATE_PLAYER' }>, context: PhysicsContext): void {
-        if (!context.world) return;
         
+        console.log(`[CreatePlayerCommand] Creating player with ID: ${command.id}`);
+        if (!context.world){
+            console.error("[CreatePlayerCommand] No physics world available.");
+            return;
+        }
+
         const rbDesc = RAPIER.RigidBodyDesc.dynamic()
             .setTranslation(command.x, command.y, command.z)
             .lockRotations();
@@ -16,5 +21,6 @@ export class CreatePlayerCommand implements CommandHandler<Extract<PhysicsComman
         context.world.createCollider(colDesc, rigidBody);
         
         context.dynamicBodies.set(command.id, rigidBody);
+        
     }
 }

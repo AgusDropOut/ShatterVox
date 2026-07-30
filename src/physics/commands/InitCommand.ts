@@ -11,7 +11,7 @@ export class InitCommand implements CommandHandler<Extract<PhysicsCommand, { typ
         context.world = new RAPIER.World(command.gravity);
         context.world.integrationParameters.numSolverIterations = 2;
         context.isInitialized = true;
-
+        console.log("[InitCommand] Physics world initialized with gravity:", command.gravity);
     
         (self as any).postMessage({ type: 'INIT_DONE' });
     }

@@ -1,36 +1,47 @@
 import { World } from "../world/World";
-import RAPIER from "@dimforge/rapier3d-compat";
-import { Debri} from "../world/Debri";
-import type { TerrainPhysics } from "./TerrainPhysics";
-import { ColliderRegistry } from "./ColliderRegistry";
+import { Debri } from "../world/Debri";
 import { globalEventBus } from "../core/EventBus";
+import type { PhysicsFacade } from "./PhysicsFacade";
 import { Engine } from "../core/Engine";
 
 export class StructuralIntegrity {
     private readonly world: World;
-    private readonly physicsWorld: RAPIER.World;
     private readonly gl: WebGL2RenderingContext;
-    private readonly terrainPhysics: TerrainPhysics;
+    private readonly physicsFacade: PhysicsFacade;
 
-    constructor(gl: WebGL2RenderingContext, world: World, physicsWorld: RAPIER.World, terrainPhysics: TerrainPhysics) {
+    constructor(gl: WebGL2RenderingContext, world: World, physicsFacade: PhysicsFacade) {
         this.gl = gl;
         this.world = world;
-        this.physicsWorld = physicsWorld;
-        this.terrainPhysics = terrainPhysics;
+        this.physicsFacade = physicsFacade;
 
         globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
             this.checkSupport(data.x, data.y, data.z);
         });
-
       
         globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
-            this.evaluateShatter(data.debri);
+            const targetDebri = this.world.debri.find(d => d.id === data.debriId);
+            if (targetDebri) {
+                const arrayX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
+                const arrayY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
+                const arrayZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
+
+                targetDebri.setBlock(arrayX, arrayY, arrayZ, 0);
+
+                
+                globalEventBus.emit("PHYSICS_COMMAND", {
+                    type: 'REMOVE_DEBRI_BLOCK',
+                    id: targetDebri.id,
+                    localX: data.localX,
+                    localY: data.localY,
+                    localZ: data.localZ
+                });
+
+                this.evaluateShatter(targetDebri);
+            }
         });
     }
 
     public checkSupport(x: number, y: number, z: number): void {
-
-        console.log(`[StructuralIntegrity] Checking support for block at (${x}, ${y}, ${z})`);
         const neighbors = [
             [x + 1, y, z], [x - 1, y, z],
             [x, y + 1, z], [x, y - 1, z],
@@ -41,8 +52,7 @@ export class StructuralIntegrity {
 
         for (const [nx, ny, nz] of neighbors) {
             const blockId = this.world.getBlock(nx, ny, nz);
-
-            if (blockId === 0 ) continue;
+            if (blockId === 0) continue;
 
             const island = this.findIsland(nx, ny, nz, (bx, by, bz) => this.world.getBlock(bx, by, bz), true);
             
@@ -52,18 +62,12 @@ export class StructuralIntegrity {
             }
         }
         
-      
         if (chunkModified) {
             this.world.updateAllMeshes();
         }
     }
 
-    // BFS
-    private findIsland(
-        startX: number, startY: number, startZ: number, 
-        getBlock: (x: number, y: number, z: number) => number, 
-        checkAnchor: boolean
-    ) {
+    private findIsland(startX: number, startY: number, startZ: number, getBlock: (x: number, y: number, z: number) => number, checkAnchor: boolean) {
         const queue: number[][] = [[startX, startY, startZ]];
         const visited = new Set<string>();
         const islandBlocks: number[][] = [];
@@ -90,10 +94,7 @@ export class StructuralIntegrity {
                 const key = `${nx},${ny},${nz}`;
                 if (visited.has(key)) continue;
 
-            
-                const neighborId = getBlock(nx, ny, nz);
-
-                if (neighborId !== 0) {
+                if (getBlock(nx, ny, nz) !== 0) {
                     visited.add(key);
                     queue.push([nx, ny, nz]);
                 }
@@ -103,21 +104,14 @@ export class StructuralIntegrity {
         return { isAnchored, blocks: islandBlocks, visitedKeys: visited };
     }
 
-
     private markAsDebris(blocks: number[][]): void {
         if (blocks.length === 0) return;
 
         let cx = 0, cy = 0, cz = 0;
-        let minX = Infinity, minY = Infinity, minZ = Infinity;
-
         for (const [x, y, z] of blocks) {
             cx += x;
             cy += y;
             cz += z;
-
-            if (x < minX) minX = x;
-            if (y < minY) minY = y;
-            if (z < minZ) minZ = z;
         }
         cx /= blocks.length;
         cy /= blocks.length;
@@ -125,65 +119,44 @@ export class StructuralIntegrity {
 
         for (const [x, y, z] of blocks) {
             this.world.setBlock(x, y, z, 0); 
-        }
-
-
-        const worldCx = cx * Engine.voxelSize + Engine.voxelSize / 2;
-        const worldCy = cy * Engine.voxelSize + Engine.voxelSize / 2;
-        const worldCz = cz * Engine.voxelSize + Engine.voxelSize / 2;
-
-        const rigidBodyDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(worldCx, worldCy, worldCz);
-        const rigidBody = this.physicsWorld.createRigidBody(rigidBodyDesc);
-        
-        let debri = new Debri(this.gl, rigidBody, blocks, cx, cy, cz);
-    
-        const half = Engine.voxelSize / 2;
-
-        for (const [x, y, z] of blocks) {
-            const localX = (x - cx) * Engine.voxelSize;
-            const localY = (y - cy) * Engine.voxelSize;
-            const localZ = (z - cz) * Engine.voxelSize;
-
-            const colliderDesc = RAPIER.ColliderDesc.cuboid(half, half, half)
-                .setTranslation(localX, localY, localZ);
-            
-            const collider = this.physicsWorld.createCollider(colliderDesc, rigidBody);
-       
-            ColliderRegistry.set(collider.handle, {
-                debri: debri,
-                localX: x - minX, 
-                localY: y - minY,
-                localZ: z - minZ
+            globalEventBus.emit("PHYSICS_COMMAND", {
+                type: 'REMOVE_TERRAIN_COLLIDER',
+                x: x,
+                y: y,
+                z: z
             });
         }
 
-        this.terrainPhysics.removeColliders(blocks);
+        const debriId = this.physicsFacade.generateId();
+
+        globalEventBus.emit("PHYSICS_COMMAND", {
+            type: 'CREATE_DEBRI',
+            id: debriId,
+            cx: cx,
+            cy: cy,
+            cz: cz,
+            blocks: blocks
+        });
+
+        let debri = new Debri(this.gl, debriId, this.physicsFacade, blocks, cx, cy, cz);
         this.world.addDebri(debri);
-
-        console.log(`[Physics] Spawned debris with ${blocks.length} blocks at ${cx.toFixed(1)}, ${cy.toFixed(1)}, ${cz.toFixed(1)}`);
     }
-
   
     public evaluateShatter(debri: Debri): void {
-
-        console.log(`[StructuralIntegrity] Evaluating shatter for Debri ID ${debri}`);
         const visitedGlobal = new Set<string>();
         const islands: number[][][] = [];
 
-    
-        for (let x = 0; x < 16; x++) {
-            for (let y = 0; y < 16; y++) {
-                for (let z = 0; z < 16; z++) {
+        for (let x = 0; x < 32; x++) {
+            for (let y = 0; y < 32; y++) {
+                for (let z = 0; z < 32; z++) {
                     if (debri.getBlock(x, y, z) === 0) continue;
                     
                     const key = `${x},${y},${z}`;
                     if (visitedGlobal.has(key)) continue;
 
-               
                     const result = this.findIsland(x, y, z, (bx, by, bz) => debri.getBlock(bx, by, bz), false);
                     islands.push(result.blocks);
 
-                   
                     for (const vKey of result.visitedKeys) {
                         visitedGlobal.add(vKey);
                     }
@@ -194,7 +167,7 @@ export class StructuralIntegrity {
         if (islands.length === 0) {
             this.world.removeDebri(debri);
             debri.deleteGraphics();
-            this.physicsWorld.removeRigidBody((debri as any).rigidBody);
+            globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id });
             return;
         }
 
@@ -203,75 +176,43 @@ export class StructuralIntegrity {
             return;
         }
 
-      console.log(`[StructuralIntegrity] Debri ID ${debri} shattered into ${islands.length} pieces.`);
+        const pOffsetX = debri.offsetX;
+        const pOffsetY = debri.offsetY;
+        const pOffsetZ = debri.offsetZ;
 
-        //clone
-        const parentRb = (debri as any).rigidBody as RAPIER.RigidBody;
-        const pTrans = parentRb.translation();
-        const pRot = parentRb.rotation();
-        const pLinVel = parentRb.linvel();
-        const pAngVel = parentRb.angvel();
-        
-        const pOffsetX = (debri as any).offsetX;
-        const pOffsetY = (debri as any).offsetY;
-        const pOffsetZ = (debri as any).offsetZ;
-
-      
         for (let i = 1; i < islands.length; i++) {
             const island = islands[i];
-
-            const bodyDesc = RAPIER.RigidBodyDesc.dynamic()
-                .setTranslation(pTrans.x, pTrans.y, pTrans.z)
-                .setRotation(pRot)
-                .setLinvel(pLinVel.x, pLinVel.y, pLinVel.z)
-                .setAngvel(new RAPIER.Vector3(pAngVel.x, pAngVel.y, pAngVel.z));
+            const newDebriId = this.physicsFacade.generateId();
             
-            const newRb = this.physicsWorld.createRigidBody(bodyDesc);
+            const newDebri = new Debri(this.gl, newDebriId, this.physicsFacade, [], 0, 0, 0);
+            newDebri.offsetX = pOffsetX;
+            newDebri.offsetY = pOffsetY;
+            newDebri.offsetZ = pOffsetZ;
 
-           
-            const newDebri = new Debri(this.gl, newRb, [], 0, 0, 0);
-            (newDebri as any).offsetX = pOffsetX;
-            (newDebri as any).offsetY = pOffsetY;
-            (newDebri as any).offsetZ = pOffsetZ;
+            const collidersToMove = new Float32Array(island.length * 3);
+            let offset = 0;
 
-           const half = Engine.voxelSize / 2;
             for (const [lx, ly, lz] of island) {
-                debri.setBlock(lx, ly, lz, 0);   
-                newDebri.setBlock(lx, ly, lz, 1); 
-                
-                
-                for (const [handle, data] of ColliderRegistry.entries()) {
-                    if (data.debri === debri && data.localX === lx && data.localY === ly && data.localZ === lz) {
-                        const oldCollider = this.physicsWorld.getCollider(handle);
-                        if (oldCollider) this.physicsWorld.removeCollider(oldCollider, true);
-                        ColliderRegistry.delete(handle);
-                        break;
-                    }
-                }
+                debri.setBlock(lx, ly, lz, 0);
+                newDebri.setBlock(lx, ly, lz, 1);
 
-                const physLocalX = (lx - pOffsetX) * Engine.voxelSize;
-                const physLocalY = (ly - pOffsetY) * Engine.voxelSize;
-                const physLocalZ = (lz - pOffsetZ) * Engine.voxelSize;
-
-
-                const colliderDesc = RAPIER.ColliderDesc.cuboid(half, half, half)
-                    .setTranslation(physLocalX, physLocalY, physLocalZ);
-                
-                const newCollider = this.physicsWorld.createCollider(colliderDesc, newRb);
-
-                ColliderRegistry.set(newCollider.handle, {
-                    debri: newDebri,
-                    localX: lx,
-                    localY: ly,
-                    localZ: lz
-                });
+              
+                collidersToMove[offset++] = (lx - pOffsetX) * Engine.voxelSize;
+                collidersToMove[offset++] = (ly - pOffsetY) * Engine.voxelSize;
+                collidersToMove[offset++] = (lz - pOffsetZ) * Engine.voxelSize;
             }
 
+            globalEventBus.emit("PHYSICS_COMMAND", {
+                type: 'SPLIT_DEBRI',
+                parentId: debri.id,
+                newDebriId: newDebriId,
+                collidersToMove: collidersToMove
+            });
+            
             this.world.addDebri(newDebri);
             this.world.updateDebriMesh(newDebri);
         }
 
-        
         this.world.updateDebriMesh(debri);
     }
 }

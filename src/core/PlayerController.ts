@@ -1,47 +1,34 @@
 import { Camera } from "./Camera";
 import { Input } from "./Input";
 import { World } from "../world/World";
-import RAPIER from "@dimforge/rapier3d-compat";
-import { VoxelRaycaster } from "../physics/VoxelRaycaster";
-import { ColliderRegistry } from "../physics/ColliderRegistry";
 import { globalEventBus } from "./EventBus";
 import { vec3 } from "gl-matrix";
+import type { PhysicsFacade } from "../physics/PhysicsFacade";
+import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 
 export class PlayerController {
     public readonly camera: Camera;
     public readonly input: Input;
-    
     private readonly world: World;
-    private readonly physicsWorld: RAPIER.World;
+    private readonly physicsFacade: PhysicsFacade;
+    public readonly playerId: number;
+    private speed: number = 6.0;
 
-
-    private rigidBody: RAPIER.RigidBody;
-    private collider: RAPIER.Collider;
-    private speed: number = 2.0; 
-    private jumpForce: number = 4.0;
-
-    constructor(canvas: HTMLCanvasElement, world: World, physicsWorld: RAPIER.World) {
+    constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade) {
         this.world = world;
-        this.physicsWorld = physicsWorld;
-        
-     
-        this.camera = new Camera(vec3.fromValues(0, 0, 0));
+        this.physicsFacade = physicsFacade;
+        this.camera = new Camera(vec3.fromValues(5, 10, 5));
         this.input = new Input(canvas);
+        this.playerId = this.physicsFacade.generateId();
 
-   
-        
-        const rbDesc = RAPIER.RigidBodyDesc.dynamic()
-            .setTranslation(5, 10, 5)
-            .lockRotations();
-         
-        
-        this.rigidBody = this.physicsWorld.createRigidBody(rbDesc);
+        globalEventBus.emit("PHYSICS_COMMAND", {
+            type: 'CREATE_PLAYER',
+            id: this.playerId,
+            x: 5, y: 10, z: 5,
+            radius: 0.2,
+            halfHeight: 0.6
+        });
 
-       
-        const colDesc = RAPIER.ColliderDesc.capsule(0.6, 0.2);
-        this.collider = this.physicsWorld.createCollider(colDesc, this.rigidBody);
-
-     
         canvas.addEventListener("mousedown", (e) => {
             if (this.input.isLocked && e.button === 0) {
                 this.handleLeftClick();
@@ -50,7 +37,13 @@ export class PlayerController {
     }
 
     public update(deltaTime: number): void {
-        if (!this.input.isLocked) return;
+
+        
+        const transform = this.physicsFacade.transforms.get(this.playerId);
+        if (transform) {
+            vec3.set(this.camera.position, transform.position[0], transform.position[1] + 0.8, transform.position[2]);
+        }
+        
 
         const mouse = this.input.consumeMouseDeltas();
         if (mouse.x !== 0 || mouse.y !== 0) {
@@ -58,64 +51,53 @@ export class PlayerController {
         }
 
         const velocity = vec3.create();
-        
         const front = vec3.fromValues(this.camera.front[0], 0, this.camera.front[2]);
         vec3.normalize(front, front);
-        
         const right = vec3.create();
         vec3.cross(right, front, [0, 1, 0]);
         vec3.normalize(right, right);
 
-        // ¡SIN deltaTime! SetLinvel necesita la velocidad objetivo, Rapier hace el resto.
         if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(velocity, velocity, front, this.speed);
         if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(velocity, velocity, front, -this.speed);
         if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(velocity, velocity, right, -this.speed);
         if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(velocity, velocity, right, this.speed);
 
-        const currentLinVel = this.rigidBody.linvel();
-        let velY = currentLinVel.y;
+        const isJumping = this.input.isKeyPressed("Space");
 
-        if (this.input.isKeyPressed("Space") && Math.abs(currentLinVel.y) < 0.01) {
-            velY = this.jumpForce;
-        }
+        
+        globalEventBus.emit("PHYSICS_COMMAND", {
+            type: 'SET_PLAYER_VELOCITY',
+            id: this.playerId,
+            x: velocity[0],
+            z: velocity[2],
+            jump: isJumping
+        });
 
-        this.rigidBody.setLinvel({ x: velocity[0], y: velY, z: velocity[2] }, true);
-        const pos = this.rigidBody.translation();
-        vec3.set(this.camera.position, pos.x, pos.y + 0.8, pos.z);
+        
     }
 
-    private handleLeftClick(): void {
+    private async handleLeftClick(): Promise<void> {
         const reach = 5.0; 
         
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
-        const physicsHit = VoxelRaycaster.raycastPhysics(this.camera.position, this.camera.front, reach, this.physicsWorld, this.collider);
+        const physicsHit = await this.physicsFacade.raycast(this.camera.position, this.camera.front, reach, this.playerId);
 
-        if (!gridHit.hit && !physicsHit.hit) return;
+        let hitGridFirst = false;
+        if (gridHit.hit && !physicsHit.hit) hitGridFirst = true;
+        else if (gridHit.hit && physicsHit.hit && gridHit.distance < physicsHit.distance) hitGridFirst = true;
 
-        if (gridHit.distance < physicsHit.distance) {
+        if (hitGridFirst) {
+            console.log(`Grid hit at (${gridHit.blockPos[0]}, ${gridHit.blockPos[1]}, ${gridHit.blockPos[2]}) with normal (${gridHit.normal[0]}, ${gridHit.normal[1]}, ${gridHit.normal[2]}) at distance ${gridHit.distance}`);
             const [x, y, z] = gridHit.blockPos;
             globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z });
-        } else {
-            const handle = physicsHit.colliderHandle!;
-            const voxelData = ColliderRegistry.get(handle);
-
-            if (voxelData) {
-                const colliderToDestroy = this.physicsWorld.getCollider(handle);
-                if (colliderToDestroy) {
-                    this.physicsWorld.removeCollider(colliderToDestroy, true);
-                }
-                ColliderRegistry.delete(handle);
-                
-                globalEventBus.emit("BLOCK_MINED_DYNAMIC", { 
-                    debri: voxelData.debri, 
-                    handle: handle, 
-                    localX: voxelData.localX, 
-                    localY: voxelData.localY, 
-                    localZ: voxelData.localZ 
-                });
-            }
+        } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
+            console.log(`Physics hit on debri ID ${physicsHit.hitId} at local position (${physicsHit.localX}, ${physicsHit.localY}, ${physicsHit.localZ}) at distance ${physicsHit.distance}`);
+            globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
+                debriId: physicsHit.hitId,
+                localX: physicsHit.localX!,
+                localY: physicsHit.localY!,
+                localZ: physicsHit.localZ!
+            });
         }
     }
-
-    
 }

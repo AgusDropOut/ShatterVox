@@ -3,15 +3,8 @@ import { VAO } from "../renderer/buffers/VAO";
 import { VBO } from "../renderer/buffers/VBO";
 import type { Mesheable } from "../types/Mesheable";
 import type { MeshData } from "./ChunkMesher"; 
-import type {RigidBody} from "@dimforge/rapier3d-compat";
 import { mat4 } from "gl-matrix";
-
-export interface VoxelPhysicsData {
-    debri: Debri;
-    localX: number;
-    localY: number;
-    localZ: number;
-}
+import type { PhysicsFacade } from "../physics/PhysicsFacade";
 
 export class Debri implements Mesheable {
     public static readonly WIDTH = 32;
@@ -28,27 +21,35 @@ export class Debri implements Mesheable {
     private vboNormals: VBO | null = null;
     private vboColors: VBO | null = null;
 
-    private rigidBody: RigidBody;
+    public readonly id: number;
+    private readonly physicsFacade: PhysicsFacade;
 
-    private offsetX: number = 0;
-    private offsetY: number = 0;
-    private offsetZ: number = 0;
+    public offsetX: number = 0;
+    public offsetY: number = 0;
+    public offsetZ: number = 0;
 
-    constructor(gl: WebGL2RenderingContext, rigidBody: RigidBody, blocks: number[][], cx: number, cy: number, cz: number) {
+    constructor(gl: WebGL2RenderingContext, id: number, physicsFacade: PhysicsFacade, blocks: number[][], cx: number, cy: number, cz: number) {
         this.gl = gl;
-        this.rigidBody = rigidBody;
+        this.id = id;
+        this.physicsFacade = physicsFacade;
         const volume = Debri.WIDTH * Debri.HEIGHT * Debri.DEPTH;
         this.blocks = new Uint8Array(volume);
         this.populateBlocks(blocks, cx, cy, cz);
     }
 
     public getBlock(x: number, y: number, z: number): number {
-        if (!this.inBounds(x, y, z)) return 0;
+        if (!this.inBounds(x, y, z)) {
+            console.warn(`Block at (${x}, ${y}, ${z}) is out of bounds for Debri grid and will be ignored.`);
+            return 0;
+        }
         return this.blocks[this.getIndex(x, y, z)];
     }
 
     public setBlock(x: number, y: number, z: number, id: number): void {
-        if (!this.inBounds(x, y, z)) return;
+        if (!this.inBounds(x, y, z)) {
+            console.warn(`Block at (${x}, ${y}, ${z}) is out of bounds for Debri grid and will be ignored.`);
+            return;
+        }
         this.blocks[this.getIndex(x, y, z)] = id;
     }
 
@@ -62,13 +63,9 @@ export class Debri implements Mesheable {
             if (z < minZ) minZ = z;
         }
 
-      
-        
-
         this.offsetX = cx - minX;
         this.offsetY = cy - minY;
         this.offsetZ = cz - minZ;
-
 
         for (const [x, y, z] of blocks) {
             const gridX = x - minX;
@@ -77,6 +74,8 @@ export class Debri implements Mesheable {
 
             if (this.inBounds(gridX, gridY, gridZ)) {
                 this.setBlock(gridX, gridY, gridZ, 1);
+            } else {
+                console.warn(`Block at (${x}, ${y}, ${z}) is out of bounds for Debri grid and will be ignored.`);
             }
         }
     }
@@ -106,10 +105,12 @@ export class Debri implements Mesheable {
     }
 
     public getModelMatrix(): mat4 {
-        const translation = this.rigidBody.translation();
-        const rotation = this.rigidBody.rotation();
         const modelMatrix = mat4.create();
-        mat4.fromRotationTranslation(modelMatrix, [rotation.x, rotation.y, rotation.z, rotation.w], [translation.x, translation.y, translation.z]);
+        const transform = this.physicsFacade.transforms.get(this.id);
+        
+        if (transform) {
+            mat4.fromRotationTranslation(modelMatrix, transform.rotation, transform.position);
+        }
 
         mat4.translate(modelMatrix, modelMatrix, [
             -this.offsetX * Engine.voxelSize - (Engine.voxelSize / 2), 
@@ -138,37 +139,6 @@ export class Debri implements Mesheable {
     }
 
     private inBounds(x: number, y: number, z: number): boolean {
-        return x >= 0 && x < Debri.WIDTH && 
-               y >= 0 && y < Debri.HEIGHT && 
-               z >= 0 && z < Debri.DEPTH;
+        return x >= 0 && x < Debri.WIDTH && y >= 0 && y < Debri.HEIGHT && z >= 0 && z < Debri.DEPTH;
     }
-
-    public printBlocks(): void {
-        for (let y = Debri.HEIGHT - 1; y >= 0; y--) {
-            console.log(`Layer Y=${y}:`);
-            for (let z = 0; z < Debri.DEPTH; z++) {
-                let row = '';
-                for (let x = 0; x < Debri.WIDTH; x++) {
-                    row += this.getBlock(x, y, z) + ' ';
-                }
-                console.log(row);
-            }
-            console.log('\n');
-        }
-    }
-
-    public getBlockCount(): number {
-        let count = 0;
-        for (let x = 0; x < Debri.WIDTH; x++) {
-            for (let y = 0; y < Debri.HEIGHT; y++) {
-                for (let z = 0; z < Debri.DEPTH; z++) {
-                    if (this.getBlock(x, y, z) !== 0) {
-                        count++;
-                    }
-                }
-            }
-        }
-        return count;
-    }
-    
 }

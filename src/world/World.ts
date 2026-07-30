@@ -13,19 +13,20 @@ export class World {
         this.mesher = new ChunkMesher();
         this.debri = [];
         
-    
         this.generateTestMap(gl);
-
         this.updateAllMeshes();
 
-      
         globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
             this.setBlock(data.x, data.y, data.z, 0);
             this.updateChunkMeshAt(data.x, data.y, data.z); 
         });
 
         globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
-            data.debri.setBlock(data.localX, data.localY, data.localZ, 0);
+            const debri = this.debri.find(d => d.id === data.debriId);
+            if (debri) {
+                debri.setBlock(data.localX, data.localY, data.localZ, 0);
+                this.updateDebriMesh(debri);
+            }
         });
     }
 

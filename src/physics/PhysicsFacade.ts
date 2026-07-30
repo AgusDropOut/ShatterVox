@@ -13,14 +13,34 @@ export class PhysicsFacade {
     public isReady: boolean = false;
     public transforms: Map<number, TransformData> = new Map();
     private nextId: number = 1;
+    public debugVertices: Float32Array | null = null;
+    public debugColors: Float32Array | null = null;
+    private pendingRaycasts: Map<number, (res: any) => void> = new Map();
+    private nextReqId: number = 1;
+    
+
+    private commandQueue: PhysicsCommand[] = []; 
 
     constructor() {
         this.worker = new Worker(new URL("./physics.worker.ts", import.meta.url), { type: "module" });
         this.worker.onmessage = (e: MessageEvent<WorkerToMainMsg>) => this.handleMessage(e.data);
+        this.worker.onerror = (error) => {
+            console.error("[PhysicsFacade] Error fatal en el Worker:", error.message);
+        }
 
-  
         globalEventBus.on("PHYSICS_COMMAND", (command: PhysicsCommand) => {
-            this.worker.postMessage(command);
+
+            if (command.type === 'INIT') {
+                this.worker.postMessage(command);
+                return;
+            }
+
+
+            if (!this.isReady) {
+                this.commandQueue.push(command);
+            } else {
+                this.worker.postMessage(command);
+            }
         });
     }
 
@@ -31,10 +51,34 @@ export class PhysicsFacade {
     private handleMessage(msg: WorkerToMainMsg): void {
         if (msg.type === 'INIT_DONE') {
             this.isReady = true;
-            console.log("[PhysicsFacade] Physics worker initialized and ready.");
+            console.log(`[PhysicsFacade] Worker listo. Vaciando cola de ${this.commandQueue.length} comandos pendientes...`);
+            
+        
+            for (const cmd of this.commandQueue) {
+                this.worker.postMessage(cmd);
+            }
+            this.commandQueue = []; 
         } 
         else if (msg.type === 'SYNC_TRANSFORMS') {
             this.syncTransforms(msg.buffer);
+        } 
+        else if (msg.type === 'SYNC_DEBUG') {
+            this.debugVertices = msg.vertices;
+            this.debugColors = msg.colors;
+        }
+        else if (msg.type === 'RAYCAST_RESULT') {
+            const resolve = this.pendingRaycasts.get(msg.reqId);
+            if (resolve) {
+                resolve({ 
+                    hit: msg.hit, 
+                    distance: msg.distance, 
+                    hitId: msg.hitId,
+                    localX: msg.localX,
+                    localY: msg.localY,
+                    localZ: msg.localZ
+                });
+                this.pendingRaycasts.delete(msg.reqId);
+            }
         }
     }
 
@@ -52,6 +96,19 @@ export class PhysicsFacade {
             const t = this.transforms.get(id)!;
             vec3.set(t.position, buffer[i+1], buffer[i+2], buffer[i+3]);
             quat.set(t.rotation, buffer[i+4], buffer[i+5], buffer[i+6], buffer[i+7]);
+            
+           
         }
+    }
+    public async raycast(origin: vec3, direction: vec3, maxDistance: number, excludeId: number): Promise<{hit: boolean, distance: number, hitId?: number, localX?: number, localY?: number, localZ?: number}> {
+        return new Promise((resolve) => {
+            const reqId = this.nextReqId++;
+            this.pendingRaycasts.set(reqId, resolve);
+            
+            const cmd: PhysicsCommand = { type: 'RAYCAST', reqId, origin, direction, maxDistance, excludeId };
+            
+            if (!this.isReady) this.commandQueue.push(cmd);
+            else this.worker.postMessage(cmd);
+        });
     }
 }

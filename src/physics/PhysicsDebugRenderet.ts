@@ -58,20 +58,24 @@ export class PhysicsDebugRenderer {
         this.gl.bindVertexArray(null);
     }
 
-    public render(physicsWorld: RAPIER.World, mvpMatrix: mat4): void {
-        const buffers = physicsWorld.debugRender();
+    public render(vertices: Float32Array | null, colors: Float32Array | null, mvpMatrix: mat4): void {
+        if (!vertices || !colors || vertices.length === 0) return;
 
         this.gl.useProgram(this.program);
         this.gl.bindVertexArray(this.vao);
 
         this.gl.uniformMatrix4fv(this.uMvpLoc, false, mvpMatrix as Float32Array);
 
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.posBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, buffers.vertices, this.gl.DYNAMIC_DRAW);
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, buffers.colors, this.gl.DYNAMIC_DRAW);
 
-        this.gl.drawArrays(this.gl.LINES, 0, buffers.vertices.length / 3);
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.posBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, vertices, this.gl.DYNAMIC_DRAW);
+        
+    
+        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colBuffer);
+        this.gl.bufferData(this.gl.ARRAY_BUFFER, colors, this.gl.DYNAMIC_DRAW);
+
+
+        this.gl.drawArrays(this.gl.LINES, 0, vertices.length / 3);
 
         this.gl.bindVertexArray(null);
     }

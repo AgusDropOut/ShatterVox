@@ -14,10 +14,13 @@ export class PlayerController {
     public readonly playerId: number;
     private speed: number = 6.0;
 
+    private targetPosition: vec3;
+
     constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade) {
         this.world = world;
         this.physicsFacade = physicsFacade;
         this.camera = new Camera(vec3.fromValues(5, 10, 5));
+        this.targetPosition = vec3.fromValues(5, 10.8, 5);
         this.input = new Input(canvas);
         this.playerId = this.physicsFacade.generateId();
 
@@ -37,13 +40,14 @@ export class PlayerController {
     }
 
     public update(deltaTime: number): void {
-
-        
         const transform = this.physicsFacade.transforms.get(this.playerId);
         if (transform) {
-            vec3.set(this.camera.position, transform.position[0], transform.position[1] + 0.8, transform.position[2]);
+            vec3.set(this.targetPosition, transform.position[0], transform.position[1] + 0.8, transform.position[2]);
+            
+            const lerpSpeed = 15.0; 
+            const t = Math.min(lerpSpeed * deltaTime, 1.0);
+            vec3.lerp(this.camera.position, this.camera.position, this.targetPosition, t);
         }
-        
 
         const mouse = this.input.consumeMouseDeltas();
         if (mouse.x !== 0 || mouse.y !== 0) {
@@ -64,7 +68,6 @@ export class PlayerController {
 
         const isJumping = this.input.isKeyPressed("Space");
 
-        
         globalEventBus.emit("PHYSICS_COMMAND", {
             type: 'SET_PLAYER_VELOCITY',
             id: this.playerId,
@@ -72,8 +75,6 @@ export class PlayerController {
             z: velocity[2],
             jump: isJumping
         });
-
-        
     }
 
     private async handleLeftClick(): Promise<void> {
@@ -87,11 +88,9 @@ export class PlayerController {
         else if (gridHit.hit && physicsHit.hit && gridHit.distance < physicsHit.distance) hitGridFirst = true;
 
         if (hitGridFirst) {
-            console.log(`Grid hit at (${gridHit.blockPos[0]}, ${gridHit.blockPos[1]}, ${gridHit.blockPos[2]}) with normal (${gridHit.normal[0]}, ${gridHit.normal[1]}, ${gridHit.normal[2]}) at distance ${gridHit.distance}`);
             const [x, y, z] = gridHit.blockPos;
             globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z });
         } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
-            console.log(`Physics hit on debri ID ${physicsHit.hitId} at local position (${physicsHit.localX}, ${physicsHit.localY}, ${physicsHit.localZ}) at distance ${physicsHit.distance}`);
             globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
                 debriId: physicsHit.hitId,
                 localX: physicsHit.localX!,

@@ -1,4 +1,4 @@
-import RAPIER from "@dimforge/rapier3d-compat";
+
 import { mat4 } from "gl-matrix";
 
 const vsSource = `

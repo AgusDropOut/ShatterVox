@@ -2,6 +2,7 @@ import { Chunk } from "./Chunk";
 import { GeometryGenerator } from "../geometry/GeometryGenerator";
 import type { Mesheable } from "../types/Mesheable";
 import { Engine } from "../core/Engine";
+import { BlockRegistry } from "../block/BlockRegistry";
 
 export interface MeshData {
     positions: Float32Array;
@@ -36,12 +37,12 @@ export class ChunkMesher {
                     const blockId = center.getBlock(x, y, z);
                     
                     if (blockId === 0) continue;
-                    let r = 1.0, g = 1.0, b = 1.0; 
 
-                
+                    const blockDef = BlockRegistry.get(blockId);
+                    const [r, g, b] = blockDef.color;
 
-                    const tileX = blockId % ATLAS_SIZE;
-                    const tileY = Math.floor(blockId / ATLAS_SIZE);
+                    const tileX = blockDef.textureId % ATLAS_SIZE;
+                    const tileY = Math.floor(blockDef.textureId / ATLAS_SIZE);
 
                     if (this.isTransparent(center, neighbors.top, x, y + 1, z)) {
                         this.addFace(positions, normals, colors, uvs, GeometryGenerator.getTopFace(), GeometryGenerator.getTopNormal(), x, y, z, r, g, b, tileX, tileY, offX, offY, offZ);
@@ -128,6 +129,9 @@ export class ChunkMesher {
         if (z < 0) return neighbor ? neighbor.getBlock(x, y, Chunk.DEPTH - 1) === 0 : true;
         if (z >= Chunk.DEPTH) return neighbor ? neighbor.getBlock(x, y, 0) === 0 : true;
 
-        return center.getBlock(x, y, z) === 0;
+        const blockId = center.getBlock(x, y, z);
+        if (blockId === 0) return true;
+   
+        return BlockRegistry.get(blockId).isTransparent === true;
     }
 }

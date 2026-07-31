@@ -30,15 +30,19 @@ uniform sampler2D u_Texture;
 out vec4 FragColor;
 
 void main() {
+    vec3 ambient = vec3(0.2, 0.2, 0.2);
     vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
     float diff = max(dot(vNormal, lightDir), 0.2); 
     
-    vec4 texColor = texture(u_Texture, vUv);
-    
-    if (texColor.a < 0.1 && texColor.rgb == vec3(0.0)) {
-        texColor = vec4(1.0);
-    }
 
-    FragColor = texColor * vec4(vColor * diff, 1.0);
+    vec4 texColor = texture(u_Texture, vUv);
+
+    if(texColor.a < 0.1) {
+        discard; 
+    }
+    
+
+ 
+    FragColor = vec4(vColor * diff + ambient, 1.0) * texColor;
 }
 `;

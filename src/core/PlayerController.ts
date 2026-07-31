@@ -78,7 +78,7 @@ export class PlayerController {
     }
 
     private async handleLeftClick(): Promise<void> {
-        const reach = 5.0; 
+        const reach = 10.0; 
         
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
         const physicsHit = await this.physicsFacade.raycast(this.camera.position, this.camera.front, reach, this.playerId);

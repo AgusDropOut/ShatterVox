@@ -62,13 +62,13 @@ export class Debri implements Mesheable {
         this.offsetY = cy - minY;
         this.offsetZ = cz - minZ;
 
-        for (const [x, y, z] of blocks) {
+        for (const [x, y, z, id] of blocks) {
             const gridX = x - minX;
             const gridY = y - minY;
             const gridZ = z - minZ;
 
             if (this.inBounds(gridX, gridY, gridZ)) {
-                this.setBlock(gridX, gridY, gridZ, 1);
+                this.setBlock(gridX, gridY, gridZ, id);
             }
         }
     }

@@ -27,7 +27,7 @@ export class Engine {
 
     private lastTime: number = 0;
     private physicsFacade: PhysicsFacade;
-    public static readonly voxelSize: number = 0.30;
+    public static readonly voxelSize: number = 0.12;
     private showPhysicsDebug: boolean = false;
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;

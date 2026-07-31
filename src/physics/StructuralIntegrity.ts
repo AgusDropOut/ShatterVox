@@ -36,7 +36,8 @@ export class StructuralIntegrity {
                     localZ: data.localZ
                 });
 
-                this.evaluateShatter(targetDebri);
+              
+                this.evaluateShatter(targetDebri, arrayX, arrayY, arrayZ);
             }
         });
     }
@@ -64,25 +65,27 @@ export class StructuralIntegrity {
             }
         }
         
-      
         for (const key of chunksToUpdate) {
             const [cx, cy, cz] = key.split(',').map(Number);
             this.world.updateChunkMeshAt(cx * Chunk.WIDTH, cy * Chunk.HEIGHT, cz * Chunk.DEPTH);
         }
     }
 
-  
     private findIsland(startX: number, startY: number, startZ: number, getBlock: (x: number, y: number, z: number) => number, checkAnchor: boolean) {
-        const queue: number[][] = [[startX, startY, startZ]];
+        const startId = getBlock(startX, startY, startZ);
+      
+        const queue: number[][] = [[startX, startY, startZ, startId]];
+        let head = 0; 
+        
         const visited = new Set<string>();
         const islandBlocks: number[][] = [];
         let isAnchored = false;
 
         visited.add(`${startX},${startY},${startZ}`);
 
-        while (queue.length > 0) {
-            const [cx, cy, cz] = queue.shift()!;
-            islandBlocks.push([cx, cy, cz]);
+        while (head < queue.length) {
+            const [cx, cy, cz, blockId] = queue[head++]; 
+            islandBlocks.push([cx, cy, cz, blockId]);
             
             if (checkAnchor && cy <= 0) {
                 isAnchored = true;
@@ -99,16 +102,16 @@ export class StructuralIntegrity {
                 const key = `${nx},${ny},${nz}`;
                 if (visited.has(key)) continue;
 
-                if (getBlock(nx, ny, nz) !== 0) {
+                const nId = getBlock(nx, ny, nz);
+                if (nId !== 0) {
                     visited.add(key);
-                    queue.push([nx, ny, nz]);
+                    queue.push([nx, ny, nz, nId]);
                 }
             }
         }
 
         return { isAnchored, blocks: islandBlocks, visitedKeys: visited };
     }
-
 
     private markAsDebris(blocks: number[][]): Set<string> {
         const modifiedChunks = new Set<string>();
@@ -127,7 +130,6 @@ export class StructuralIntegrity {
         for (const [x, y, z] of blocks) {
             this.world.setBlock(x, y, z, 0); 
             
-        
             const chunkX = Math.floor(x / Chunk.WIDTH);
             const chunkY = Math.floor(y / Chunk.HEIGHT);
             const chunkZ = Math.floor(z / Chunk.DEPTH);
@@ -159,41 +161,57 @@ export class StructuralIntegrity {
         return modifiedChunks;
     }
 
-  
-    public evaluateShatter(debri: Debri): void {
-        const visitedGlobal = new Set<string>();
-        const islands: number[][][] = [];
+   
+    public evaluateShatter(debri: Debri, rx: number, ry: number, rz: number): void {
+        const neighbors = [
+            [rx + 1, ry, rz], [rx - 1, ry, rz],
+            [rx, ry + 1, rz], [rx, ry - 1, rz],
+            [rx, ry, rz + 1], [rx, ry, rz - 1]
+        ];
 
-        for (let x = 0; x < 32; x++) {
-            for (let y = 0; y < 32; y++) {
-                for (let z = 0; z < 32; z++) {
-                    if (debri.getBlock(x, y, z) === 0) continue;
-                    
-                    const key = `${x},${y},${z}`;
-                    if (visitedGlobal.has(key)) continue;
-
-                    const result = this.findIsland(x, y, z, (bx, by, bz) => debri.getBlock(bx, by, bz), false);
-                    islands.push(result.blocks);
-
-                    for (const vKey of result.visitedKeys) {
-                        visitedGlobal.add(vKey);
-                    }
-                }
+        const validNeighbors: number[][] = [];
+        for (const [nx, ny, nz] of neighbors) {
+            if (debri.getBlock(nx, ny, nz) !== 0) {
+                validNeighbors.push([nx, ny, nz]);
             }
         }
 
-        if (islands.length === 0) {
+        
+        if (validNeighbors.length === 0) {
             this.world.removeDebri(debri);
             debri.deleteGraphics();
             globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id });
             return;
         }
 
-        if (islands.length === 1) {
+ 
+        if (validNeighbors.length === 1) {
             this.world.updateDebriMesh(debri); 
             return;
         }
 
+        const visitedGlobal = new Set<string>();
+        const islands: number[][][] = [];
+
+       
+        for (const [nx, ny, nz] of validNeighbors) {
+            const key = `${nx},${ny},${nz}`;
+            if (visitedGlobal.has(key)) continue; 
+
+            const result = this.findIsland(nx, ny, nz, (bx, by, bz) => debri.getBlock(bx, by, bz), false);
+            islands.push(result.blocks);
+
+            for (const vKey of result.visitedKeys) {
+                visitedGlobal.add(vKey);
+            }
+        }
+
+        if (islands.length <= 1) {
+            this.world.updateDebriMesh(debri); 
+            return;
+        }
+
+       
         const pOffsetX = debri.offsetX;
         const pOffsetY = debri.offsetY;
         const pOffsetZ = debri.offsetZ;
@@ -210,9 +228,10 @@ export class StructuralIntegrity {
             const collidersToMove = new Float32Array(island.length * 3);
             let offset = 0;
 
-            for (const [lx, ly, lz] of island) {
+            for (const [lx, ly, lz, blockId] of island) {
                 debri.setBlock(lx, ly, lz, 0);
-                newDebri.setBlock(lx, ly, lz, 1);
+  
+                newDebri.setBlock(lx, ly, lz, blockId);
 
                 collidersToMove[offset++] = (lx - pOffsetX) * Engine.voxelSize;
                 collidersToMove[offset++] = (ly - pOffsetY) * Engine.voxelSize;

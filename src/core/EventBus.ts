@@ -1,9 +1,7 @@
-
 import type { PhysicsCommand } from "../physics/PhysicsProtocol";
 
-
 export interface GameEvents {
-    "BLOCK_MINED_STATIC": { x: number, y: number, z: number };
+    "BLOCK_MINED_STATIC": { x: number, y: number, z: number, radius?: number };
     "BLOCK_MINED_DYNAMIC": { debriId: number, localX: number, localY: number, localZ: number };
     "WINDOW_RESIZE": { width: number, height: number };
     "TOGGLE_PHYSICS_DEBUG": {}; 
@@ -19,13 +17,11 @@ class EventBus {
             this.listeners[event] = [];
         }
         this.listeners[event].push(callback);
-        console.log(`[EventBus] Registered listener for event: ${event}`);
     }
 
     public emit<K extends keyof GameEvents>(event: K, data: GameEvents[K]): void {
         if (this.listeners[event]) {
             for (const callback of this.listeners[event]) {
-                
                 callback(data);
             }
         }

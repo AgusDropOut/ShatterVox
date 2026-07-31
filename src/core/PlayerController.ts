@@ -89,7 +89,7 @@ export class PlayerController {
 
         if (hitGridFirst) {
             const [x, y, z] = gridHit.blockPos;
-            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z });
+            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z , radius: 3 });
         } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
             globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
                 debriId: physicsHit.hitId,

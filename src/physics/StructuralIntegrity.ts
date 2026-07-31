@@ -3,6 +3,7 @@ import { Debri } from "../world/Debri";
 import { globalEventBus } from "../core/EventBus";
 import type { PhysicsFacade } from "./PhysicsFacade";
 import { Engine } from "../core/Engine";
+import { Chunk } from "../world/Chunk";
 
 export class StructuralIntegrity {
     private readonly world: World;
@@ -27,7 +28,6 @@ export class StructuralIntegrity {
 
                 targetDebri.setBlock(arrayX, arrayY, arrayZ, 0);
 
-                
                 globalEventBus.emit("PHYSICS_COMMAND", {
                     type: 'REMOVE_DEBRI_BLOCK',
                     id: targetDebri.id,
@@ -48,7 +48,7 @@ export class StructuralIntegrity {
             [x, y, z + 1], [x, y, z - 1]
         ];
 
-        let chunkModified = false; 
+        const chunksToUpdate = new Set<string>();
 
         for (const [nx, ny, nz] of neighbors) {
             const blockId = this.world.getBlock(nx, ny, nz);
@@ -57,16 +57,21 @@ export class StructuralIntegrity {
             const island = this.findIsland(nx, ny, nz, (bx, by, bz) => this.world.getBlock(bx, by, bz), true);
             
             if (!island.isAnchored) {
-                this.markAsDebris(island.blocks);
-                chunkModified = true; 
+                const modified = this.markAsDebris(island.blocks);
+                for (const chunkKey of modified) {
+                    chunksToUpdate.add(chunkKey);
+                }
             }
         }
         
-        if (chunkModified) {
-            this.world.updateAllMeshes();
+      
+        for (const key of chunksToUpdate) {
+            const [cx, cy, cz] = key.split(',').map(Number);
+            this.world.updateChunkMeshAt(cx * Chunk.WIDTH, cy * Chunk.HEIGHT, cz * Chunk.DEPTH);
         }
     }
 
+  
     private findIsland(startX: number, startY: number, startZ: number, getBlock: (x: number, y: number, z: number) => number, checkAnchor: boolean) {
         const queue: number[][] = [[startX, startY, startZ]];
         const visited = new Set<string>();
@@ -104,8 +109,10 @@ export class StructuralIntegrity {
         return { isAnchored, blocks: islandBlocks, visitedKeys: visited };
     }
 
-    private markAsDebris(blocks: number[][]): void {
-        if (blocks.length === 0) return;
+
+    private markAsDebris(blocks: number[][]): Set<string> {
+        const modifiedChunks = new Set<string>();
+        if (blocks.length === 0) return modifiedChunks;
 
         let cx = 0, cy = 0, cz = 0;
         for (const [x, y, z] of blocks) {
@@ -119,6 +126,13 @@ export class StructuralIntegrity {
 
         for (const [x, y, z] of blocks) {
             this.world.setBlock(x, y, z, 0); 
+            
+        
+            const chunkX = Math.floor(x / Chunk.WIDTH);
+            const chunkY = Math.floor(y / Chunk.HEIGHT);
+            const chunkZ = Math.floor(z / Chunk.DEPTH);
+            modifiedChunks.add(`${chunkX},${chunkY},${chunkZ}`);
+
             globalEventBus.emit("PHYSICS_COMMAND", {
                 type: 'REMOVE_TERRAIN_COLLIDER',
                 x: x,
@@ -140,7 +154,11 @@ export class StructuralIntegrity {
 
         let debri = new Debri(this.gl, debriId, this.physicsFacade, blocks, cx, cy, cz);
         this.world.addDebri(debri);
+        this.world.updateDebriMesh(debri);
+
+        return modifiedChunks;
     }
+
   
     public evaluateShatter(debri: Debri): void {
         const visitedGlobal = new Set<string>();
@@ -196,7 +214,6 @@ export class StructuralIntegrity {
                 debri.setBlock(lx, ly, lz, 0);
                 newDebri.setBlock(lx, ly, lz, 1);
 
-              
                 collidersToMove[offset++] = (lx - pOffsetX) * Engine.voxelSize;
                 collidersToMove[offset++] = (ly - pOffsetY) * Engine.voxelSize;
                 collidersToMove[offset++] = (lz - pOffsetZ) * Engine.voxelSize;

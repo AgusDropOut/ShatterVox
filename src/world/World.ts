@@ -64,10 +64,14 @@ export class World {
 
   
     public updateAllMeshes(): void {
+        this.updateChunkMeshes();
+        this.updateDebriMeshes();
+    }
+
+    public updateChunkMeshes(): void {
         for (const chunk of this.chunks.values()) {
             this.updateChunkMesh(chunk);
-        }
-        this.updateDebriMeshes();
+        }  
     }
 
   

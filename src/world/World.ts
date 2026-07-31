@@ -87,9 +87,18 @@ export class World {
     }
 
     private updateChunkMesh(chunk: Chunk): void {
+        let neighbors: { top: Chunk | null; bottom: Chunk | null; left: Chunk | null; right: Chunk | null; front: Chunk | null; back: Chunk | null } = {
+            top: this.chunks.get(`${chunk.chunkX},${chunk.chunkY + 1},${chunk.chunkZ}`) || null,
+            bottom: this.chunks.get(`${chunk.chunkX},${chunk.chunkY - 1},${chunk.chunkZ}`) || null,
+            left: this.chunks.get(`${chunk.chunkX - 1},${chunk.chunkY},${chunk.chunkZ}`) || null,
+            right: this.chunks.get(`${chunk.chunkX + 1},${chunk.chunkY},${chunk.chunkZ}`) || null,
+            front: this.chunks.get(`${chunk.chunkX},${chunk.chunkY},${chunk.chunkZ + 1}`) || null,
+            back: this.chunks.get(`${chunk.chunkX},${chunk.chunkY},${chunk.chunkZ - 1}`) || null
+        };
+
         const meshData = this.mesher.buildMesh(
             chunk, 
-            { top: null, bottom: null, left: null, right: null, front: null, back: null },
+            neighbors,
             chunk.chunkX * Chunk.WIDTH,
             chunk.chunkY * Chunk.HEIGHT,
             chunk.chunkZ * Chunk.DEPTH

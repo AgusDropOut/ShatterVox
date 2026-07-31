@@ -123,6 +123,7 @@ export class Engine {
         mat4.multiply(mvp, projection, view); 
 
         this.shader.bind();
+        this.shader.setInt("u_Texture", 0);
         this.shader.setMat4("u_MVP", mvp as Float32Array); 
 
         for (const chunk of this.world.chunks.values()) {
@@ -158,6 +159,7 @@ export class Engine {
 
             this.shader.bind();
             this.shader.setMat4("u_MVP", mvp as Float32Array);
+            this.shader.setInt("u_Texture", 0);
             this.renderer.draw(debriVAO, this.shader, debri.vertexCount);
         }
     }

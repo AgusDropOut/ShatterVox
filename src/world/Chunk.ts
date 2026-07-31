@@ -11,7 +11,6 @@ export class Chunk implements Mesheable {
 
     public vao: VAO | null = null;
     public vertexCount: number = 0;
-    
 
     public readonly chunkX: number;
     public readonly chunkY: number;
@@ -23,6 +22,7 @@ export class Chunk implements Mesheable {
     private vboPositions: VBO | null = null;
     private vboNormals: VBO | null = null;
     private vboColors: VBO | null = null;
+    private vboUvs: VBO | null = null;
 
     constructor(gl: WebGL2RenderingContext, chunkX: number, chunkY: number, chunkZ: number) {
         this.gl = gl;
@@ -53,20 +53,22 @@ export class Chunk implements Mesheable {
             this.vboPositions = new VBO(this.gl, meshData.positions, this.gl.DYNAMIC_DRAW);
             this.vboNormals = new VBO(this.gl, meshData.normals, this.gl.DYNAMIC_DRAW);
             this.vboColors = new VBO(this.gl, meshData.colors, this.gl.DYNAMIC_DRAW);
+            this.vboUvs = new VBO(this.gl, meshData.uvs, this.gl.DYNAMIC_DRAW);
 
             this.vao = new VAO(this.gl);
             this.vao.linkAttrib(this.vboPositions, 0, 3, this.gl.FLOAT, false, 0, 0);
             this.vao.linkAttrib(this.vboNormals, 1, 3, this.gl.FLOAT, false, 0, 0);
             this.vao.linkAttrib(this.vboColors, 2, 3, this.gl.FLOAT, false, 0, 0);
+            this.vao.linkAttrib(this.vboUvs, 3, 2, this.gl.FLOAT, false, 0, 0);
         } else {
             this.vboPositions!.updateData(meshData.positions, this.gl.DYNAMIC_DRAW);
             this.vboNormals!.updateData(meshData.normals, this.gl.DYNAMIC_DRAW);
             this.vboColors!.updateData(meshData.colors, this.gl.DYNAMIC_DRAW);
+            this.vboUvs!.updateData(meshData.uvs, this.gl.DYNAMIC_DRAW);
         }
         
         this.vertexCount = meshData.vertexCount;
     }
-
 
     public getModelMatrix(): mat4 {
         const modelMatrix = mat4.create();
@@ -83,11 +85,13 @@ export class Chunk implements Mesheable {
         if (this.vboPositions) this.vboPositions.delete();
         if (this.vboNormals) this.vboNormals.delete();
         if (this.vboColors) this.vboColors.delete();
+        if (this.vboUvs) this.vboUvs.delete();
         
         this.vao = null;
         this.vboPositions = null;
         this.vboNormals = null;
         this.vboColors = null;
+        this.vboUvs = null;
         this.vertexCount = 0;
     }
 

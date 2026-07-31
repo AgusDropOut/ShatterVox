@@ -20,6 +20,7 @@ export class Debri implements Mesheable {
     private vboPositions: VBO | null = null;
     private vboNormals: VBO | null = null;
     private vboColors: VBO | null = null;
+    private vboUvs: VBO | null = null;
 
     public readonly id: number;
     private readonly physicsFacade: PhysicsFacade;
@@ -38,18 +39,12 @@ export class Debri implements Mesheable {
     }
 
     public getBlock(x: number, y: number, z: number): number {
-        if (!this.inBounds(x, y, z)) {
-            console.warn(`Block at (${x}, ${y}, ${z}) is out of bounds for Debri grid and will be ignored.`);
-            return 0;
-        }
+        if (!this.inBounds(x, y, z)) return 0;
         return this.blocks[this.getIndex(x, y, z)];
     }
 
     public setBlock(x: number, y: number, z: number, id: number): void {
-        if (!this.inBounds(x, y, z)) {
-            console.warn(`Block at (${x}, ${y}, ${z}) is out of bounds for Debri grid and will be ignored.`);
-            return;
-        }
+        if (!this.inBounds(x, y, z)) return;
         this.blocks[this.getIndex(x, y, z)] = id;
     }
 
@@ -74,8 +69,6 @@ export class Debri implements Mesheable {
 
             if (this.inBounds(gridX, gridY, gridZ)) {
                 this.setBlock(gridX, gridY, gridZ, 1);
-            } else {
-                console.warn(`Block at (${x}, ${y}, ${z}) is out of bounds for Debri grid and will be ignored.`);
             }
         }
     }
@@ -90,15 +83,18 @@ export class Debri implements Mesheable {
             this.vboPositions = new VBO(this.gl, meshData.positions, this.gl.DYNAMIC_DRAW);
             this.vboNormals = new VBO(this.gl, meshData.normals, this.gl.DYNAMIC_DRAW);
             this.vboColors = new VBO(this.gl, meshData.colors, this.gl.DYNAMIC_DRAW);
+            this.vboUvs = new VBO(this.gl, meshData.uvs, this.gl.DYNAMIC_DRAW);
 
             this.vao = new VAO(this.gl);
             this.vao.linkAttrib(this.vboPositions, 0, 3, this.gl.FLOAT, false, 0, 0);
             this.vao.linkAttrib(this.vboNormals, 1, 3, this.gl.FLOAT, false, 0, 0);
             this.vao.linkAttrib(this.vboColors, 2, 3, this.gl.FLOAT, false, 0, 0);
+            this.vao.linkAttrib(this.vboUvs, 3, 2, this.gl.FLOAT, false, 0, 0);
         } else {
             this.vboPositions!.updateData(meshData.positions, this.gl.DYNAMIC_DRAW);
             this.vboNormals!.updateData(meshData.normals, this.gl.DYNAMIC_DRAW);
             this.vboColors!.updateData(meshData.colors, this.gl.DYNAMIC_DRAW);
+            this.vboUvs!.updateData(meshData.uvs, this.gl.DYNAMIC_DRAW);
         }
         
         this.vertexCount = meshData.vertexCount;
@@ -126,11 +122,13 @@ export class Debri implements Mesheable {
         if (this.vboPositions) this.vboPositions.delete();
         if (this.vboNormals) this.vboNormals.delete();
         if (this.vboColors) this.vboColors.delete();
+        if (this.vboUvs) this.vboUvs.delete();
         
         this.vao = null;
         this.vboPositions = null;
         this.vboNormals = null;
         this.vboColors = null;
+        this.vboUvs = null;
         this.vertexCount = 0;
     }
 

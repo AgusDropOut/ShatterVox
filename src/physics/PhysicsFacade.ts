@@ -25,7 +25,7 @@ export class PhysicsFacade {
         this.worker = new Worker(new URL("./physics.worker.ts", import.meta.url), { type: "module" });
         this.worker.onmessage = (e: MessageEvent<WorkerToMainMsg>) => this.handleMessage(e.data);
         this.worker.onerror = (error) => {
-            console.error("[PhysicsFacade] Error fatal en el Worker:", error.message);
+            console.error("fatal error in physics worker:", error);
         }
 
         globalEventBus.on("PHYSICS_COMMAND", (command: PhysicsCommand) => {
@@ -51,7 +51,7 @@ export class PhysicsFacade {
     private handleMessage(msg: WorkerToMainMsg): void {
         if (msg.type === 'INIT_DONE') {
             this.isReady = true;
-            console.log(`[PhysicsFacade] Worker listo. Vaciando cola de ${this.commandQueue.length} comandos pendientes...`);
+            console.log(`[PhysicsFacade] Worker is ready. Flushing ${this.commandQueue.length} queued commands.`);
             
         
             for (const cmd of this.commandQueue) {

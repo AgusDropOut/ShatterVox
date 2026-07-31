@@ -2,7 +2,7 @@ import type { PhysicsCommand } from "../physics/PhysicsProtocol";
 
 export interface GameEvents {
     "BLOCK_MINED_STATIC": { x: number, y: number, z: number, radius?: number };
-    "BLOCK_MINED_DYNAMIC": { debriId: number, localX: number, localY: number, localZ: number };
+    "BLOCK_MINED_DYNAMIC": { debriId: number, localX: number, localY: number, localZ: number, radius?: number };
     "WINDOW_RESIZE": { width: number, height: number };
     "TOGGLE_PHYSICS_DEBUG": {}; 
     "PHYSICS_COMMAND": PhysicsCommand;

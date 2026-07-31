@@ -26,27 +26,58 @@ export class StructuralIntegrity {
         globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
             const targetDebri = this.world.debri.find(d => d.id === data.debriId);
             if (targetDebri) {
-                const arrayX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
-                const arrayY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
-                const arrayZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
+                const centerX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
+                const centerY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
+                const centerZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
 
-                targetDebri.setBlock(arrayX, arrayY, arrayZ, 0);
+                const radius = data.radius || 1;
+                const rSquared = radius * radius;
 
-                globalEventBus.emit("PHYSICS_COMMAND", {
-                    type: 'REMOVE_DEBRI_BLOCK',
-                    id: targetDebri.id,
-                    localX: data.localX,
-                    localY: data.localY,
-                    localZ: data.localZ
-                });
+                const minX = Math.floor(centerX - radius);
+                const maxX = Math.ceil(centerX + radius);
+                const minY = Math.floor(centerY - radius);
+                const maxY = Math.ceil(centerY + radius);
+                const minZ = Math.floor(centerZ - radius);
+                const maxZ = Math.ceil(centerZ + radius);
 
+             
+                for (let x = minX; x <= maxX; x++) {
+                    for (let y = minY; y <= maxY; y++) {
+                        for (let z = minZ; z <= maxZ; z++) {
+                            const dx = x - centerX;
+                            const dy = y - centerY;
+                            const dz = z - centerZ;
+
+                            if (dx * dx + dy * dy + dz * dz <= rSquared) {
+                                if (targetDebri.getBlock(x, y, z) !== 0) {
+                                    targetDebri.setBlock(x, y, z, 0);
+
+                                 
+                                    const lX = (x - targetDebri.offsetX) * Engine.voxelSize;
+                                    const lY = (y - targetDebri.offsetY) * Engine.voxelSize;
+                                    const lZ = (z - targetDebri.offsetZ) * Engine.voxelSize;
+
+                                    globalEventBus.emit("PHYSICS_COMMAND", {
+                                        type: 'REMOVE_DEBRI_BLOCK',
+                                        id: targetDebri.id,
+                                        localX: lX,
+                                        localY: lY,
+                                        localZ: lZ
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                
                 this.worker.postMessage({
                     type: 'EVALUATE_SHATTER',
                     debriId: targetDebri.id,
                     blocks: targetDebri['blocks'].slice(),
-                    rx: arrayX,
-                    ry: arrayY,
-                    rz: arrayZ
+                    rx: centerX,
+                    ry: centerY,
+                    rz: centerZ
                 });
             }
         });
@@ -63,67 +94,67 @@ export class StructuralIntegrity {
 
     private handleShatterResult(data: any): void {
         const { debriId, islands } = data;
-            const debri = this.world.debri.find(d => d.id === debriId);
-            if (!debri) return;
+        const debri = this.world.debri.find(d => d.id === debriId);
+        if (!debri) return;
 
-            if (islands.length === 0) {
-                let isEmpty = true;
-                for (let i = 0; i < debri['blocks'].length; i++) {
-                    if (debri['blocks'][i] !== 0) { isEmpty = false; break; }
-                }
-                
-                if (isEmpty) {
-                    this.world.removeDebri(debri);
-                    debri.deleteGraphics();
-                    globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id });
-                } else {
-                    this.world.updateDebriMesh(debri);
-                }
-                return;
+        if (islands.length === 0) {
+            let isEmpty = true;
+            for (let i = 0; i < debri['blocks'].length; i++) {
+                if (debri['blocks'][i] !== 0) { isEmpty = false; break; }
+            }
+            
+            if (isEmpty) {
+                this.world.removeDebri(debri);
+                debri.deleteGraphics();
+                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id });
+            } else {
+                this.world.updateDebriMesh(debri);
+            }
+            return;
+        }
+
+        if (islands.length <= 1) {
+            this.world.updateDebriMesh(debri); 
+            return;
+        }
+
+        const pOffsetX = debri.offsetX;
+        const pOffsetY = debri.offsetY;
+        const pOffsetZ = debri.offsetZ;
+
+        for (let i = 1; i < islands.length; i++) {
+            const island = islands[i];
+            const newDebriId = this.physicsFacade.generateId();
+            
+            const newDebri = new Debri(this.gl, newDebriId, this.physicsFacade, [], 0, 0, 0);
+            newDebri.offsetX = pOffsetX;
+            newDebri.offsetY = pOffsetY;
+            newDebri.offsetZ = pOffsetZ;
+
+            const collidersToMove = new Float32Array(island.length * 3);
+            let offset = 0;
+
+            for (const [lx, ly, lz, blockId] of island) {
+                debri.setBlock(lx, ly, lz, 0);
+                newDebri.setBlock(lx, ly, lz, blockId);
+
+                collidersToMove[offset++] = (lx - pOffsetX) * Engine.voxelSize;
+                collidersToMove[offset++] = (ly - pOffsetY) * Engine.voxelSize;
+                collidersToMove[offset++] = (lz - pOffsetZ) * Engine.voxelSize;
             }
 
-            if (islands.length <= 1) {
-                this.world.updateDebriMesh(debri); 
-                return;
-            }
+            globalEventBus.emit("PHYSICS_COMMAND", {
+                type: 'SPLIT_DEBRI',
+                parentId: debri.id,
+                newDebriId: newDebriId,
+                collidersToMove: collidersToMove
+            });
+            
+            this.world.addDebri(newDebri);
+            this.world.updateDebriMesh(newDebri);
+        }
 
-            const pOffsetX = debri.offsetX;
-            const pOffsetY = debri.offsetY;
-            const pOffsetZ = debri.offsetZ;
-
-            for (let i = 1; i < islands.length; i++) {
-                const island = islands[i];
-                const newDebriId = this.physicsFacade.generateId();
-                
-                const newDebri = new Debri(this.gl, newDebriId, this.physicsFacade, [], 0, 0, 0);
-                newDebri.offsetX = pOffsetX;
-                newDebri.offsetY = pOffsetY;
-                newDebri.offsetZ = pOffsetZ;
-
-                const collidersToMove = new Float32Array(island.length * 3);
-                let offset = 0;
-
-                for (const [lx, ly, lz, blockId] of island) {
-                    debri.setBlock(lx, ly, lz, 0);
-                    newDebri.setBlock(lx, ly, lz, blockId);
-
-                    collidersToMove[offset++] = (lx - pOffsetX) * Engine.voxelSize;
-                    collidersToMove[offset++] = (ly - pOffsetY) * Engine.voxelSize;
-                    collidersToMove[offset++] = (lz - pOffsetZ) * Engine.voxelSize;
-                }
-
-                globalEventBus.emit("PHYSICS_COMMAND", {
-                    type: 'SPLIT_DEBRI',
-                    parentId: debri.id,
-                    newDebriId: newDebriId,
-                    collidersToMove: collidersToMove
-                });
-                
-                this.world.addDebri(newDebri);
-                this.world.updateDebriMesh(newDebri);
-            }
-
-            this.world.updateDebriMesh(debri);
+        this.world.updateDebriMesh(debri);
     }
 
     private handleStaticSupportResult(data: any): void {
@@ -196,7 +227,6 @@ export class StructuralIntegrity {
 
         const chunksToUpdate = new Set<string>();
 
-     
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
                 for (let z = minZ; z <= maxZ; z++) {
@@ -215,13 +245,11 @@ export class StructuralIntegrity {
             }
         }
 
-    
         for (const key of chunksToUpdate) {
             const [cx_c, cy_c, cz_c] = key.split(',').map(Number);
             this.world.updateChunkMeshAt(cx_c * Chunk.WIDTH, cy_c * Chunk.HEIGHT, cz_c * Chunk.DEPTH);
         }
 
-  
         const regionSize = 32;
         const halfSize = regionSize / 2;
         const regionMinX = Math.floor(cx - halfSize);
@@ -239,7 +267,6 @@ export class StructuralIntegrity {
             }
         }
 
-     
         this.worker.postMessage({
             type: 'CHECK_STATIC_SUPPORT',
             blocks: regionBlocks,

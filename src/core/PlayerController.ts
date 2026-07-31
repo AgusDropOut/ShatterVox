@@ -1,4 +1,4 @@
-import { Camera } from "./Camera";
+import { Camera } from "../core/Camera";
 import { Input } from "./Input";
 import { World } from "../world/World";
 import { globalEventBus } from "./EventBus";
@@ -89,13 +89,14 @@ export class PlayerController {
 
         if (hitGridFirst) {
             const [x, y, z] = gridHit.blockPos;
-            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z , radius: 3 });
+            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z, radius: 3 });
         } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
             globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
                 debriId: physicsHit.hitId,
                 localX: physicsHit.localX!,
                 localY: physicsHit.localY!,
-                localZ: physicsHit.localZ!
+                localZ: physicsHit.localZ!,
+                radius: 3
             });
         }
     }

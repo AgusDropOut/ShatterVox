@@ -12,6 +12,8 @@ import { Chunk } from "../world/Chunk";
 import { PhysicsDebugRenderer } from "../physics/PhysicsDebugRenderet";
 import { StructuralIntegrity } from "../physics/StructuralIntegrity";
 import { TerrainGenerator } from "../world/TerrainGenerator";
+import { ExplosiveManager } from "../entity/manager/ExplosiveManager";
+import {EntityRepository} from "../entity/EntityRepository";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -32,6 +34,9 @@ export class Engine {
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;
     private lastFpsTime: number = 0;
+
+    private entityRepository: EntityRepository;
+    private explosiveManager: ExplosiveManager;
    
 
     constructor(canvasId: string) {
@@ -71,6 +76,9 @@ export class Engine {
 
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade);
 
+        this.entityRepository = new EntityRepository();
+        this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade);
+
     }
 
     public start(): void {
@@ -105,6 +113,7 @@ export class Engine {
 
     private update(deltaTime: number): void {
         this.player.update(deltaTime);
+        this.explosiveManager.update(deltaTime);
     }
 
     private render(): void {

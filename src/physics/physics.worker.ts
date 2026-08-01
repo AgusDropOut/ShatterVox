@@ -12,6 +12,9 @@ import { AddTerrainCollidersCommand } from "./commands/AddTerrainCollidersComman
 import { RemoveTerrainColliderCommand } from "./commands/RemoveTerrainColliderCommand";
 import { RemoveDebriBlockCommand } from "./commands/RemoveDebriBlockCommand";
 import { SplitDebriCommand } from "./commands/SplitDebriCommand";
+import { ApplyImpulseCommand } from "./commands/ApplyImpulseCommand";
+import { CreateDynamicBoxCommand } from "./commands/CreateDynamicBoxCommand";
+import { ApplyRadialImpulseCommand } from "./commands/ApplyRadialImpulseCommand";
 
 const context = new PhysicsContext();
 const registry = new CommandRegistry();
@@ -27,6 +30,9 @@ registry.register('ADD_TERRAIN_COLLIDERS', new AddTerrainCollidersCommand());
 registry.register('REMOVE_TERRAIN_COLLIDER', new RemoveTerrainColliderCommand());
 registry.register('REMOVE_DEBRI_BLOCK', new RemoveDebriBlockCommand());
 registry.register('SPLIT_DEBRI', new SplitDebriCommand());
+registry.register('APPLY_IMPULSE', new ApplyImpulseCommand());
+registry.register('CREATE_DYNAMIC_BOX', new CreateDynamicBoxCommand());
+registry.register('APPLY_RADIAL_IMPULSE', new ApplyRadialImpulseCommand());
 
 self.onmessage = async (e: MessageEvent<PhysicsCommand>) => {
     const cmd = e.data;

@@ -7,6 +7,7 @@ export interface GameEvents {
     "TOGGLE_PHYSICS_DEBUG": {}; 
     "PHYSICS_COMMAND": PhysicsCommand;
     "SYNC_TRANSFORMS": { buffer: Float32Array };
+    "SPAWN_BOMB": { x: number, y: number, z: number, vx: number, vy: number, vz: number, rot: {x:number, y:number, z:number, w:number} };
 }
 
 class EventBus {

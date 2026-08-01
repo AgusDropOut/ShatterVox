@@ -2,9 +2,10 @@ import { Camera } from "../core/Camera";
 import { Input } from "./Input";
 import { World } from "../world/World";
 import { globalEventBus } from "./EventBus";
-import { vec3 } from "gl-matrix";
+import { vec3, quat } from "gl-matrix";
 import type { PhysicsFacade } from "../physics/PhysicsFacade";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
+
 
 export class PlayerController {
     public readonly camera: Camera;
@@ -13,6 +14,7 @@ export class PlayerController {
     private readonly physicsFacade: PhysicsFacade;
     public readonly playerId: number;
     private speed: number = 6.0;
+    private canThrowBomb: boolean = true;
 
     private targetPosition: vec3;
 
@@ -75,6 +77,29 @@ export class PlayerController {
             z: velocity[2],
             jump: isJumping
         });
+
+       if (this.input.isKeyPressed("KeyB") && this.canThrowBomb) {
+            this.canThrowBomb = false;
+            setTimeout(() => this.canThrowBomb = true, 500); 
+
+            const spawnPos = vec3.create();
+            vec3.scaleAndAdd(spawnPos, this.camera.position, this.camera.front, 1.0);
+
+            const throwVel = vec3.create();
+            vec3.scale(throwVel, this.camera.front, 15.0);
+            throwVel[1] += 5.0; 
+
+      
+            const rotation = quat.create();
+
+            quat.rotationTo(rotation, [0, 0, -1], this.camera.front);
+
+            globalEventBus.emit("SPAWN_BOMB", {
+                x: spawnPos[0], y: spawnPos[1], z: spawnPos[2],
+                vx: throwVel[0], vy: throwVel[1], vz: throwVel[2],
+                rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] }
+            });
+        }
     }
 
     private async handleLeftClick(): Promise<void> {

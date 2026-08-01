@@ -32,21 +32,18 @@ export class Renderer {
         this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
     }
 
+  
     public draw(vao: VAO, shader: Shader, vertexCount: number): void {
-        this.textureAtlas.bind(0);
         shader.bind();
         vao.bind();
         this.gl.drawArrays(this.gl.TRIANGLES, 0, vertexCount);
         vao.unbind();
-        this.textureAtlas.unbind();
     }
 
     public drawInstanced(vao: VAO, shader: Shader, vertexCount: number, instanceCount: number): void {
-        this.textureAtlas.bind(0);
         shader.bind();
         vao.bind();
         this.gl.drawArraysInstanced(this.gl.TRIANGLES, 0, vertexCount, instanceCount);
         vao.unbind();
-        this.textureAtlas.unbind();
     }
 }

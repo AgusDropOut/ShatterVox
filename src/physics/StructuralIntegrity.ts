@@ -4,6 +4,7 @@ import { globalEventBus } from "../core/EventBus";
 import type { PhysicsFacade } from "./PhysicsFacade";
 import { Engine } from "../core/Engine";
 import { Chunk } from "../world/Chunk";
+import { BlockRegistry } from "../block/BlockRegistry";
 
 export class StructuralIntegrity {
     private readonly world: World;
@@ -22,64 +23,9 @@ export class StructuralIntegrity {
         globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
             this.checkSupportAsync(data.x, data.y, data.z, data.radius || 1);
         });
-      
         globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
-            const targetDebri = this.world.debri.find(d => d.id === data.debriId);
-            if (targetDebri) {
-                const centerX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
-                const centerY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
-                const centerZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
-
-                const radius = data.radius || 1;
-                const rSquared = radius * radius;
-
-                const minX = Math.floor(centerX - radius);
-                const maxX = Math.ceil(centerX + radius);
-                const minY = Math.floor(centerY - radius);
-                const maxY = Math.ceil(centerY + radius);
-                const minZ = Math.floor(centerZ - radius);
-                const maxZ = Math.ceil(centerZ + radius);
-
-                console.log(`Checking support for dynamic debris ${targetDebri.id} around local block (${centerX}, ${centerY}, ${centerZ}) with radius ${radius}`);
-                for (let x = minX; x <= maxX; x++) {
-                    for (let y = minY; y <= maxY; y++) {
-                        for (let z = minZ; z <= maxZ; z++) {
-                            const dx = x - centerX;
-                            const dy = y - centerY;
-                            const dz = z - centerZ;
-
-                            if (dx * dx + dy * dy + dz * dz <= rSquared) {
-                                if (targetDebri.getBlock(x, y, z) !== 0) {
-                                    targetDebri.setBlock(x, y, z, 0);
-
-                                 
-                                    const lX = (x - targetDebri.offsetX) * Engine.voxelSize;
-                                    const lY = (y - targetDebri.offsetY) * Engine.voxelSize;
-                                    const lZ = (z - targetDebri.offsetZ) * Engine.voxelSize;
-
-                                    globalEventBus.emit("PHYSICS_COMMAND", {
-                                        type: 'REMOVE_DEBRI_BLOCK',
-                                        id: targetDebri.id,
-                                        localX: lX,
-                                        localY: lY,
-                                        localZ: lZ
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                
-                this.worker.postMessage({
-                    type: 'EVALUATE_SHATTER',
-                    debriId: targetDebri.id,
-                    blocks: targetDebri['blocks'].slice(),
-                    rx: centerX,
-                    ry: centerY,
-                    rz: centerZ
-                });
-            }
+            this.checkSupportForDynamicDebri(data);
+            
         });
     }
 
@@ -226,6 +172,7 @@ export class StructuralIntegrity {
         const maxZ = Math.ceil(cz + radius);
 
         const chunksToUpdate = new Set<string>();
+        const maxExplosionForce = radius * 20.0;
 
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
@@ -233,12 +180,47 @@ export class StructuralIntegrity {
                     const dx = x - cx; 
                     const dy = y - cy; 
                     const dz = z - cz;
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
                     if (dx * dx + dy * dy + dz * dz <= rSquared) {
-                        if (this.world.getBlock(x, y, z) !== 0) {
-                            this.world.setBlock(x, y, z, 0);
-                            chunksToUpdate.add(`${Math.floor(x / Chunk.WIDTH)},${Math.floor(y / Chunk.HEIGHT)},${Math.floor(z / Chunk.DEPTH)}`);
-                            globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_TERRAIN_COLLIDER', x, y, z });
+                        if (distance <= radius) {
+                        const blockId = this.world.getBlock(x, y, z);
+                        
+                            if (blockId !== 0) {
+                               
+                                const forceAtPoint = maxExplosionForce * (1.0 - (distance / radius));
+                                
+                                const blockDef = BlockRegistry.get(blockId);
+                                const blastResistance = blockDef.blastResistance || 10; 
+
+                                const fractureThreshold = blastResistance * (0.7 + Math.random() * 0.6);
+
+                                if (forceAtPoint > fractureThreshold) {
+                              
+                                    this.world.setBlock(x, y, z, 0);
+                                    chunksToUpdate.add(`${Math.floor(x / Chunk.WIDTH)},${Math.floor(y / Chunk.HEIGHT)},${Math.floor(z / Chunk.DEPTH)}`);
+                                    globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_TERRAIN_COLLIDER', x, y, z });
+
+                                   
+                                    const fragmentationChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.15; 
+
+                                    if (Math.random() < fragmentationChance) {
+                                        const debriId = this.physicsFacade.generateId();
+                                        
+                                        const smallDebri = new Debri(this.gl, debriId, this.physicsFacade, [[x, y, z, blockId]], x, y, z);
+                                        
+                                        this.world.addDebri(smallDebri);
+                                        this.world.updateDebriMesh(smallDebri);
+                                        
+                                        globalEventBus.emit("PHYSICS_COMMAND", { 
+                                            type: 'CREATE_DEBRI', 
+                                            id: debriId, 
+                                            cx: x, cy: y, cz: z, 
+                                            blocks: [[x, y, z, blockId]] 
+                                        });
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -275,6 +257,77 @@ export class StructuralIntegrity {
             minY: regionMinY,
             minZ: regionMinZ
         });
+    }
+
+    private checkSupportForDynamicDebri(data: any): void {
+        const targetDebri = this.world.debri.find(d => d.id === data.debriId);
+            if (targetDebri) {
+                const centerX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
+                const centerY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
+                const centerZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
+
+                const radius = data.radius || 1;
+                const rSquared = radius * radius;
+                const maxExplosionForce = radius * 20.0;
+
+                const minX = Math.floor(centerX - radius);
+                const maxX = Math.ceil(centerX + radius);
+                const minY = Math.floor(centerY - radius);
+                const maxY = Math.ceil(centerY + radius);
+                const minZ = Math.floor(centerZ - radius);
+                const maxZ = Math.ceil(centerZ + radius);
+
+                console.log(`Checking support for dynamic debris ${targetDebri.id} around local block (${centerX}, ${centerY}, ${centerZ}) with radius ${radius}`);
+                for (let x = minX; x <= maxX; x++) {
+                    for (let y = minY; y <= maxY; y++) {
+                        for (let z = minZ; z <= maxZ; z++) {
+                            const dx = x - centerX;
+                            const dy = y - centerY;
+                            const dz = z - centerZ;
+                            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                            if (dx * dx + dy * dy + dz * dz <= rSquared) {
+                                if (distance <= radius) {
+                                    const blockId = targetDebri.getBlock(x, y, z);
+                                    if (blockId !== 0) {
+                                        const forceAtPoint = maxExplosionForce * (1.0 - (distance / radius));
+                                        
+                                        const blockDef = BlockRegistry.get(blockId);
+                                        const blastResistance = blockDef.blastResistance || 10; 
+                                        
+                                        const fractureThreshold = blastResistance * (0.7 + Math.random() * 0.6);
+                                        
+                                        if (forceAtPoint > fractureThreshold) {
+                                            targetDebri.setBlock(x, y, z, 0);
+
+                                            const lX = (x - targetDebri.offsetX) * Engine.voxelSize;
+                                            const lY = (y - targetDebri.offsetY) * Engine.voxelSize;
+                                            const lZ = (z - targetDebri.offsetZ) * Engine.voxelSize;
+
+                                            globalEventBus.emit("PHYSICS_COMMAND", {
+                                                type: 'REMOVE_DEBRI_BLOCK',
+                                                id: targetDebri.id,
+                                                localX: lX,
+                                                localY: lY,
+                                                localZ: lZ
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                this.worker.postMessage({
+                    type: 'EVALUATE_SHATTER',
+                    debriId: targetDebri.id,
+                    blocks: targetDebri['blocks'].slice(),
+                    rx: centerX,
+                    ry: centerY,
+                    rz: centerZ
+                });
+            }
     }
 
     public checkSupport(x: number, y: number, z: number): void {

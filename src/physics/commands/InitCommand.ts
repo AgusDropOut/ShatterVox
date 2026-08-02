@@ -9,11 +9,20 @@ export class InitCommand implements CommandHandler<Extract<PhysicsCommand, { typ
     public async execute(command: Extract<PhysicsCommand, { type: 'INIT' }>, context: PhysicsContext): Promise<void> {
         await RAPIER.init();
         context.world = new RAPIER.World(command.gravity);
-        context.world.integrationParameters.numSolverIterations = 2;
+        
+        const params = context.world.integrationParameters;
+        
+        params.numSolverIterations = 2;
+        
+        params.numInternalPgsIterations = 1;
+        
+     
+        params.maxCcdSubsteps = 2; 
+        params.maxCcdSubsteps = 2; 
+        
         context.isInitialized = true;
         context.blockDefs = command.blockDefs;
-        console.log("[InitCommand] Physics world initialized with gravity:", command.gravity);
-    
+        console.log("[InitCommand] Physics world initialize ");
         (self as any).postMessage({ type: 'INIT_DONE' });
     }
 }

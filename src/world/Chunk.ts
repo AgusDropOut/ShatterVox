@@ -43,6 +43,11 @@ export class Chunk implements Mesheable {
         this.blocks[this.getIndex(x, y, z)] = id;
     }
 
+
+    public getBlocks(): number[] {
+        return Array.from(this.blocks);
+    }
+
     public updateGraphics(meshData: MeshData): void {
         if (meshData.vertexCount === 0) {
             this.deleteGraphics();

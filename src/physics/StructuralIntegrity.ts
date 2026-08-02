@@ -5,11 +5,13 @@ import type { PhysicsFacade } from "./PhysicsFacade";
 import { Engine } from "../core/Engine";
 import { Chunk } from "../world/Chunk";
 import { BlockRegistry } from "../block/BlockRegistry";
+import { DetachmentChecker } from "./DetachmentChecker";
 
 export class StructuralIntegrity {
     private readonly world: World;
     private readonly gl: WebGL2RenderingContext;
     private readonly physicsFacade: PhysicsFacade;
+    private detachmentChecker: DetachmentChecker;
     private worker: Worker;
 
     constructor(gl: WebGL2RenderingContext, world: World, physicsFacade: PhysicsFacade) {
@@ -20,6 +22,8 @@ export class StructuralIntegrity {
         this.worker = new Worker(new URL('./structural.worker.ts', import.meta.url), { type: 'module' });
         this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
 
+        this.detachmentChecker = new DetachmentChecker(gl, world, physicsFacade, this.worker);
+
         globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
             this.checkSupportAsync(data.x, data.y, data.z, data.radius || 1);
         });
@@ -27,6 +31,8 @@ export class StructuralIntegrity {
             this.checkSupportForDynamicDebri(data);
             
         });
+
+        
     }
 
     private handleWorkerMessage(data: any): void {
@@ -38,6 +44,9 @@ export class StructuralIntegrity {
         }
     }
 
+    
+
+    
     private handleShatterResult(data: any): void {
         const { debriId, islands } = data;
         const debri = this.world.debri.find(d => d.id === debriId);
@@ -122,6 +131,7 @@ export class StructuralIntegrity {
                     const chunkY = Math.floor(worldY / Chunk.HEIGHT);
                     const chunkZ = Math.floor(worldZ / Chunk.DEPTH);
                     chunksToUpdate.add(`${chunkX},${chunkY},${chunkZ}`);
+                    this.detachmentChecker.flagChunkForChecking(chunkX, chunkY, chunkZ);
 
                     globalEventBus.emit("PHYSICS_COMMAND", {
                         type: 'REMOVE_TERRAIN_COLLIDER',

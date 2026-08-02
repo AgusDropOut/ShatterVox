@@ -1,4 +1,4 @@
-import { globalEventBus } from "../core/EventBus";
+
 import { Chunk } from "./Chunk";
 import { ChunkMesher } from "./ChunkMesher";
 import type { Debri } from "./Debri";

@@ -4,14 +4,17 @@ import { vec3 } from "gl-matrix";
 import type { EntityRepository } from "../EntityRepository";
 import type { ExplosiveComponent } from "../Components";
 import { Engine } from "../../core/Engine";
+import type { World } from "../../world/World";
 
 export class ExplosiveManager {
     private repository: EntityRepository; 
     private physicsFacade: PhysicsFacade;
+    private world: World;
 
-    constructor(repository: EntityRepository, physicsFacade: PhysicsFacade) {
+    constructor(repository: EntityRepository, physicsFacade: PhysicsFacade, world: World) {
         this.repository = repository;
         this.physicsFacade = physicsFacade;
+        this.world = world;
 
         globalEventBus.on("SPAWN_BOMB", (data) => this.spawnBomb(data));
     }
@@ -25,7 +28,7 @@ export class ExplosiveManager {
             id: bodyId,
             x: data.x, y: data.y, z: data.z,
             rot: data.rot, 
-            halfExtents: { x: 0.2, y: 0.2, z: 0.2 },
+            halfExtents: { x: 0.1, y: 0.1, z: 0.1 },
             mass: 5.0,
             restitution: 0.5 
         });
@@ -75,7 +78,27 @@ export class ExplosiveManager {
                     radius: exp.radius
                 });
 
-                
+            
+                for (const debri of this.world.debri) {
+                    
+                    const debriTransform = this.physicsFacade.transforms.get(debri.id);
+                    const debriWorldX = debriTransform ? debriTransform.position[0] : (debri.offsetX * Engine.voxelSize);
+                    const debriWorldY = debriTransform ? debriTransform.position[1] : (debri.offsetY * Engine.voxelSize);
+                    const debriWorldZ = debriTransform ? debriTransform.position[2] : (debri.offsetZ * Engine.voxelSize);
+
+                 
+                    const localX = transform.position[0] - debriWorldX;
+                    const localY = transform.position[1] - debriWorldY;
+                    const localZ = transform.position[2] - debriWorldZ;
+
+                    globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
+                        debriId: debri.id,
+                        localX: localX,
+                        localY: localY,
+                        localZ: localZ,
+                        radius: exp.radius
+                    });
+                }
 
                 globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: phys.bodyId });
 

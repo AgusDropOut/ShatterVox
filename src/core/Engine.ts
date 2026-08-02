@@ -81,7 +81,7 @@ export class Engine {
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade);
 
         this.entityRepository = new EntityRepository();
-        this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade);
+        this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
 
     }
 
@@ -188,11 +188,14 @@ export class Engine {
             console.log(`Rendering entity ${entityId} with model ${renderComp.modelId}`);
 
             const modelMatrix = mat4.create();
+        
             mat4.translate(modelMatrix, modelMatrix, transform.position);
+            
             
             const rotationMat = mat4.create();
             mat4.fromQuat(rotationMat, transform.rotation);
             mat4.multiply(modelMatrix, modelMatrix, rotationMat);
+            mat4.translate(modelMatrix, modelMatrix, [0, -0.125, 0]);
             
             mat4.scale(modelMatrix, modelMatrix, renderComp.scale);
 

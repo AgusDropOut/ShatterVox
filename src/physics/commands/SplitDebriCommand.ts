@@ -2,13 +2,14 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import type { CommandHandler } from "./CommandHandler";
 import type { PhysicsContext } from "../PhysicsContext";
 import type { PhysicsCommand } from "../PhysicsProtocol";
+import { Engine } from "../../core/Engine";
 
 export class SplitDebriCommand implements CommandHandler<Extract<PhysicsCommand, { type: 'SPLIT_DEBRI' }>> {
     public execute(command: Extract<PhysicsCommand, { type: 'SPLIT_DEBRI' }>, context: PhysicsContext): void {
         const parentBody = context.dynamicBodies.get(command.parentId);
         if (!parentBody || !context.world) return;
 
-        const voxelSize = 0.30;
+        const voxelSize = Engine.voxelSize;
         const half = voxelSize / 2;
 
         const pTrans = parentBody.translation();

@@ -40,7 +40,7 @@ export class StructuralIntegrity {
                 const minZ = Math.floor(centerZ - radius);
                 const maxZ = Math.ceil(centerZ + radius);
 
-             
+                console.log(`Checking support for dynamic debris ${targetDebri.id} around local block (${centerX}, ${centerY}, ${centerZ}) with radius ${radius}`);
                 for (let x = minX; x <= maxX; x++) {
                     for (let y = minY; y <= maxY; y++) {
                         for (let z = minZ; z <= maxZ; z++) {

@@ -34,7 +34,7 @@ export class PhysicsFacade {
                 this.worker.postMessage(command);
                 return;
             }
-
+           
 
             if (!this.isReady) {
                 this.commandQueue.push(command);

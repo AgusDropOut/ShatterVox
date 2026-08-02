@@ -17,6 +17,7 @@ import {EntityRepository} from "../entity/EntityRepository";
 import { AssetManager } from "../renderer/AssetManager";
 import { entityFragmentShaderSource, entityVertexShaderSource } from "../renderer/shaders/EntityShader";
 import { BlockRegistry } from "../block/BlockRegistry";
+import { Debri } from "../world/Debri";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -252,6 +253,15 @@ export class Engine {
         this.renderer.textureAtlas.bind(0);
         this.shader.setInt("u_Texture", 0);
         for (const debri of this.world.debri) {
+            debri.lifeTime += 16.67;
+            if (debri.lifeTime > Debri.MAX_LIFETIME) {
+                this.world.removeDebri(debri);
+                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id});
+                debri.deleteGraphics();
+                continue;
+            }
+
+
             const debriVAO = debri.vao;
             if (!debriVAO || debri.vertexCount === 0) continue;
             

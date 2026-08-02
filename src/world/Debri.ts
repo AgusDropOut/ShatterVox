@@ -10,6 +10,9 @@ export class Debri implements Mesheable {
     public static readonly WIDTH = 32;
     public static readonly HEIGHT = 32;
     public static readonly DEPTH = 32;
+    public static readonly MAX_LIFETIME = 15000; 
+
+    public lifeTime: number = 0;
 
     public vao: VAO | null = null;
     public vertexCount: number = 0;
@@ -116,6 +119,7 @@ export class Debri implements Mesheable {
 
         return modelMatrix;
     }
+
 
     public deleteGraphics(): void {
         if (this.vao) this.vao.delete();

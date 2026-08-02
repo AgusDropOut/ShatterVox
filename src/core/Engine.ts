@@ -16,6 +16,7 @@ import { ExplosiveManager } from "../entity/manager/ExplosiveManager";
 import {EntityRepository} from "../entity/EntityRepository";
 import { AssetManager } from "../renderer/AssetManager";
 import { entityFragmentShaderSource, entityVertexShaderSource } from "../renderer/shaders/EntityShader";
+import { BlockRegistry } from "../block/BlockRegistry";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -56,7 +57,8 @@ export class Engine {
         this.physicsFacade = new PhysicsFacade();
         globalEventBus.emit("PHYSICS_COMMAND", { 
             type: 'INIT', 
-            gravity: { x: 0.0, y: -9.81, z: 0.0 } 
+            gravity: { x: 0.0, y: -9.81, z: 0.0 },
+            blockDefs: BlockRegistry.exportPhysicsConfig()
         });
 
         this.world = new World(this.renderer.gl);

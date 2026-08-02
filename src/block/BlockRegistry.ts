@@ -4,7 +4,10 @@ export interface BlockDef {
     textureId: number; 
     color: [number, number, number];
     isTransparent?: boolean;
-  
+    density: number;
+    friction: number;
+    restitution: number;
+    blastResistance: number;
 }
 
 
@@ -16,31 +19,32 @@ export class BlockBuilder {
             id,
             name: "Unknown",
             textureId: 0,
-            color: [1.0, 1.0, 1.0]
+            color: [1.0, 1.0, 1.0],
+            density: 1.0,      
+            friction: 0.5,     
+            restitution: 0.0,   
+            blastResistance: 10 
         };
     }
 
-    public name(name: string): this {
-        this.def.name = name;
-        return this;
-    }
-
-    public texture(textureId: number): this {
-        this.def.textureId = textureId;
-        return this;
-    }
-
-    public color(r: number, g: number, b: number): this {
-        this.def.color = [r, g, b];
-        return this;
-    }
-
-    public transparent(isTransparent: boolean = true): this {
-        this.def.isTransparent = isTransparent;
-        return this;
-    }
+    public name(name: string): this { this.def.name = name; return this; }
+    public texture(textureId: number): this { this.def.textureId = textureId; return this; }
+    public color(r: number, g: number, b: number): this { this.def.color = [r, g, b]; return this; }
+    public transparent(isTransparent: boolean = true): this { this.def.isTransparent = isTransparent; return this; }
 
   
+    public physics(density: number, friction: number, restitution: number): this {
+        this.def.density = density;
+        this.def.friction = friction;
+        this.def.restitution = restitution;
+        return this;
+    }
+
+    public toughness(resistance: number): this {
+        this.def.blastResistance = resistance;
+        return this;
+    }
+
     public register(): BlockDef {
         const blockDef = this.def as BlockDef;
         BlockRegistry.register(blockDef);
@@ -71,6 +75,14 @@ export class BlockRegistry {
    
     public static get(id: number): BlockDef {
         return this.blocks.get(id) || this.blocks.get(1)!; 
+    }
+
+    public static exportPhysicsConfig(): Record<number, { density: number, friction: number, restitution: number }> {
+        const config: Record<number, any> = {};
+        for (const [id, def] of this.blocks.entries()) {
+            config[id] = { density: def.density, friction: def.friction, restitution: def.restitution };
+        }
+        return config;
     }
 }
 

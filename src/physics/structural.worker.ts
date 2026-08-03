@@ -78,7 +78,6 @@ function checkStaticSupport(data: any): void {
 
 function evaluateShatter(data: any): void {
     const { debriId, blocks, rx, ry, rz } = data;
-
   
     const visitedGlobal = new Uint8Array(WIDTH * HEIGHT * DEPTH);
     const islands: number[][][] = []; 

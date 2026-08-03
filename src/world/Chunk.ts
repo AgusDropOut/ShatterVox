@@ -24,6 +24,8 @@ export class Chunk implements Mesheable {
     private vboColors: VBO | null = null;
     private vboUvs: VBO | null = null;
 
+    public isDirty: boolean = false;
+
     constructor(gl: WebGL2RenderingContext, chunkX: number, chunkY: number, chunkZ: number) {
         this.gl = gl;
         this.chunkX = chunkX;

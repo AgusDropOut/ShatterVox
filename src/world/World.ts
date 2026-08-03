@@ -1,11 +1,9 @@
-
 import { Chunk } from "./Chunk";
 import { ChunkMesher } from "./ChunkMesher";
 import type { Debri } from "./Debri";
 import { TerrainGenerator } from "./TerrainGenerator";
 
 export class World {
-
     public readonly chunks: Map<string, Chunk> = new Map();
     public readonly debri: Debri[];
     private readonly mesher: ChunkMesher;
@@ -17,10 +15,7 @@ export class World {
         generator.generateTestMap();
       
         this.updateAllMeshes();
-
-      
     }
-
     
     public getBlock(worldX: number, worldY: number, worldZ: number): number {
         const cx = Math.floor(worldX / Chunk.WIDTH);
@@ -29,7 +24,6 @@ export class World {
         
         const chunk = this.chunks.get(`${cx},${cy},${cz}`);
         if (!chunk) return 0; 
-
         
         const lx = ((worldX % Chunk.WIDTH) + Chunk.WIDTH) % Chunk.WIDTH;
         const ly = ((worldY % Chunk.HEIGHT) + Chunk.HEIGHT) % Chunk.HEIGHT;
@@ -53,32 +47,65 @@ export class World {
         chunk.setBlock(lx, ly, lz, id);
     }
 
-  
-    public updateAllMeshes(): void {
-        this.updateChunkMeshes();
-        this.updateDebriMeshes();
-    }
-
-    public updateChunkMeshes(): void {
-        for (const chunk of this.chunks.values()) {
-            this.updateChunkMesh(chunk);
-        }  
-    }
-
-  
-    public updateChunkMeshAt(worldX: number, worldY: number, worldZ: number): void {
+    
+    public setChunkDirtyAt(worldX: number, worldY: number, worldZ: number): void {
         const cx = Math.floor(worldX / Chunk.WIDTH);
         const cy = Math.floor(worldY / Chunk.HEIGHT);
         const cz = Math.floor(worldZ / Chunk.DEPTH);
-        const chunk = this.chunks.get(`${cx},${cy},${cz}`);
         
-        if (chunk) {
+        const chunk = this.chunks.get(`${cx},${cy},${cz}`);
+        if (chunk) chunk.isDirty = true;
+
+        const lx = ((worldX % Chunk.WIDTH) + Chunk.WIDTH) % Chunk.WIDTH;
+        const ly = ((worldY % Chunk.HEIGHT) + Chunk.HEIGHT) % Chunk.HEIGHT;
+        const lz = ((worldZ % Chunk.DEPTH) + Chunk.DEPTH) % Chunk.DEPTH;
+
+        if (lx === 0) {
+            const neighbor = this.chunks.get(`${cx - 1},${cy},${cz}`);
+            if (neighbor) neighbor.isDirty = true;
+        } else if (lx === Chunk.WIDTH - 1) {
+            const neighbor = this.chunks.get(`${cx + 1},${cy},${cz}`);
+            if (neighbor) neighbor.isDirty = true;
+        }
+
+        if (ly === 0) {
+            const neighbor = this.chunks.get(`${cx},${cy - 1},${cz}`);
+            if (neighbor) neighbor.isDirty = true;
+        } else if (ly === Chunk.HEIGHT - 1) {
+            const neighbor = this.chunks.get(`${cx},${cy + 1},${cz}`);
+            if (neighbor) neighbor.isDirty = true;
+        }
+
+        if (lz === 0) {
+            const neighbor = this.chunks.get(`${cx},${cy},${cz - 1}`);
+            if (neighbor) neighbor.isDirty = true;
+        } else if (lz === Chunk.DEPTH - 1) {
+            const neighbor = this.chunks.get(`${cx},${cy},${cz + 1}`);
+            if (neighbor) neighbor.isDirty = true;
+        }
+    }
+
+  
+    public updateDirtyMeshes(): void {
+        for (const chunk of this.chunks.values()) {
+            if (chunk.isDirty) {
+                this.updateChunkMesh(chunk);
+                chunk.isDirty = false;
+            }
+        }
+    }
+  
+    public updateAllMeshes(): void {
+        for (const chunk of this.chunks.values()) {
             this.updateChunkMesh(chunk);
+        }  
+        for (const debri of this.debri) {
+            this.updateDebriMesh(debri);
         }
     }
 
     private updateChunkMesh(chunk: Chunk): void {
-        let neighbors: { top: Chunk | null; bottom: Chunk | null; left: Chunk | null; right: Chunk | null; front: Chunk | null; back: Chunk | null } = {
+        let neighbors = {
             top: this.chunks.get(`${chunk.chunkX},${chunk.chunkY + 1},${chunk.chunkZ}`) || null,
             bottom: this.chunks.get(`${chunk.chunkX},${chunk.chunkY - 1},${chunk.chunkZ}`) || null,
             left: this.chunks.get(`${chunk.chunkX - 1},${chunk.chunkY},${chunk.chunkZ}`) || null,
@@ -95,12 +122,6 @@ export class World {
             chunk.chunkZ * Chunk.DEPTH
         );
         chunk.updateGraphics(meshData);
-    }
-
-    private updateDebriMeshes(): void {
-        for (const debri of this.debri) {
-            this.updateDebriMesh(debri);
-        }
     }
 
     public updateDebriMesh(debri: Debri): void {
@@ -120,6 +141,4 @@ export class World {
             this.debri.splice(index, 1);
         }
     }
-
-    
 }

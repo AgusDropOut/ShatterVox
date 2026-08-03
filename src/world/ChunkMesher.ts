@@ -120,18 +120,30 @@ export class ChunkMesher {
     }
 
     private isTransparent(center: Mesheable, neighbor: Mesheable | null, x: number, y: number, z: number): boolean {
-        if (x < 0) return neighbor ? neighbor.getBlock(Chunk.WIDTH - 1, y, z) === 0 : true;
-        if (x >= Chunk.WIDTH) return neighbor ? neighbor.getBlock(0, y, z) === 0 : true;
-        
-        if (y < 0) return neighbor ? neighbor.getBlock(x, Chunk.HEIGHT - 1, z) === 0 : true;
-        if (y >= Chunk.HEIGHT) return neighbor ? neighbor.getBlock(x, 0, z) === 0 : true;
-        
-        if (z < 0) return neighbor ? neighbor.getBlock(x, y, Chunk.DEPTH - 1) === 0 : true;
-        if (z >= Chunk.DEPTH) return neighbor ? neighbor.getBlock(x, y, 0) === 0 : true;
+        let targetBlockId = 0;
 
-        const blockId = center.getBlock(x, y, z);
-        if (blockId === 0) return true;
-   
-        return BlockRegistry.get(blockId).isTransparent === true;
+
+        if (x < 0) {
+            targetBlockId = neighbor ? neighbor.getBlock(Chunk.WIDTH - 1, y, z) : 0;
+        } else if (x >= Chunk.WIDTH) {
+            targetBlockId = neighbor ? neighbor.getBlock(0, y, z) : 0;
+        } else if (y < 0) {
+            targetBlockId = neighbor ? neighbor.getBlock(x, Chunk.HEIGHT - 1, z) : 0;
+        } else if (y >= Chunk.HEIGHT) {
+            targetBlockId = neighbor ? neighbor.getBlock(x, 0, z) : 0;
+        } else if (z < 0) {
+            targetBlockId = neighbor ? neighbor.getBlock(x, y, Chunk.DEPTH - 1) : 0;
+        } else if (z >= Chunk.DEPTH) {
+            targetBlockId = neighbor ? neighbor.getBlock(x, y, 0) : 0;
+        } else {
+            targetBlockId = center.getBlock(x, y, z);
+        }
+
+    
+        if (targetBlockId === 0) return true; 
+
+      
+        const blockDef = BlockRegistry.get(targetBlockId);
+        return blockDef.isTransparent === true;
     }
 }

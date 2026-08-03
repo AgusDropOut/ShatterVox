@@ -12,13 +12,13 @@ export class InitCommand implements CommandHandler<Extract<PhysicsCommand, { typ
         
         const params = context.world.integrationParameters;
         
-        params.numSolverIterations = 2;
+        params.numSolverIterations = 1;
         
         params.numInternalPgsIterations = 1;
         
      
-        params.maxCcdSubsteps = 2; 
-        params.maxCcdSubsteps = 2; 
+        params.maxCcdSubsteps = 1; 
+       
         
         context.isInitialized = true;
         context.blockDefs = command.blockDefs;

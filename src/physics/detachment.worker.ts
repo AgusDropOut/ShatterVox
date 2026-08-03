@@ -1,29 +1,33 @@
 function evaluateDynamicDetachment(debriId: number, blocks: Uint8Array, WIDTH: number, HEIGHT: number, DEPTH: number) {
+    if(blocks.length <= 2) {
+        self.postMessage({ type: 'DETACHMENT_RESULT_DYNAMIC', debriId, detachedBlocks: [] });
+        return;
+    }
+
     const detachedBlocks: number[][] = []; 
-    
     const neighborOffsets = [
         [1, 0, 0], [-1, 0, 0],
         [0, 1, 0], [0, -1, 0],
-        [0, 0, 1], [0, 0, -1]
+        [0, 0, 1], [0, 0, -1]   
     ];
 
     for (let z = 0; z < DEPTH; z++) {
         for (let y = 0; y < HEIGHT; y++) {
             for (let x = 0; x < WIDTH; x++) {
-                
                 const idx = getIndex(x, y, z, WIDTH, HEIGHT);
                 const currentBlockId = blocks[idx];
 
                 if (currentBlockId === 0) continue;
 
                 let airBlocks = 0;
+                let supportBelow = false;
+
                 for (const [dx, dy, dz] of neighborOffsets) {
                     const nx = x + dx;
                     const ny = y + dy;
                     const nz = z + dz;
                     
                     if (!inBounds(nx, ny, nz, WIDTH, HEIGHT, DEPTH)) {
-
                         airBlocks++;
                         continue;
                     }
@@ -31,23 +35,20 @@ function evaluateDynamicDetachment(debriId: number, blocks: Uint8Array, WIDTH: n
                     const nIdx = getIndex(nx, ny, nz, WIDTH, HEIGHT);
                     if (blocks[nIdx] === 0) {
                         airBlocks++;
+                    } else if (dy === -1) {
+                        supportBelow = true;
                     }
                 }
 
-
-                if (airBlocks >= 5) {
+           
+                if (airBlocks >= 5 || (airBlocks >= 4 && !supportBelow)) {
                     detachedBlocks.push([x, y, z, currentBlockId]);
                 }
             }
         }
     }
-    console.log(`[DetachmentWorker] Detachment evaluation complete for debri ID: ${debriId}. Detached blocks count: ${detachedBlocks.length}`);
-    console.log(`[DetachmentWorker] ID: ${debriId}. Detached: ${detachedBlocks.length}`);
-    self.postMessage({ 
-        type: 'DETACHMENT_RESULT_DYNAMIC', 
-        debriId, 
-        detachedBlocks 
-    });
+
+    self.postMessage({ type: 'DETACHMENT_RESULT_DYNAMIC', debriId, detachedBlocks });
 }
 
 function evaluateStaticDetachment(chunks: { chunkX: number, chunkY: number, chunkZ: number, blocks: Uint8Array, WIDTH: number, HEIGHT: number, DEPTH: number }[]) {
@@ -64,8 +65,7 @@ function evaluateStaticDetachment(chunks: { chunkX: number, chunkY: number, chun
                     const currentBlockId = blocks[idx];
 
                     if (currentBlockId === 0) continue;
-
-                    if(y === 0 || y - 1 === 0) continue; 
+                    if (y === 0 || y - 1 === 0) continue; 
 
                     let airBlocks = 0;
                     const neighborOffsets = [
@@ -102,11 +102,7 @@ function evaluateStaticDetachment(chunks: { chunkX: number, chunkY: number, chun
         }
     }
 
-    console.log(`[DetachmentWorker] Static detachment evaluation complete. Total detached chunks: ${detachedBlocks.length}`);
-    self.postMessage({
-        type: 'DETACHMENT_RESULT_STATIC',
-        detachedBlocks
-    });
+    self.postMessage({ type: 'DETACHMENT_RESULT_STATIC', detachedBlocks });
 }
 
 function inBounds(x: number, y: number, z: number, WIDTH: number, HEIGHT: number, DEPTH: number): boolean {
@@ -117,15 +113,10 @@ function getIndex(x: number, y: number, z: number, WIDTH: number, HEIGHT: number
     return z * WIDTH * HEIGHT + y * WIDTH + x;
 }
 
-
 self.onmessage = (e: MessageEvent) => {
     if (e.data.type === 'PERIODIC_DYNAMIC_DETACHMENT_CHECK') {
-        const data = e.data;
-        console.log(`[DetachmentWorker] Received periodic detachment check for debri ID: ${data.debriId}`);
-        evaluateDynamicDetachment(data.debriId, data.blocks, data.WIDTH, data.HEIGHT, data.DEPTH);
+        evaluateDynamicDetachment(e.data.debriId, e.data.blocks, e.data.WIDTH, e.data.HEIGHT, e.data.DEPTH);
     } else if (e.data.type === 'PERIODIC_STATIC_DETACHMENT_CHECK') {
-        const data = e.data;
-        console.log(`[DetachmentWorker] Received periodic static detachment check for chunk at (${data.chunks[0].chunkX}, ${data.chunks[0].chunkY}, ${data.chunks[0].chunkZ})`);
-        evaluateStaticDetachment(data.chunks);
+        evaluateStaticDetachment(e.data.chunks);
     } 
 };

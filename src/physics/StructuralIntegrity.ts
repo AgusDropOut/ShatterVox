@@ -27,12 +27,10 @@ export class StructuralIntegrity {
         globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
             this.checkSupportAsync(data.x, data.y, data.z, data.radius || 1);
         });
+        
         globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
             this.checkSupportForDynamicDebri(data);
-            
         });
-
-        
     }
 
     private handleWorkerMessage(data: any): void {
@@ -44,9 +42,6 @@ export class StructuralIntegrity {
         }
     }
 
-    
-
-    
     private handleShatterResult(data: any): void {
         const { debriId, islands } = data;
         const debri = this.world.debri.find(d => d.id === debriId);
@@ -113,63 +108,50 @@ export class StructuralIntegrity {
     }
 
     private handleStaticSupportResult(data: any): void {
-         const { detachedBlocks, minX, minY, minZ } = data;
-            if (!detachedBlocks || detachedBlocks.length === 0) return;
+        const { detachedBlocks, minX, minY, minZ } = data;
+        if (!detachedBlocks || detachedBlocks.length === 0) return;
 
-            const chunksToUpdate = new Set<string>();
+        for (const island of detachedBlocks) {
+            const islandBlocksFormatted: number[][] = [];
+            for (const [lx, ly, lz, blockId] of island) {
+                const worldX = lx + minX;
+                const worldY = ly + minY;
+                const worldZ = lz + minZ;
 
-            for (const island of detachedBlocks) {
-                const islandBlocksFormatted: number[][] = [];
-                for (const [lx, ly, lz, blockId] of island) {
-                    const worldX = lx + minX;
-                    const worldY = ly + minY;
-                    const worldZ = lz + minZ;
+                this.world.setBlock(worldX, worldY, worldZ, 0);
+                this.world.setChunkDirtyAt(worldX, worldY, worldZ);
+                this.detachmentChecker.flagChunkForChecking(Math.floor(worldX / Chunk.WIDTH), Math.floor(worldY / Chunk.HEIGHT), Math.floor(worldZ / Chunk.DEPTH));
 
-                    this.world.setBlock(worldX, worldY, worldZ, 0);
+                globalEventBus.emit("PHYSICS_COMMAND", {
+                    type: 'REMOVE_TERRAIN_COLLIDER',
+                    x: worldX, y: worldY, z: worldZ
+                });
 
-                    const chunkX = Math.floor(worldX / Chunk.WIDTH);
-                    const chunkY = Math.floor(worldY / Chunk.HEIGHT);
-                    const chunkZ = Math.floor(worldZ / Chunk.DEPTH);
-                    chunksToUpdate.add(`${chunkX},${chunkY},${chunkZ}`);
-                    this.detachmentChecker.flagChunkForChecking(chunkX, chunkY, chunkZ);
-
-                    globalEventBus.emit("PHYSICS_COMMAND", {
-                        type: 'REMOVE_TERRAIN_COLLIDER',
-                        x: worldX,
-                        y: worldY,
-                        z: worldZ
-                    });
-
-                    islandBlocksFormatted.push([worldX, worldY, worldZ, blockId]);
-                }
-
-                if (islandBlocksFormatted.length > 0) {
-                    let cx = 0, cy = 0, cz = 0;
-                    for (const [x, y, z] of islandBlocksFormatted) {
-                        cx += x; cy += y; cz += z;
-                    }
-                    cx /= islandBlocksFormatted.length;
-                    cy /= islandBlocksFormatted.length;
-                    cz /= islandBlocksFormatted.length;
-
-                    const debriId = this.physicsFacade.generateId();
-                    globalEventBus.emit("PHYSICS_COMMAND", {
-                        type: 'CREATE_DEBRI',
-                        id: debriId,
-                        cx: cx, cy: cy, cz: cz,
-                        blocks: islandBlocksFormatted
-                    });
-
-                    const debri = new Debri(this.gl, debriId, this.physicsFacade, islandBlocksFormatted, cx, cy, cz);
-                    this.world.addDebri(debri);
-                    this.world.updateDebriMesh(debri);
-                }
+                islandBlocksFormatted.push([worldX, worldY, worldZ, blockId]);
             }
 
-            for (const key of chunksToUpdate) {
-                const [cx, cy, cz] = key.split(',').map(Number);
-                this.world.updateChunkMeshAt(cx * Chunk.WIDTH, cy * Chunk.HEIGHT, cz * Chunk.DEPTH);
+            if (islandBlocksFormatted.length > 0) {
+                let cx = 0, cy = 0, cz = 0;
+                for (const [x, y, z] of islandBlocksFormatted) {
+                    cx += x; cy += y; cz += z;
+                }
+                cx /= islandBlocksFormatted.length;
+                cy /= islandBlocksFormatted.length;
+                cz /= islandBlocksFormatted.length;
+
+                const debriId = this.physicsFacade.generateId();
+                globalEventBus.emit("PHYSICS_COMMAND", {
+                    type: 'CREATE_DEBRI',
+                    id: debriId,
+                    cx: cx, cy: cy, cz: cz,
+                    blocks: islandBlocksFormatted
+                });
+
+                const debri = new Debri(this.gl, debriId, this.physicsFacade, islandBlocksFormatted, cx, cy, cz);
+                this.world.addDebri(debri);
+                this.world.updateDebriMesh(debri);
             }
+        }
     }
 
     public checkSupportAsync(cx: number, cy: number, cz: number, radius: number = 1): void {
@@ -181,7 +163,6 @@ export class StructuralIntegrity {
         const minZ = Math.floor(cz - radius);
         const maxZ = Math.ceil(cz + radius);
 
-        const chunksToUpdate = new Set<string>();
         const maxExplosionForce = radius * 20.0;
 
         for (let x = minX; x <= maxX; x++) {
@@ -190,45 +171,37 @@ export class StructuralIntegrity {
                     const dx = x - cx; 
                     const dy = y - cy; 
                     const dz = z - cz;
-                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    const distanceSq = dx * dx + dy * dy + dz * dz;
 
-                    if (dx * dx + dy * dy + dz * dz <= rSquared) {
-                        if (distance <= radius) {
+                    if (distanceSq <= rSquared) {
+                        const distance = Math.sqrt(distanceSq);
                         const blockId = this.world.getBlock(x, y, z);
                         
-                            if (blockId !== 0) {
-                               
-                                const forceAtPoint = maxExplosionForce * (1.0 - (distance / radius));
+                        if (blockId !== 0) {
+                            const forceAtPoint = maxExplosionForce * (1.0 - (distance / radius));
+                            const blockDef = BlockRegistry.get(blockId);
+                            const blastResistance = blockDef.blastResistance || 10; 
+                            const fractureThreshold = blastResistance * (0.7 + Math.random() * 0.6);
+
+                            if (forceAtPoint > fractureThreshold) {
+                                this.world.setBlock(x, y, z, 0);
+                                this.world.setChunkDirtyAt(x, y, z);
                                 
-                                const blockDef = BlockRegistry.get(blockId);
-                                const blastResistance = blockDef.blastResistance || 10; 
+                                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_TERRAIN_COLLIDER', x, y, z });
 
-                                const fractureThreshold = blastResistance * (0.7 + Math.random() * 0.6);
-
-                                if (forceAtPoint > fractureThreshold) {
-                              
-                                    this.world.setBlock(x, y, z, 0);
-                                    chunksToUpdate.add(`${Math.floor(x / Chunk.WIDTH)},${Math.floor(y / Chunk.HEIGHT)},${Math.floor(z / Chunk.DEPTH)}`);
-                                    globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_TERRAIN_COLLIDER', x, y, z });
-
-                                   
-                                    const fragmentationChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.15; 
-
-                                    if (Math.random() < fragmentationChance) {
-                                        const debriId = this.physicsFacade.generateId();
-                                        
-                                        const smallDebri = new Debri(this.gl, debriId, this.physicsFacade, [[x, y, z, blockId]], x, y, z);
-                                        
-                                        this.world.addDebri(smallDebri);
-                                        this.world.updateDebriMesh(smallDebri);
-                                        
-                                        globalEventBus.emit("PHYSICS_COMMAND", { 
-                                            type: 'CREATE_DEBRI', 
-                                            id: debriId, 
-                                            cx: x, cy: y, cz: z, 
-                                            blocks: [[x, y, z, blockId]] 
-                                        });
-                                    }
+                                const fragmentationChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.15; 
+                                if (Math.random() < fragmentationChance) {
+                                    const debriId = this.physicsFacade.generateId();
+                                    const smallDebri = new Debri(this.gl, debriId, this.physicsFacade, [[x, y, z, blockId]], x, y, z);
+                                    
+                                    this.world.addDebri(smallDebri);
+                                    this.world.updateDebriMesh(smallDebri);
+                                    
+                                    globalEventBus.emit("PHYSICS_COMMAND", { 
+                                        type: 'CREATE_DEBRI', id: debriId, 
+                                        cx: x, cy: y, cz: z, 
+                                        blocks: [[x, y, z, blockId]] 
+                                    });
                                 }
                             }
                         }
@@ -237,17 +210,11 @@ export class StructuralIntegrity {
             }
         }
 
-        for (const key of chunksToUpdate) {
-            const [cx_c, cy_c, cz_c] = key.split(',').map(Number);
-            this.world.updateChunkMeshAt(cx_c * Chunk.WIDTH, cy_c * Chunk.HEIGHT, cz_c * Chunk.DEPTH);
-        }
-
         const regionSize = 32;
         const halfSize = regionSize / 2;
         const regionMinX = Math.floor(cx - halfSize);
         const regionMinY = Math.max(0, Math.floor(cy - halfSize));
         const regionMinZ = Math.floor(cz - halfSize);
-
         const regionBlocks = new Uint8Array(regionSize * regionSize * regionSize);
         let index = 0;
 
@@ -261,83 +228,88 @@ export class StructuralIntegrity {
 
         this.worker.postMessage({
             type: 'CHECK_STATIC_SUPPORT',
-            blocks: regionBlocks,
-            size: regionSize,
-            minX: regionMinX,
-            minY: regionMinY,
-            minZ: regionMinZ
+            blocks: regionBlocks, size: regionSize,
+            minX: regionMinX, minY: regionMinY, minZ: regionMinZ
         });
     }
 
     private checkSupportForDynamicDebri(data: any): void {
         const targetDebri = this.world.debri.find(d => d.id === data.debriId);
-            if (targetDebri) {
-                const centerX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
-                const centerY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
-                const centerZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
+        if (!targetDebri) return;
 
-                const radius = data.radius || 1;
-                const rSquared = radius * radius;
-                const maxExplosionForce = radius * 20.0;
+        let blockCountCheck = 0;
+        for (let i = 0; i < targetDebri['blocks'].length; i++) {
+            if (targetDebri['blocks'][i] !== 0) blockCountCheck++;
+            if (blockCountCheck > 3) break; 
+        }
 
-                const minX = Math.floor(centerX - radius);
-                const maxX = Math.ceil(centerX + radius);
-                const minY = Math.floor(centerY - radius);
-                const maxY = Math.ceil(centerY + radius);
-                const minZ = Math.floor(centerZ - radius);
-                const maxZ = Math.ceil(centerZ + radius);
+        if (blockCountCheck <= 3) {
+            this.world.removeDebri(targetDebri);
+            targetDebri.deleteGraphics();
+            globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: targetDebri.id });
+            return;
+        }
 
-                console.log(`Checking support for dynamic debris ${targetDebri.id} around local block (${centerX}, ${centerY}, ${centerZ}) with radius ${radius}`);
-                for (let x = minX; x <= maxX; x++) {
-                    for (let y = minY; y <= maxY; y++) {
-                        for (let z = minZ; z <= maxZ; z++) {
-                            const dx = x - centerX;
-                            const dy = y - centerY;
-                            const dz = z - centerZ;
-                            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const centerX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
+        const centerY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
+        const centerZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
 
-                            if (dx * dx + dy * dy + dz * dz <= rSquared) {
-                                if (distance <= radius) {
-                                    const blockId = targetDebri.getBlock(x, y, z);
-                                    if (blockId !== 0) {
-                                        const forceAtPoint = maxExplosionForce * (1.0 - (distance / radius));
-                                        
-                                        const blockDef = BlockRegistry.get(blockId);
-                                        const blastResistance = blockDef.blastResistance || 10; 
-                                        
-                                        const fractureThreshold = blastResistance * (0.7 + Math.random() * 0.6);
-                                        
-                                        if (forceAtPoint > fractureThreshold) {
-                                            targetDebri.setBlock(x, y, z, 0);
+        const radius = data.radius || 1;
+        const rSquared = radius * radius;
+        const maxExplosionForce = radius * 20.0;
 
-                                            const lX = (x - targetDebri.offsetX) * Engine.voxelSize;
-                                            const lY = (y - targetDebri.offsetY) * Engine.voxelSize;
-                                            const lZ = (z - targetDebri.offsetZ) * Engine.voxelSize;
+        const minX = Math.floor(centerX - radius);
+        const maxX = Math.ceil(centerX + radius);
+        const minY = Math.floor(centerY - radius);
+        const maxY = Math.ceil(centerY + radius);
+        const minZ = Math.floor(centerZ - radius);
+        const maxZ = Math.ceil(centerZ + radius);
 
-                                            globalEventBus.emit("PHYSICS_COMMAND", {
-                                                type: 'REMOVE_DEBRI_BLOCK',
-                                                id: targetDebri.id,
-                                                localX: lX,
-                                                localY: lY,
-                                                localZ: lZ
-                                            });
-                                        }
-                                    }
-                                }
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                for (let z = minZ; z <= maxZ; z++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const dz = z - centerZ;
+                    const distanceSq = dx * dx + dy * dy + dz * dz;
+
+                    if (distanceSq <= rSquared) {
+                        const distance = Math.sqrt(distanceSq);
+                        const blockId = targetDebri.getBlock(x, y, z);
+                        
+                        if (blockId !== 0) {
+                            const forceAtPoint = maxExplosionForce * (1.0 - (distance / radius));
+                            const blockDef = BlockRegistry.get(blockId);
+                            const blastResistance = blockDef.blastResistance || 10; 
+                            const fractureThreshold = blastResistance * (0.7 + Math.random() * 0.6);
+
+                            if (forceAtPoint > fractureThreshold) {
+                                targetDebri.setBlock(x, y, z, 0);
+
+                                const lX = (x - targetDebri.offsetX) * Engine.voxelSize;
+                                const lY = (y - targetDebri.offsetY) * Engine.voxelSize;
+                                const lZ = (z - targetDebri.offsetZ) * Engine.voxelSize;
+
+                                globalEventBus.emit("PHYSICS_COMMAND", {
+                                    type: 'REMOVE_DEBRI_BLOCK',
+                                    id: targetDebri.id,
+                                    localX: lX, localY: lY, localZ: lZ
+                                });
                             }
                         }
                     }
                 }
-
-                this.worker.postMessage({
-                    type: 'EVALUATE_SHATTER',
-                    debriId: targetDebri.id,
-                    blocks: targetDebri['blocks'].slice(),
-                    rx: centerX,
-                    ry: centerY,
-                    rz: centerZ
-                });
             }
+        }
+
+        this.world.updateDebriMesh(targetDebri);
+
+        this.worker.postMessage({
+            type: 'EVALUATE_SHATTER',
+            debriId: targetDebri.id,
+            blocks: targetDebri['blocks'].slice(),
+            rx: centerX, ry: centerY, rz: centerZ
+        });
     }
 
     public checkSupport(x: number, y: number, z: number): void {

@@ -137,6 +137,7 @@ export class Engine {
     private update(deltaTime: number): void {
         this.player.update(deltaTime);
         this.explosiveManager.update(deltaTime);
+        this.world.updateDirtyMeshes();
     }
 
     private render(): void {
@@ -188,7 +189,7 @@ export class Engine {
                 continue;
             }
 
-            console.log(`Rendering entity ${entityId} with model ${renderComp.modelId}`);
+           
 
             const modelMatrix = mat4.create();
         

@@ -4,6 +4,8 @@ import { Chunk } from "./Chunk";
 export class TerrainGenerator {
     private world: World;
     private gl: WebGL2RenderingContext;
+    
+    public debugChunkBorders: boolean = true; 
 
     constructor(world: World, gl: WebGL2RenderingContext) {
         this.world = world;
@@ -32,7 +34,6 @@ export class TerrainGenerator {
         const ID_WOOD = 3;
         const ID_LEAVES = 4;
 
-   
         for (let x = 0; x < WORLD_WIDTH; x++) {
             for (let z = 0; z < WORLD_DEPTH; z++) {
                 this.world.setBlock(x, 0, z, ID_GRASS);
@@ -45,7 +46,6 @@ export class TerrainGenerator {
         const templeX = 40, templeZ = 40, templeY = 1; 
         const templeWidth = 40, templeDepth = 26;
 
-   
         for (let x = templeX; x < templeX + templeWidth; x++) {
             for (let z = templeZ; z < templeZ + templeDepth; z++) {
                 this.world.setBlock(x, templeY, z, ID_STONE);
@@ -53,7 +53,6 @@ export class TerrainGenerator {
                 this.world.setBlock(x, templeY + 2, z, ID_STONE); 
             }
         }
-
 
         const columnSpacing = 8;
         for (let x = templeX + 3; x < templeX + templeWidth - 3; x += columnSpacing) {
@@ -68,7 +67,6 @@ export class TerrainGenerator {
             }
         }
 
-  
         for (let x = templeX - 2; x < templeX + templeWidth + 2; x++) {
             for (let z = templeZ - 2; z < templeZ + templeDepth + 2; z++) {
                 this.world.setBlock(x, templeY + 18, z, ID_STONE);
@@ -85,7 +83,7 @@ export class TerrainGenerator {
             }
         }
 
-        
+    
         const treeX = 90, treeZ = 90;
         const treeBaseY = 1; 
 
@@ -97,7 +95,7 @@ export class TerrainGenerator {
             }
         }
 
-      
+   
         const radius = 12;
         const canopyCenterY = treeBaseY + 22;
         for (let x = treeX - radius; x <= treeX + radius; x++) {
@@ -113,7 +111,7 @@ export class TerrainGenerator {
             }
         }
 
-      
+  
         const archX = 15, archZ = 90, archY = 1;
         for (let i = 0; i < 15; i++) { 
             this.world.setBlock(archX, archY + i, archZ, ID_STONE);
@@ -130,6 +128,22 @@ export class TerrainGenerator {
             }
         }
 
-      
+        if (this.debugChunkBorders) {
+
+            const BORDER_MATERIAL = ID_WOOD; 
+
+            for (let x = 0; x < WORLD_WIDTH; x++) {
+                for (let z = 0; z < WORLD_DEPTH; z++) {
+
+                    const isBorderX = (x % Chunk.WIDTH === 0);
+                    const isBorderZ = (z % Chunk.DEPTH === 0);
+
+                    if (isBorderX || isBorderZ) {
+                        this.world.setBlock(x, 0, z, BORDER_MATERIAL);
+                        this.world.setBlock(x, 1, z, 0); 
+                    }
+                }
+            }
+        }
     }
 }

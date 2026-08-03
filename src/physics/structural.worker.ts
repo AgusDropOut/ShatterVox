@@ -43,7 +43,9 @@ function checkStaticSupport(data: any): void {
                     islandBlocks.push([cx, cy, cz, bId]);
 
                     const absoluteY = cy + minY;
-                    if (absoluteY <= 0) {
+                    
+               
+                    if (absoluteY <= 0 || cx === 0 || cx === size - 1 || cz === 0 || cz === size - 1) {
                         isAnchored = true;
                     }
 
@@ -75,7 +77,6 @@ function checkStaticSupport(data: any): void {
 
     self.postMessage({ type: 'STATIC_CHECK_RESULT', detachedBlocks: detachedIslands, minX, minY, minZ });
 }
-
 function evaluateShatter(data: any): void {
     const { debriId, blocks, rx, ry, rz } = data;
   

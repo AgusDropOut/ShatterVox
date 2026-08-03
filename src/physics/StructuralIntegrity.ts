@@ -210,26 +210,39 @@ export class StructuralIntegrity {
             }
         }
 
-        const regionSize = 32;
+        const regionSize = 64; 
         const halfSize = regionSize / 2;
+        
+
         const regionMinX = Math.floor(cx - halfSize);
-        const regionMinY = Math.max(0, Math.floor(cy - halfSize));
+        const regionMinY = Math.max(0, Math.floor(cy - halfSize)); 
         const regionMinZ = Math.floor(cz - halfSize);
+
+   
         const regionBlocks = new Uint8Array(regionSize * regionSize * regionSize);
         let index = 0;
+
 
         for (let sz = 0; sz < regionSize; sz++) {
             for (let sy = 0; sy < regionSize; sy++) {
                 for (let sx = 0; sx < regionSize; sx++) {
-                    regionBlocks[index++] = this.world.getBlock(regionMinX + sx, regionMinY + sy, regionMinZ + sz);
+                    const globalX = regionMinX + sx;
+                    const globalY = regionMinY + sy;
+                    const globalZ = regionMinZ + sz;
+                    
+                    regionBlocks[index++] = this.world.getBlock(globalX, globalY, globalZ);
                 }
             }
         }
 
+    
         this.worker.postMessage({
             type: 'CHECK_STATIC_SUPPORT',
-            blocks: regionBlocks, size: regionSize,
-            minX: regionMinX, minY: regionMinY, minZ: regionMinZ
+            blocks: regionBlocks, 
+            size: regionSize,
+            minX: regionMinX, 
+            minY: regionMinY, 
+            minZ: regionMinZ
         });
     }
 

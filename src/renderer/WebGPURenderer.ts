@@ -12,6 +12,7 @@ import { Debri } from "../world/Debri";
 import { DebriBatchManager } from "./DebriBatchManager";
 import { mat4 } from "gl-matrix";
 import { debriShaderWGSL } from "./shaders/DebriShader.wgsl";
+import { globalEventBus } from "../core/EventBus";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -177,6 +178,7 @@ export class WebGPURenderer {
             debri.lifeTime += 16.67;
             if (debri.lifeTime > Debri.MAX_LIFETIME) {
                 world.removeDebri(debri);
+                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id});
                 debri.deleteGraphics();
             }
         }

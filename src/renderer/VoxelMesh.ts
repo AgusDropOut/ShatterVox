@@ -46,4 +46,15 @@ export class VoxelMesh {
 
         renderPass.draw(this.vertexCount);
     }
+
+    public drawWithInstance(renderPass: GPURenderPassEncoder, instanceIndex: number) { 
+        if (this.vertexCount === 0 || !this.positions || !this.normals || !this.colors || !this.uvs) return;
+
+        renderPass.setVertexBuffer(0, this.positions.buffer);
+        renderPass.setVertexBuffer(1, this.normals.buffer);
+        renderPass.setVertexBuffer(2, this.colors.buffer);
+        renderPass.setVertexBuffer(3, this.uvs.buffer);
+
+        renderPass.draw(this.vertexCount, 1, 0, instanceIndex);
+    }
 }

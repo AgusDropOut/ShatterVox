@@ -9,7 +9,9 @@ import { WebGPUTexture } from "./WebGPUTexture";
 import { entityShaderWGSL } from "./shaders/EntityShader.wgsl";
 import { physicsDebugShaderWGSL } from "./shaders/PhysicsDebugShader.wgsl";
 import { Debri } from "../world/Debri";
+import { DebriBatchManager } from "./DebriBatchManager";
 import { mat4 } from "gl-matrix";
+import { debriShaderWGSL } from "./shaders/DebriShader.wgsl";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -19,6 +21,7 @@ export class WebGPURenderer {
 
     private chunkPipeline!: GPURenderPipeline;
     public entityPipeline!: GPURenderPipeline;
+    private debriPipeline!: GPURenderPipeline;
     private debugPipeline!: GPURenderPipeline;
 
     private depthTexture!: GPUTexture;
@@ -28,12 +31,14 @@ export class WebGPURenderer {
     private cameraBuffer!: GPUBuffer;
     private cameraBindGroup!: GPUBindGroup;
     public entityCameraBindGroup!: GPUBindGroup;
+    private debriCameraBindGroup!: GPUBindGroup;
     private debugCameraBindGroup!: GPUBindGroup;
 
     private commandEncoder: GPUCommandEncoder | null = null;
     private renderPass: GPURenderPassEncoder | null = null;
 
     private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup }> = new Map();
+    private debriBatchManager!: DebriBatchManager;
 
     private debugPosBuffer: GPUBuffer | null = null;
     private debugColBuffer: GPUBuffer | null = null;
@@ -45,10 +50,7 @@ export class WebGPURenderer {
     }
 
     public async init(): Promise<boolean> {
-        if (!navigator.gpu) {
-            console.error("WebGPU not supported on this browser.");
-            return false;
-        }
+        if (!navigator.gpu) return false;
 
         const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
         if (!adapter) return false;
@@ -67,7 +69,10 @@ export class WebGPURenderer {
 
         this.chunkPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'CHUNK', chunkShaderWGSL, this.presentationFormat);
         this.entityPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'ENTITY', entityShaderWGSL, this.presentationFormat);
+        this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat);
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat);
+
+        this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
 
         this.atlas = await WebGPUTexture.create(this.device, "/assets/atlas.png");
 
@@ -78,6 +83,15 @@ export class WebGPURenderer {
 
         this.cameraBindGroup = this.device.createBindGroup({
             layout: this.chunkPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.cameraBuffer } },
+                { binding: 1, resource: this.atlas.sampler },
+                { binding: 2, resource: this.atlas.view }
+            ]
+        });
+
+        this.debriCameraBindGroup = this.device.createBindGroup({
+            layout: this.debriPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: { buffer: this.cameraBuffer } },
                 { binding: 1, resource: this.atlas.sampler },
@@ -99,7 +113,6 @@ export class WebGPURenderer {
             ]
         });
 
-        console.log("WebGPU initialized", adapter.info);
         return true;
     }
 
@@ -110,7 +123,6 @@ export class WebGPURenderer {
     public resize(width: number, height: number): void {
         this.canvas.width = width;
         this.canvas.height = height;
-
         if (!this.device) return; 
 
         if (this.depthTexture) this.depthTexture.destroy();
@@ -151,6 +163,7 @@ export class WebGPURenderer {
     public drawWorld(world: World): void {
         if (!this.renderPass) return;
 
+    
         this.renderPass.setPipeline(this.chunkPipeline);
         this.renderPass.setBindGroup(0, this.cameraBindGroup);
 
@@ -158,14 +171,28 @@ export class WebGPURenderer {
             chunk.draw(this.renderPass);
         }
 
-        for (const debri of world.debri) {
+     
+        for (let i = world.debri.length - 1; i >= 0; i--) {
+            const debri = world.debri[i];
             debri.lifeTime += 16.67;
             if (debri.lifeTime > Debri.MAX_LIFETIME) {
                 world.removeDebri(debri);
                 debri.deleteGraphics();
-                continue;
             }
-            debri.draw(this.renderPass);
+        }
+
+        if (world.debri.length === 0) return;
+
+       
+        this.renderPass.setPipeline(this.debriPipeline);
+        this.renderPass.setBindGroup(0, this.debriCameraBindGroup);
+        
+        this.debriBatchManager.updateAndUpload(world.debri);
+        this.renderPass.setBindGroup(1, this.debriBatchManager.getBindGroup());
+
+        for (let i = 0; i < world.debri.length; i++) {
+            const debri = world.debri[i];
+            debri.draw(this.renderPass, i); 
         }
     }
 

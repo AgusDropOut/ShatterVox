@@ -136,10 +136,7 @@ export class Engine {
         this.explosiveManager.update(deltaTime);
         this.world.updateDirtyMeshes();
 
-        //todo: fix this shit so slowwww
-        for (const debri of this.world.debri) {
-            debri.updateTransform();
-        }
+        
     }
 
     private render(): void {

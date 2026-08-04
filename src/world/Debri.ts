@@ -3,11 +3,10 @@ import type { Mesheable } from "../types/Mesheable";
 import type { MeshData } from "./ChunkMesher"; 
 import { mat4 } from "gl-matrix";
 import type { PhysicsFacade } from "../physics/PhysicsFacade";
-import type { Renderable } from "../types/Renderable";
 import { VoxelMesh } from "../renderer/VoxelMesh";
 import { WebGPUUniformBuffer } from "../renderer/WebGPUUniformBuffer";
 
-export class Debri implements Mesheable, Renderable {
+export class Debri implements Mesheable {
     public static readonly WIDTH = 32;
     public static readonly HEIGHT = 32;
     public static readonly DEPTH = 32;
@@ -26,7 +25,6 @@ export class Debri implements Mesheable, Renderable {
 
     private mesh: VoxelMesh;
     private modelBuffer: WebGPUUniformBuffer;
-    private bindGroup: GPUBindGroup;
     
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, id: number, physicsFacade: PhysicsFacade, blocks: number[][], cx: number, cy: number, cz: number) {
@@ -37,10 +35,6 @@ export class Debri implements Mesheable, Renderable {
         this.populateBlocks(blocks, cx, cy, cz);
         this.mesh = new VoxelMesh();
         this.modelBuffer = new WebGPUUniformBuffer(device, this.getModelMatrix() as Float32Array);
-        this.bindGroup = device.createBindGroup({
-            layout: layout,
-            entries: [{ binding: 0, resource: { buffer: this.modelBuffer.buffer } }]
-        });
     }
 
     public getBlock(x: number, y: number, z: number): number {
@@ -99,11 +93,7 @@ export class Debri implements Mesheable, Renderable {
         return modelMatrix;
     }
 
-    public updateTransform(): void {
-        if (this.modelBuffer) {
-            this.modelBuffer.update(this.getModelMatrix() as Float32Array);
-        }
-    }
+   
 
 
     public deleteGraphics(): void {
@@ -111,12 +101,9 @@ export class Debri implements Mesheable, Renderable {
         this.modelBuffer.destroy();
     }
 
-    public draw(renderPass: GPURenderPassEncoder): void {
-        
-        renderPass.setBindGroup(1, this.bindGroup);
-        this.mesh.draw(renderPass);
+    public draw(renderPass: GPURenderPassEncoder, instanceIndex: number): void {
+        this.mesh.drawWithInstance(renderPass, instanceIndex);
     }
-
     private getIndex(x: number, y: number, z: number): number {
         return x + (y * Debri.WIDTH) + (z * Debri.WIDTH * Debri.HEIGHT);
     }

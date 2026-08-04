@@ -3,13 +3,15 @@ import { Chunk } from "./Chunk";
 
 export class TerrainGenerator {
     private world: World;
-    private gl: WebGL2RenderingContext;
+    private device: GPUDevice;
+    private modelLayout: GPUBindGroupLayout;
     
     public debugChunkBorders: boolean = true; 
 
-    constructor(world: World, gl: WebGL2RenderingContext) {
+    constructor(world: World, device: GPUDevice, modelLayout: GPUBindGroupLayout) {
         this.world = world;
-        this.gl = gl;
+        this.device = device;
+        this.modelLayout = modelLayout;
     }
 
     public generateTestMap(): void {
@@ -20,7 +22,7 @@ export class TerrainGenerator {
         for (let cx = 0; cx < CHUNKS_X; cx++) {
             for (let cy = 0; cy < CHUNKS_Y; cy++) {
                 for (let cz = 0; cz < CHUNKS_Z; cz++) {
-                    const chunk = new Chunk(this.gl, cx, cy, cz);
+                    const chunk = new Chunk(this.device, this.modelLayout, cx, cy, cz);
                     this.world.chunks.set(`${cx},${cy},${cz}`, chunk);
                 }
             }

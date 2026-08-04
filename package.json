@@ -10,6 +10,7 @@
   },
   "devDependencies": {
     "@types/gl-matrix": "^2.4.5",
+    "@webgpu/types": "^0.1.71",
     "typescript": "~6.0.2",
     "vite": "^8.1.1"
   },

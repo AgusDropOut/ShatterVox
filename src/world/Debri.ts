@@ -1,12 +1,13 @@
 import { Engine } from "../core/Engine";
-import { VAO } from "../renderer/buffers/VAO";
-import { VBO } from "../renderer/buffers/VBO";
 import type { Mesheable } from "../types/Mesheable";
 import type { MeshData } from "./ChunkMesher"; 
 import { mat4 } from "gl-matrix";
 import type { PhysicsFacade } from "../physics/PhysicsFacade";
+import type { Renderable } from "../types/Renderable";
+import { VoxelMesh } from "../renderer/VoxelMesh";
+import { WebGPUUniformBuffer } from "../renderer/WebGPUUniformBuffer";
 
-export class Debri implements Mesheable {
+export class Debri implements Mesheable, Renderable {
     public static readonly WIDTH = 32;
     public static readonly HEIGHT = 32;
     public static readonly DEPTH = 32;
@@ -14,16 +15,7 @@ export class Debri implements Mesheable {
 
     public lifeTime: number = 0;
 
-    public vao: VAO | null = null;
-    public vertexCount: number = 0;
-
-    private readonly gl: WebGL2RenderingContext;
     private readonly blocks: Uint8Array;
-    
-    private vboPositions: VBO | null = null;
-    private vboNormals: VBO | null = null;
-    private vboColors: VBO | null = null;
-    private vboUvs: VBO | null = null;
 
     public readonly id: number;
     private readonly physicsFacade: PhysicsFacade;
@@ -32,13 +24,23 @@ export class Debri implements Mesheable {
     public offsetY: number = 0;
     public offsetZ: number = 0;
 
-    constructor(gl: WebGL2RenderingContext, id: number, physicsFacade: PhysicsFacade, blocks: number[][], cx: number, cy: number, cz: number) {
-        this.gl = gl;
+    private mesh: VoxelMesh;
+    private modelBuffer: WebGPUUniformBuffer;
+    private bindGroup: GPUBindGroup;
+    
+
+    constructor(device: GPUDevice, layout: GPUBindGroupLayout, id: number, physicsFacade: PhysicsFacade, blocks: number[][], cx: number, cy: number, cz: number) {
         this.id = id;
         this.physicsFacade = physicsFacade;
         const volume = Debri.WIDTH * Debri.HEIGHT * Debri.DEPTH;
         this.blocks = new Uint8Array(volume);
         this.populateBlocks(blocks, cx, cy, cz);
+        this.mesh = new VoxelMesh();
+        this.modelBuffer = new WebGPUUniformBuffer(device, this.getModelMatrix() as Float32Array);
+        this.bindGroup = device.createBindGroup({
+            layout: layout,
+            entries: [{ binding: 0, resource: { buffer: this.modelBuffer.buffer } }]
+        });
     }
 
     public getBlock(x: number, y: number, z: number): number {
@@ -76,31 +78,8 @@ export class Debri implements Mesheable {
         }
     }
    
-    public updateGraphics(meshData: MeshData): void {
-        if (meshData.vertexCount === 0) {
-            this.deleteGraphics();
-            return;
-        }
-
-        if (!this.vao) {
-            this.vboPositions = new VBO(this.gl, meshData.positions, this.gl.DYNAMIC_DRAW);
-            this.vboNormals = new VBO(this.gl, meshData.normals, this.gl.DYNAMIC_DRAW);
-            this.vboColors = new VBO(this.gl, meshData.colors, this.gl.DYNAMIC_DRAW);
-            this.vboUvs = new VBO(this.gl, meshData.uvs, this.gl.DYNAMIC_DRAW);
-
-            this.vao = new VAO(this.gl);
-            this.vao.linkAttrib(this.vboPositions, 0, 3, this.gl.FLOAT, false, 0, 0);
-            this.vao.linkAttrib(this.vboNormals, 1, 3, this.gl.FLOAT, false, 0, 0);
-            this.vao.linkAttrib(this.vboColors, 2, 3, this.gl.FLOAT, false, 0, 0);
-            this.vao.linkAttrib(this.vboUvs, 3, 2, this.gl.FLOAT, false, 0, 0);
-        } else {
-            this.vboPositions!.updateData(meshData.positions, this.gl.DYNAMIC_DRAW);
-            this.vboNormals!.updateData(meshData.normals, this.gl.DYNAMIC_DRAW);
-            this.vboColors!.updateData(meshData.colors, this.gl.DYNAMIC_DRAW);
-            this.vboUvs!.updateData(meshData.uvs, this.gl.DYNAMIC_DRAW);
-        }
-        
-        this.vertexCount = meshData.vertexCount;
+    public updateGraphics(device: GPUDevice, meshData: MeshData): void {
+        this.mesh.updateGraphics(device, meshData);
     }
 
     public getModelMatrix(): mat4 {
@@ -120,20 +99,22 @@ export class Debri implements Mesheable {
         return modelMatrix;
     }
 
+    public updateTransform(): void {
+        if (this.modelBuffer) {
+            this.modelBuffer.update(this.getModelMatrix() as Float32Array);
+        }
+    }
+
 
     public deleteGraphics(): void {
-        if (this.vao) this.vao.delete();
-        if (this.vboPositions) this.vboPositions.delete();
-        if (this.vboNormals) this.vboNormals.delete();
-        if (this.vboColors) this.vboColors.delete();
-        if (this.vboUvs) this.vboUvs.delete();
+        this.mesh.deleteBuffers();
+        this.modelBuffer.destroy();
+    }
+
+    public draw(renderPass: GPURenderPassEncoder): void {
         
-        this.vao = null;
-        this.vboPositions = null;
-        this.vboNormals = null;
-        this.vboColors = null;
-        this.vboUvs = null;
-        this.vertexCount = 0;
+        renderPass.setBindGroup(1, this.bindGroup);
+        this.mesh.draw(renderPass);
     }
 
     private getIndex(x: number, y: number, z: number): number {

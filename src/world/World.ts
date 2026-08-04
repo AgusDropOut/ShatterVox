@@ -7,13 +7,16 @@ export class World {
     public readonly chunks: Map<string, Chunk> = new Map();
     public readonly debri: Debri[];
     private readonly mesher: ChunkMesher;
+    private readonly device: GPUDevice;
 
-    constructor(gl: WebGL2RenderingContext) {
+    constructor(device: GPUDevice, modelLayout: GPUBindGroupLayout) {
         this.mesher = new ChunkMesher();
         this.debri = [];
-        const generator = new TerrainGenerator(this, gl);
+        this.device = device;
+        
+        const generator = new TerrainGenerator(this, device, modelLayout);
         generator.generateTestMap();
-      
+        
         this.updateAllMeshes();
     }
     
@@ -121,14 +124,14 @@ export class World {
             chunk.chunkY * Chunk.HEIGHT,
             chunk.chunkZ * Chunk.DEPTH
         );
-        chunk.updateGraphics(meshData);
+        chunk.updateGraphics(this.device, meshData);
     }
 
     public updateDebriMesh(debri: Debri): void {
         const meshData = this.mesher.buildMesh(debri, {
             top: null, bottom: null, left: null, right: null, front: null, back: null
         });
-        debri.updateGraphics(meshData);
+        debri.updateGraphics(this.device, meshData);
     }
 
     public addDebri(debri: Debri): void {

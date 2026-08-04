@@ -9,20 +9,22 @@ import { DetachmentChecker } from "./DetachmentChecker";
 
 export class StructuralIntegrity {
     private readonly world: World;
-    private readonly gl: WebGL2RenderingContext;
+    private readonly device: GPUDevice;
+    private readonly layout: GPUBindGroupLayout;
     private readonly physicsFacade: PhysicsFacade;
     private detachmentChecker: DetachmentChecker;
     private worker: Worker;
 
-    constructor(gl: WebGL2RenderingContext, world: World, physicsFacade: PhysicsFacade) {
-        this.gl = gl;
+    constructor(device: GPUDevice, layout: GPUBindGroupLayout, world: World, physicsFacade: PhysicsFacade) {
         this.world = world;
         this.physicsFacade = physicsFacade;
+        this.device = device;
+        this.layout = layout;
 
         this.worker = new Worker(new URL('./structural.worker.ts', import.meta.url), { type: 'module' });
         this.worker.onmessage = (e) => this.handleWorkerMessage(e.data);
 
-        this.detachmentChecker = new DetachmentChecker(gl, world, physicsFacade, this.worker);
+        this.detachmentChecker = new DetachmentChecker(this.device, this.layout, world, physicsFacade, this.worker);
 
         globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
             this.checkSupportAsync(data.x, data.y, data.z, data.radius || 1);
@@ -76,7 +78,7 @@ export class StructuralIntegrity {
             const island = islands[i];
             const newDebriId = this.physicsFacade.generateId();
             
-            const newDebri = new Debri(this.gl, newDebriId, this.physicsFacade, [], 0, 0, 0);
+            const newDebri = new Debri(this.device, this.layout, newDebriId, this.physicsFacade, [], 0, 0, 0);
             newDebri.offsetX = pOffsetX;
             newDebri.offsetY = pOffsetY;
             newDebri.offsetZ = pOffsetZ;
@@ -147,7 +149,7 @@ export class StructuralIntegrity {
                     blocks: islandBlocksFormatted
                 });
 
-                const debri = new Debri(this.gl, debriId, this.physicsFacade, islandBlocksFormatted, cx, cy, cz);
+                const debri = new Debri(this.device, this.layout, debriId, this.physicsFacade, islandBlocksFormatted, cx, cy, cz);
                 this.world.addDebri(debri);
                 this.world.updateDebriMesh(debri);
             }
@@ -192,7 +194,7 @@ export class StructuralIntegrity {
                                 const fragmentationChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.15; 
                                 if (Math.random() < fragmentationChance) {
                                     const debriId = this.physicsFacade.generateId();
-                                    const smallDebri = new Debri(this.gl, debriId, this.physicsFacade, [[x, y, z, blockId]], x, y, z);
+                                    const smallDebri = new Debri(this.device, this.layout, debriId, this.physicsFacade, [[x, y, z, blockId]], x, y, z);
                                     
                                     this.world.addDebri(smallDebri);
                                     this.world.updateDebriMesh(smallDebri);

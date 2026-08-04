@@ -9,18 +9,21 @@ import { BlockRegistry } from "../block/BlockRegistry";
 export class DetachmentChecker {
     private world: World;
     private physicsFacade: PhysicsFacade;
-    private gl: WebGL2RenderingContext;
+    private device: GPUDevice;
+    private layout: GPUBindGroupLayout;
     private detachmentWorker: Worker;
     private shatterWorker: Worker;
     
     private flagedForCheckingChunks: Set<string> = new Set();
     private flagedForCheckingDebris: Set<number> = new Set();
 
-    constructor(gl: WebGL2RenderingContext, world: World, physicsFacade: PhysicsFacade, shatterWorker: Worker) {
-        this.gl = gl;
+    constructor(device: GPUDevice, layout: GPUBindGroupLayout, world: World, physicsFacade: PhysicsFacade, shatterWorker: Worker) {
+        
         this.world = world;
         this.physicsFacade = physicsFacade;
         this.shatterWorker = shatterWorker;
+        this.device = device;
+        this.layout = layout;
         
         this.detachmentWorker = new Worker(new URL('./detachment.worker.ts', import.meta.url), { type: 'module' });
         this.detachmentWorker.onmessage = (e: MessageEvent<any>) => {
@@ -138,7 +141,7 @@ export class DetachmentChecker {
 
                 if (Math.random() < fragmentationChance) {
                     const debriId = this.physicsFacade.generateId();
-                    const smallDebri = new Debri(this.gl, debriId, this.physicsFacade, [[worldX, worldY, worldZ, blockId]], worldX, worldY, worldZ);
+                    const smallDebri = new Debri(this.device, this.layout, debriId, this.physicsFacade, [[worldX, worldY, worldZ, blockId]], worldX, worldY, worldZ);
                     this.world.addDebri(smallDebri);
                     this.world.updateDebriMesh(smallDebri);
 
@@ -173,7 +176,7 @@ export class DetachmentChecker {
 
             if (Math.random() < fragmentationChance) {
                 const microDebriId = this.physicsFacade.generateId();
-                const smallDebri = new Debri(this.gl, microDebriId, this.physicsFacade, [], 0, 0, 0);
+                const smallDebri = new Debri(this.device, this.layout, microDebriId, this.physicsFacade, [], 0, 0, 0);
                 
                 smallDebri.offsetX = targetDebri.offsetX;
                 smallDebri.offsetY = targetDebri.offsetY;

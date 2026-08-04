@@ -15,10 +15,7 @@ export class Input {
         this.attachListeners();
     }
 
-    /**
-     * Checks if a specific physical key is currently pressed.
-     * @param keyCode The KeyboardEvent.code (e.g., "KeyW", "Space", "ShiftLeft")
-     */
+  
     public isKeyPressed(keyCode: string): boolean {
         return this.keys.has(keyCode);
     }
@@ -38,7 +35,10 @@ export class Input {
      
         this.canvas.addEventListener("click", () => {
             if (!this.isLocked) {
-                this.canvas.requestPointerLock();
+              
+                this.canvas.requestPointerLock().catch((err) => {
+                    console.warn("No se pudo bloquear el puntero (hacé clic en el juego primero).");
+                });
             }
         });
 

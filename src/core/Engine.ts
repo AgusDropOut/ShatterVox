@@ -28,6 +28,9 @@ export class Engine {
     private physicsFacade: PhysicsFacade;
     public static readonly voxelSize: number = 0.12;
     private showPhysicsDebug: boolean = false;
+    private showDepthDebug: boolean = false;
+    private showNormalsDebug: boolean = false;
+    private showAlbedoDebug: boolean = false;
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;
     private lastFpsTime: number = 0;
@@ -57,6 +60,24 @@ export class Engine {
 
         globalEventBus.on("TOGGLE_PHYSICS_DEBUG", () => {
             this.showPhysicsDebug = !this.showPhysicsDebug;
+        });
+
+        globalEventBus.on("DEBUG_DEPTH", () => {
+            this.showDepthDebug = !this.showDepthDebug; 
+            this.showAlbedoDebug = false;
+            this.showNormalsDebug = false;
+        });
+
+        globalEventBus.on("DEBUG_NORMALS", () => {
+            this.showNormalsDebug = !this.showNormalsDebug; 
+            this.showAlbedoDebug = false;
+            this.showDepthDebug = false;
+        });
+
+        globalEventBus.on("DEBUG_ALBEDO", () => {
+            this.showAlbedoDebug = !this.showAlbedoDebug; 
+            this.showDepthDebug = false;
+            this.showNormalsDebug = false;
         });
 
         this.window = new Window(this.canvas);
@@ -153,6 +174,15 @@ export class Engine {
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
         if(this.showPhysicsDebug) {
             this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
+        }
+        if(this.showDepthDebug) {
+            this.renderer.debugDrawTexture(this.renderer.depthView, true);
+        }
+        if(this.showNormalsDebug) {
+            this.renderer.debugDrawTexture(this.renderer.normalView);
+        }
+        if(this.showAlbedoDebug) {
+            this.renderer.debugDrawTexture(this.renderer.albedoView);
         }
 
         this.renderer.endFrame();

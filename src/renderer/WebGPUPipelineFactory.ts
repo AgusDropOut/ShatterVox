@@ -53,7 +53,8 @@ export class WebGPUPipelineFactory {
         device: GPUDevice, 
         type: PipelineType, 
         shaderCode: string, 
-        presentationFormat: GPUTextureFormat
+        presentationFormat: GPUTextureFormat,
+        gBuffer: boolean = false
     ): GPURenderPipeline {
 
         const config = PIPELINE_CONFIGS[type];
@@ -63,6 +64,15 @@ export class WebGPUPipelineFactory {
         }
 
         const shaderModule = device.createShaderModule({ code: shaderCode });
+
+        let fragmentTargets: GPUColorTargetState[] = [{ format: presentationFormat }];
+
+        if (gBuffer) {
+            fragmentTargets = [
+                { format: "rgba8unorm" }, 
+                { format: "rgba16float" }, 
+            ];
+        }
 
         return device.createRenderPipeline({
             label: config.label,
@@ -75,7 +85,7 @@ export class WebGPUPipelineFactory {
             fragment: {
                 module: shaderModule,
                 entryPoint: "fs_main",
-                targets: [{ format: presentationFormat }]
+                targets: fragmentTargets
             },
             primitive: {
                 topology: config.topology || "triangle-list",
@@ -83,7 +93,7 @@ export class WebGPUPipelineFactory {
                 frontFace: "ccw"
             },
             depthStencil: {
-                format: "depth24plus",
+                format: "depth32float",
                 depthWriteEnabled: true,
                 depthCompare: "less"
             }

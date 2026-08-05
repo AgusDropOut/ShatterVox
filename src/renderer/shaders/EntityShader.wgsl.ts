@@ -27,11 +27,23 @@ export const entityShaderWGSL = `
         return out;
     }
 
+    struct GBufferOutput {
+        @location(0) albedo: vec4<f32>,
+        @location(1) normal: vec4<f32>,
+    };
+
     @fragment
-    fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    fn fs_main(in: VertexOutput) -> GBufferOutput {
+        var output: GBufferOutput;
+
         let texColor = textureSample(entityTexture, textureSampler, in.uv);
-        if (texColor.a < 0.1) { discard; }
-        let light = max(dot(normalize(in.normal), vec3<f32>(0.5, 1.0, 0.2)), 0.3);
-        return vec4<f32>(texColor.rgb * light, texColor.a);
+        if (texColor.a < 0.1) { 
+            discard; 
+        }
+
+        output.albedo = texColor;
+        output.normal = vec4<f32>(normalize(in.normal), 1.0);
+
+        return output;
     }
 `;

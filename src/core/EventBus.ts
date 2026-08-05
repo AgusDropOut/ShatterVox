@@ -8,6 +8,9 @@ export interface GameEvents {
     "PHYSICS_COMMAND": PhysicsCommand;
     "SYNC_TRANSFORMS": { buffer: Float32Array };
     "SPAWN_BOMB": { x: number, y: number, z: number, vx: number, vy: number, vz: number, rot: {x:number, y:number, z:number, w:number} };
+    "DEBUG_DEPTH": {};
+    "DEBUG_NORMALS": {};
+    "DEBUG_ALBEDO": {};
 }
 
 class EventBus {

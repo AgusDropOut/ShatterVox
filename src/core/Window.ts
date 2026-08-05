@@ -26,5 +26,18 @@ export class Window {
         if (e.code === "KeyP") {
             globalEventBus.emit("TOGGLE_PHYSICS_DEBUG", {});
         }
+
+        if(e.code === "Digit1") {
+            globalEventBus.emit("DEBUG_DEPTH", {});
+        }
+
+        if(e.code === "Digit2") {
+            globalEventBus.emit("DEBUG_NORMALS", {});
+        }
+
+        if(e.code === "Digit3") {
+            globalEventBus.emit("DEBUG_ALBEDO", {});
+        }
+
     }
 }

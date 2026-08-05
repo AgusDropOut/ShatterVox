@@ -13,6 +13,7 @@ import { DebriBatchManager } from "./DebriBatchManager";
 import { mat4 } from "gl-matrix";
 import { debriShaderWGSL } from "./shaders/DebriShader.wgsl";
 import { globalEventBus } from "../core/EventBus";
+import { debugColorQuadShaderWGSL, debugDepthQuadShaderWGSL } from "./shaders/DebugQuadShader";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -25,8 +26,17 @@ export class WebGPURenderer {
     private debriPipeline!: GPURenderPipeline;
     private debugPipeline!: GPURenderPipeline;
 
+    private debugColorPipeline: GPURenderPipeline | null = null;
+    private debugDepthPipeline: GPURenderPipeline | null = null;
+    private linearSampler: GPUSampler | null = null;
+    private nearestSampler: GPUSampler | null = null;
+
     private depthTexture!: GPUTexture;
-    private depthView!: GPUTextureView;
+    private albedoTexture!: GPUTexture;
+    private normalTexture!: GPUTexture
+    public depthView!: GPUTextureView;
+    public albedoView!: GPUTextureView;
+    public normalView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
     private cameraBuffer!: GPUBuffer;
@@ -68,10 +78,12 @@ export class WebGPURenderer {
 
         this.resize(this.canvas.width, this.canvas.height);
 
-        this.chunkPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'CHUNK', chunkShaderWGSL, this.presentationFormat);
-        this.entityPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'ENTITY', entityShaderWGSL, this.presentationFormat);
-        this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat);
-        this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat);
+        this.initDebugPipelines();
+
+        this.chunkPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'CHUNK', chunkShaderWGSL, this.presentationFormat, true);
+        this.entityPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'ENTITY', entityShaderWGSL, this.presentationFormat, true);
+        this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat, true);
+        this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
 
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
 
@@ -117,6 +129,30 @@ export class WebGPURenderer {
         return true;
     }
 
+    private initDebugPipelines(): void {
+        if (this.debugColorPipeline) return;
+
+        this.linearSampler = this.device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+        this.nearestSampler = this.device.createSampler({ magFilter: 'nearest', minFilter: 'nearest' });
+
+        const createPipeline = (shaderCode: string) => {
+            const module = this.device.createShaderModule({ code: shaderCode });
+            return this.device.createRenderPipeline({
+                layout: 'auto',
+                vertex: { module, entryPoint: 'vs_main' },
+                fragment: { 
+                    module, 
+                    entryPoint: 'fs_main', 
+                    targets: [{ format: this.presentationFormat }] 
+                },
+                primitive: { topology: 'triangle-list' }
+            });
+        };
+
+        this.debugColorPipeline = createPipeline(debugColorQuadShaderWGSL);
+        this.debugDepthPipeline = createPipeline(debugDepthQuadShaderWGSL);
+    }
+
     public getModelLayout(): GPUBindGroupLayout {
         return this.chunkPipeline.getBindGroupLayout(1);
     }
@@ -125,15 +161,35 @@ export class WebGPURenderer {
         this.canvas.width = width;
         this.canvas.height = height;
         if (!this.device) return; 
+        this.resizeGBuffers(width, height);
+    }
 
+    private resizeGBuffers(width: number, height: number): void {
+        
         if (this.depthTexture) this.depthTexture.destroy();
+        if (this.albedoTexture) this.albedoTexture.destroy();
+        if (this.normalTexture) this.normalTexture.destroy();
+
+       
+        this.albedoTexture = this.device.createTexture({
+            size: [width, height],
+            format: "rgba8unorm",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.albedoView = this.albedoTexture.createView();
+
+        this.normalTexture = this.device.createTexture({
+            size: [width, height],
+            format: "rgba16float",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.normalView = this.normalTexture.createView();
 
         this.depthTexture = this.device.createTexture({
             size: [width, height],
-            format: "depth24plus",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT
+            format: "depth32float", 
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
         });
-        
         this.depthView = this.depthTexture.createView();
     }
 
@@ -141,15 +197,22 @@ export class WebGPURenderer {
         this.device.queue.writeBuffer(this.cameraBuffer, 0, viewProjMatrix);
 
         this.commandEncoder = this.device.createCommandEncoder();
-        const textureView = this.context.getCurrentTexture().createView();
 
         this.renderPass = this.commandEncoder.beginRenderPass({
-            colorAttachments: [{
-                view: textureView,
-                clearValue: { r: 0.0, g: 0.4, b: 1.0, a: 1.0 }, 
-                loadOp: 'clear',
-                storeOp: 'store',
-            }],
+            colorAttachments: [
+                {
+                    view: this.albedoView,
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                },
+                {
+                    view: this.normalView,
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                }
+            ],
             depthStencilAttachment: {
                 view: this.depthView,
                 depthClearValue: 1.0,
@@ -286,12 +349,53 @@ export class WebGPURenderer {
         if (this.commandEncoder) {
             this.device.queue.submit([this.commandEncoder.finish()]);
         }
+        
         this.renderPass = null;
         this.commandEncoder = null;
+
+       
     }
 
     public async loadEntityAsset(id: string, objUrl: string, textureUrl: string): Promise<void> {
         const materialLayout = this.entityPipeline.getBindGroupLayout(1);
         await AssetManager.loadAsset(id, objUrl, textureUrl, this.device, materialLayout);
+    }
+
+
+    public debugDrawTexture(textureView: GPUTextureView, isDepth: boolean = false): void {
+        if (this.renderPass) {
+            this.renderPass.end();
+            this.renderPass = null;
+        }
+
+        if (!this.commandEncoder) return;
+
+        this.initDebugPipelines();
+
+        const pipeline = isDepth ? this.debugDepthPipeline! : this.debugColorPipeline!;
+        const sampler = isDepth ? this.nearestSampler! : this.linearSampler!;
+
+        const bindGroup = this.device.createBindGroup({
+            layout: pipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: sampler },
+                { binding: 1, resource: textureView }
+            ]
+        });
+
+        const screenTextureView = this.context.getCurrentTexture().createView();
+        const debugPass = this.commandEncoder.beginRenderPass({
+            colorAttachments: [{
+                view: screenTextureView,
+                clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                loadOp: 'clear',
+                storeOp: 'store',
+            }]
+        });
+
+        debugPass.setPipeline(pipeline);
+        debugPass.setBindGroup(0, bindGroup);
+        debugPass.draw(6, 1, 0, 0); 
+        debugPass.end();
     }
 }

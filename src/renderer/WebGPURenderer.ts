@@ -409,12 +409,13 @@ export class WebGPURenderer {
         this.renderPass.draw(vertices.length / 3);
     }
 
-    public drawDeferred(): void {
+    public drawDeferred(physicsFacade: PhysicsFacade): void {
         if (this.renderPass) {
             this.renderPass.end();
             this.renderPass = null;
         }
         if (!this.commandEncoder) return;
+        this.lightManager.updateDynamicLights(physicsFacade);
         this.lightManager.updateLightBuffer();
         this.deferredRenderPass = this.commandEncoder.beginRenderPass({
             colorAttachments: [{

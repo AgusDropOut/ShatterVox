@@ -174,7 +174,7 @@ export class Engine {
         
         this.renderer.drawWorld(this.world);
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
-        this.renderer.drawDeferred();
+        this.renderer.drawDeferred(this.physicsFacade);
         if(this.showPhysicsDebug) {
             this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
         }

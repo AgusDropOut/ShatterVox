@@ -1,10 +1,12 @@
 import { Engine } from "../core/Engine";
 import type { Mesheable } from "../types/Mesheable";
 import type { MeshData } from "./ChunkMesher"; 
-import { mat4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import type { PhysicsFacade } from "../physics/PhysicsFacade";
 import { VoxelMesh } from "../renderer/VoxelMesh";
 import { WebGPUUniformBuffer } from "../renderer/WebGPUUniformBuffer";
+import { BlockRegistry } from "../block/BlockRegistry";
+import { globalEventBus } from "../core/EventBus";
 
 export class Debri implements Mesheable {
     public static readonly WIDTH = 32;
@@ -26,12 +28,24 @@ export class Debri implements Mesheable {
     private mesh: VoxelMesh;
     private modelBuffer: WebGPUUniformBuffer;
     
-
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, id: number, physicsFacade: PhysicsFacade, blocks: number[][], cx: number, cy: number, cz: number) {
         this.id = id;
         this.physicsFacade = physicsFacade;
         const volume = Debri.WIDTH * Debri.HEIGHT * Debri.DEPTH;
         this.blocks = new Uint8Array(volume);
+        
+        if (blocks.length > 0) {
+            let minX = Infinity, minY = Infinity, minZ = Infinity;
+            for (const [x, y, z] of blocks) {
+                if (x < minX) minX = x;
+                if (y < minY) minY = y;
+                if (z < minZ) minZ = z;
+            }
+            this.offsetX = cx - minX;
+            this.offsetY = cy - minY;
+            this.offsetZ = cz - minZ;
+        }
+
         this.populateBlocks(blocks, cx, cy, cz);
         this.mesh = new VoxelMesh();
         this.modelBuffer = new WebGPUUniformBuffer(device, this.getModelMatrix() as Float32Array);
@@ -44,6 +58,41 @@ export class Debri implements Mesheable {
 
     public setBlock(x: number, y: number, z: number, id: number): void {
         if (!this.inBounds(x, y, z)) return;
+        
+        const oldId = this.blocks[this.getIndex(x, y, z)];
+        if (oldId !== 0) {
+            const oldDef = BlockRegistry.get(oldId);
+            if (oldDef.lightEmissive) {
+                const finalLocal = vec3.fromValues(
+                    (x - this.offsetX) * Engine.voxelSize,
+                    (y - this.offsetY) * Engine.voxelSize,
+                    (z - this.offsetZ) * Engine.voxelSize
+                );
+                
+                globalEventBus.emit('LIGHT_REMOVE', {
+                    debriId: this.id,
+                    position: { x: finalLocal[0], y: finalLocal[1], z: finalLocal[2] } 
+                });
+            }
+        }
+
+        const blockDef = BlockRegistry.get(id);
+        if (blockDef.lightEmissive) {
+            const finalLocal = vec3.fromValues(
+                (x - this.offsetX) * Engine.voxelSize,
+                (y - this.offsetY) * Engine.voxelSize,
+                (z - this.offsetZ) * Engine.voxelSize
+            );
+
+            globalEventBus.emit('LIGHT_ADD', {
+                position: { x: 0, y: 0, z: 0 },
+                localPos: { x: finalLocal[0], y: finalLocal[1], z: finalLocal[2] },
+                color: { r: blockDef.lightColor![0], g: blockDef.lightColor![1], b: blockDef.lightColor![2] },
+                radius: blockDef.lightRadius!,
+                debriId: this.id
+            });
+        }
+
         this.blocks[this.getIndex(x, y, z)] = id;
     }
 
@@ -56,10 +105,6 @@ export class Debri implements Mesheable {
             if (y < minY) minY = y;
             if (z < minZ) minZ = z;
         }
-
-        this.offsetX = cx - minX;
-        this.offsetY = cy - minY;
-        this.offsetZ = cz - minZ;
 
         for (const [x, y, z, id] of blocks) {
             const gridX = x - minX;
@@ -93,10 +138,8 @@ export class Debri implements Mesheable {
         return modelMatrix;
     }
 
-   
-
-
     public deleteGraphics(): void {
+        globalEventBus.emit('LIGHT_REMOVE', { debriId: this.id }); 
         this.mesh.deleteBuffers();
         this.modelBuffer.destroy();
     }
@@ -104,6 +147,7 @@ export class Debri implements Mesheable {
     public draw(renderPass: GPURenderPassEncoder, instanceIndex: number): void {
         this.mesh.drawWithInstance(renderPass, instanceIndex);
     }
+    
     private getIndex(x: number, y: number, z: number): number {
         return x + (y * Debri.WIDTH) + (z * Debri.WIDTH * Debri.HEIGHT);
     }

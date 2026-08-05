@@ -1,4 +1,3 @@
-
 import { VoxelMesh } from "../renderer/VoxelMesh";
 import { WebGPUUniformBuffer } from "../renderer/WebGPUUniformBuffer";
 import type { Mesheable } from "../types/Mesheable";
@@ -23,8 +22,7 @@ export class Chunk implements Mesheable, Renderable {
     private mesh: VoxelMesh;
     private modelBuffer: WebGPUUniformBuffer;
     private bindGroup: GPUBindGroup;
-   
-
+    
     public isDirty: boolean = false;
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, chunkX: number, chunkY: number, chunkZ: number) {
@@ -48,14 +46,29 @@ export class Chunk implements Mesheable, Renderable {
 
     public setBlock(x: number, y: number, z: number, id: number): void {
         if (!this.inBounds(x, y, z)) return;
+
+        const oldId = this.blocks[this.getIndex(x, y, z)];
+        if (oldId !== 0) {
+            const oldBlockDef = BlockRegistry.get(oldId);
+            if (oldBlockDef.lightEmissive) {
+                globalEventBus.emit('LIGHT_REMOVE', {
+                    position: { 
+                        x: ((this.chunkX * Chunk.WIDTH) + x + 0.5) * Engine.voxelSize,
+                        y: ((this.chunkY * Chunk.HEIGHT) + y + 0.5) * Engine.voxelSize,
+                        z: ((this.chunkZ * Chunk.DEPTH) + z + 0.5) * Engine.voxelSize
+                    }
+                });
+            }
+        }
+
         const blockDef = BlockRegistry.get(id);
-        if(blockDef.lightEmissive) {
+        if (blockDef.lightEmissive) {
             globalEventBus.emit('LIGHT_ADD', {
                 position: { 
-                x: ((this.chunkX * Chunk.WIDTH) + x + 0.5) * Engine.voxelSize,
-                y: ((this.chunkY * Chunk.HEIGHT) + y + 0.5) * Engine.voxelSize,
-                z: ((this.chunkZ * Chunk.DEPTH) + z + 0.5) * Engine.voxelSize
-            },
+                    x: ((this.chunkX * Chunk.WIDTH) + x + 0.5) * Engine.voxelSize,
+                    y: ((this.chunkY * Chunk.HEIGHT) + y + 0.5) * Engine.voxelSize,
+                    z: ((this.chunkZ * Chunk.DEPTH) + z + 0.5) * Engine.voxelSize
+                },
                 color: {
                     r: blockDef.lightColor![0],
                     g: blockDef.lightColor![1],
@@ -64,9 +77,9 @@ export class Chunk implements Mesheable, Renderable {
                 radius: blockDef.lightRadius!,
             });
         }
+        
         this.blocks[this.getIndex(x, y, z)] = id;
     }
-
 
     public getBlocks(): number[] {
         return Array.from(this.blocks);
@@ -77,16 +90,13 @@ export class Chunk implements Mesheable, Renderable {
     }
 
     public getModelMatrix(): mat4 {
-        const modelMatrix = mat4.create();
-        return modelMatrix;
+        return mat4.create();
     }
 
     public deleteGraphics(): void {
         this.mesh.deleteBuffers();
         this.modelBuffer.destroy();
     }
-
-    
 
     public draw(renderPass: GPURenderPassEncoder): void {
         renderPass.setBindGroup(1, this.bindGroup);

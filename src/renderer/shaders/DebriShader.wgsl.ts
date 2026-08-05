@@ -49,7 +49,7 @@ export const debriShaderWGSL = `
             discard;
         }
         
-        output.albedo = texColor * vec4<f32>(in.color, 1.0);
+        output.albedo = texColor;
         output.normal = vec4<f32>(normalize(in.normal), 1.0);
 
         return output;

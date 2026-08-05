@@ -9,6 +9,9 @@ export interface BlockDef {
     restitution: number;
     blastResistance: number;
     fragmentationChance?: number;
+    lightEmissive?: boolean;
+    lightRadius?: number;
+    lightColor?: [number, number, number];
 }
 
 
@@ -25,7 +28,10 @@ export class BlockBuilder {
             friction: 0.5,     
             restitution: 0.0,   
             fragmentationChance: 0.0,
-            blastResistance: 10 
+            blastResistance: 10 ,
+            lightEmissive: false,
+            lightColor: [1.0, 1.0, 1.0],
+            lightRadius: 0.0,
         };
     }
 
@@ -34,6 +40,13 @@ export class BlockBuilder {
     public color(r: number, g: number, b: number): this { this.def.color = [r, g, b]; return this; }
     public transparent(isTransparent: boolean = true): this { this.def.isTransparent = isTransparent; return this; }
     public fragmentation(chance: number): this { this.def.fragmentationChance = chance; return this; }
+    public light(radius: number, r: number, g: number, b: number): this {
+        this.def.lightRadius = radius;
+        this.def.lightColor = [r, g, b];
+        this.def.lightEmissive = true;
+        return this;
+    }
+    
 
   
     public physics(density: number, friction: number, restitution: number, fragmentationChance: number = 0.0): this {
@@ -65,6 +78,12 @@ export class BlockRegistry {
         this.create(2).name("Grass").texture(2).color(0.0, 1.0, 0.0).fragmentation(0.08).register();
         this.create(3).name("Wood").texture(3).color(0.6, 0.4, 0.2).fragmentation(0.04).register();
         this.create(4).name("Leaves").texture(4).color(0.0, 0.6, 0.0).fragmentation(0.3).transparent().register();
+        this.create(5).name("Amethyst").texture(5).color(0.8, 0.9, 1.0).light(3.0, 0.8, 0.9, 1.0).register();
+        
+        this.create(6).name("Ruby").texture(6).color(1.0, 0.2, 0.2).light(3.0, 1.0, 0.1, 0.1).register();
+        this.create(7).name("Emerald").texture(7).color(0.2, 1.0, 0.2).light(2.0, 0.1, 1.0, 0.1).register();
+        this.create(8).name("Sapphire").texture(8).color(0.2, 0.4, 1.0).light(2.0, 0.1, 0.3, 1.0).register();
+        this.create(9).name("Glowstone").texture(9).color(1.0, 0.9, 0.4).light(2.0, 1.0, 0.8, 0.2).register();
     }
 
     public static create(id: number): BlockBuilder {

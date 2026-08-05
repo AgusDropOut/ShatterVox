@@ -1,4 +1,4 @@
-export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI';
+export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED';
 
 
 interface PipelineConfig {
@@ -45,7 +45,13 @@ const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
             { arrayStride: 12, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x3" }] },
             { arrayStride: 8,  attributes: [{ shaderLocation: 3, offset: 0, format: "float32x2" }] }
         ]
+    },
+    DEFERRED: {
+        label: 'Deferred Pipeline',
+        topology: 'triangle-list',
+        buffers: [] 
     }
+
 };
 
 export class WebGPUPipelineFactory {
@@ -54,7 +60,8 @@ export class WebGPUPipelineFactory {
         type: PipelineType, 
         shaderCode: string, 
         presentationFormat: GPUTextureFormat,
-        gBuffer: boolean = false
+        gBuffer: boolean = false,
+        needsDepthStencil: boolean = true
     ): GPURenderPipeline {
 
         const config = PIPELINE_CONFIGS[type];
@@ -74,6 +81,22 @@ export class WebGPUPipelineFactory {
             ];
         }
 
+
+        let depthStencil: {
+            format: "depth32float",
+            depthWriteEnabled: boolean,
+            depthCompare: GPUCompareFunction
+        } | undefined = {
+            format: "depth32float",
+            depthWriteEnabled: true,
+            depthCompare: "less"
+        };
+
+        if (!needsDepthStencil) {
+            depthStencil = undefined;
+        }
+
+
         return device.createRenderPipeline({
             label: config.label,
             layout: 'auto',
@@ -92,11 +115,7 @@ export class WebGPUPipelineFactory {
                 cullMode: "back",
                 frontFace: "ccw"
             },
-            depthStencil: {
-                format: "depth32float",
-                depthWriteEnabled: true,
-                depthCompare: "less"
-            }
+            depthStencil: depthStencil
         });
     }
 }

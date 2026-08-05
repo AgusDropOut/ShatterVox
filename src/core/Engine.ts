@@ -165,13 +165,16 @@ export class Engine {
         mat4.perspective(projection, Math.PI / 4, this.canvas.width / this.canvas.height, 0.1, 100.0);
         
         const view = this.player.camera.getViewMatrix(); 
+        const invViewProj = mat4.create();
         const viewProj = mat4.create();
         mat4.multiply(viewProj, projection, view);
+        mat4.invert(invViewProj, viewProj);
 
-        this.renderer.beginFrame(viewProj as Float32Array);
+        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array);
         
         this.renderer.drawWorld(this.world);
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
+        this.renderer.drawDeferred();
         if(this.showPhysicsDebug) {
             this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
         }

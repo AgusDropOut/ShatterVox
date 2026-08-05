@@ -14,6 +14,8 @@ import { mat4 } from "gl-matrix";
 import { debriShaderWGSL } from "./shaders/DebriShader.wgsl";
 import { globalEventBus } from "../core/EventBus";
 import { debugColorQuadShaderWGSL, debugDepthQuadShaderWGSL } from "./shaders/DebugQuadShader";
+import { deferredShader } from "./shaders/DeferredShader.wgsl";
+import { LightManager } from "./LightManager";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -25,6 +27,7 @@ export class WebGPURenderer {
     public entityPipeline!: GPURenderPipeline;
     private debriPipeline!: GPURenderPipeline;
     private debugPipeline!: GPURenderPipeline;
+    private deferredPipeline!: GPURenderPipeline;
 
     private debugColorPipeline: GPURenderPipeline | null = null;
     private debugDepthPipeline: GPURenderPipeline | null = null;
@@ -40,16 +43,21 @@ export class WebGPURenderer {
 
     private atlas!: WebGPUTexture;
     private cameraBuffer!: GPUBuffer;
+    private cameraBufferPlus!: GPUBuffer;
     private cameraBindGroup!: GPUBindGroup;
     public entityCameraBindGroup!: GPUBindGroup;
     private debriCameraBindGroup!: GPUBindGroup;
     private debugCameraBindGroup!: GPUBindGroup;
+    private deferredCameraBindGroup!: GPUBindGroup;
+    private gBufferBindGroup!: GPUBindGroup;
 
     private commandEncoder: GPUCommandEncoder | null = null;
     private renderPass: GPURenderPassEncoder | null = null;
+    private deferredRenderPass: GPURenderPassEncoder | null = null;
 
     private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup }> = new Map();
     private debriBatchManager!: DebriBatchManager;
+    private lightManager!: LightManager;
 
     private debugPosBuffer: GPUBuffer | null = null;
     private debugColBuffer: GPUBuffer | null = null;
@@ -76,7 +84,9 @@ export class WebGPURenderer {
             alphaMode: 'opaque', 
         });
 
-        this.resize(this.canvas.width, this.canvas.height);
+        this.atlas = await WebGPUTexture.create(this.device, "/assets/atlas.png");
+
+        
 
         this.initDebugPipelines();
 
@@ -84,13 +94,22 @@ export class WebGPURenderer {
         this.entityPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'ENTITY', entityShaderWGSL, this.presentationFormat, true);
         this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat, true);
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
+        this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, this.presentationFormat, false, false);
 
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
+        this.lightManager = new LightManager(this.device, this.deferredPipeline.getBindGroupLayout(2));
 
-        this.atlas = await WebGPUTexture.create(this.device, "/assets/atlas.png");
+        this.resize(this.canvas.width, this.canvas.height);
+
+        
 
         this.cameraBuffer = this.device.createBuffer({
             size: 64,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.cameraBufferPlus = this.device.createBuffer({
+            size: 128,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
 
@@ -125,6 +144,34 @@ export class WebGPURenderer {
                 { binding: 0, resource: { buffer: this.cameraBuffer } }
             ]
         });
+
+        this.deferredCameraBindGroup = this.device.createBindGroup({
+            layout: this.deferredPipeline.getBindGroupLayout(1),
+            entries: [
+                { binding: 0, resource: { buffer: this.cameraBufferPlus } }
+            ]
+        });
+
+
+        if (!this.linearSampler) {
+            throw new Error("Linear sampler not initialized");
+        }
+        if (!this.nearestSampler) {
+            throw new Error("Nearest sampler not initialized");
+        }
+
+        this.gBufferBindGroup = this.device.createBindGroup({
+            layout: this.deferredPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: this.linearSampler },
+                { binding: 1, resource: this.nearestSampler },
+                { binding: 2, resource: this.albedoView },
+                { binding: 3, resource: this.normalView },
+                { binding: 4, resource: this.depthView }
+            ]
+        });
+
+        
 
         return true;
     }
@@ -191,10 +238,28 @@ export class WebGPURenderer {
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
         });
         this.depthView = this.depthTexture.createView();
+        if(!this.linearSampler || !this.nearestSampler) {
+            throw new Error("Samplers not initialized");
+        }
+        this.gBufferBindGroup = this.device.createBindGroup({
+            layout: this.deferredPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: this.linearSampler },
+                { binding: 1, resource: this.nearestSampler },
+                { binding: 2, resource: this.albedoView },
+                { binding: 3, resource: this.normalView },
+                { binding: 4, resource: this.depthView }
+            ]
+        });
+        
     }
 
-    public beginFrame(viewProjMatrix: Float32Array): GPURenderPassEncoder {
+    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array): GPURenderPassEncoder {
+        const combinedCameraData = new Float32Array(32);
+        combinedCameraData.set(viewProjMatrix, 0);       
+        combinedCameraData.set(invViewProjMatrix, 16);   
         this.device.queue.writeBuffer(this.cameraBuffer, 0, viewProjMatrix);
+        this.device.queue.writeBuffer(this.cameraBufferPlus, 0, combinedCameraData);
 
         this.commandEncoder = this.device.createCommandEncoder();
 
@@ -342,6 +407,31 @@ export class WebGPURenderer {
         this.renderPass.setVertexBuffer(1, this.debugColBuffer);
 
         this.renderPass.draw(vertices.length / 3);
+    }
+
+    public drawDeferred(): void {
+        if (this.renderPass) {
+            this.renderPass.end();
+            this.renderPass = null;
+        }
+        if (!this.commandEncoder) return;
+        this.lightManager.updateLightBuffer();
+        this.deferredRenderPass = this.commandEncoder.beginRenderPass({
+            colorAttachments: [{
+                view: this.context.getCurrentTexture().createView(),
+                clearValue: { r: 0.0, g: 0.8, b: 0.8, a: 1.0 },
+                loadOp: 'clear',
+                storeOp: 'store',
+            }]
+        });
+        this.deferredRenderPass.setPipeline(this.deferredPipeline);
+        this.deferredRenderPass.setBindGroup(0, this.gBufferBindGroup);
+        this.deferredRenderPass.setBindGroup(1, this.deferredCameraBindGroup);
+        this.deferredRenderPass.setBindGroup(2, this.lightManager.getBindGroup());
+        this.deferredRenderPass.draw(6, 1, 0, 0);
+        this.deferredRenderPass.end();
+        this.deferredRenderPass = null;
+    
     }
 
     public endFrame(): void {

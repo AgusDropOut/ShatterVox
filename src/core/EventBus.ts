@@ -1,5 +1,7 @@
 import type { PhysicsCommand } from "../physics/PhysicsProtocol";
 
+
+
 export interface GameEvents {
     "BLOCK_MINED_STATIC": { x: number, y: number, z: number, radius?: number };
     "BLOCK_MINED_DYNAMIC": { debriId: number, localX: number, localY: number, localZ: number, radius?: number };
@@ -11,6 +13,8 @@ export interface GameEvents {
     "DEBUG_DEPTH": {};
     "DEBUG_NORMALS": {};
     "DEBUG_ALBEDO": {};
+    "LIGHT_ADD": { position: { x: number, y: number, z: number }, color: { r: number, g: number, b: number }, radius: number, debriId?: number };
+    "LIGHT_REMOVE": { position: { x: number, y: number, z: number }, debriId?: number };
 }
 
 class EventBus {

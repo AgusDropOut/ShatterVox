@@ -5,6 +5,9 @@ import type { Mesheable } from "../types/Mesheable";
 import type { Renderable } from "../types/Renderable";
 import type { MeshData } from "./ChunkMesher"; 
 import { mat4 } from "gl-matrix";
+import { BlockRegistry } from "../block/BlockRegistry";
+import { globalEventBus } from "../core/EventBus";
+import { Engine } from "../core/Engine";
 
 export class Chunk implements Mesheable, Renderable {
     public static readonly WIDTH = 32;
@@ -45,6 +48,22 @@ export class Chunk implements Mesheable, Renderable {
 
     public setBlock(x: number, y: number, z: number, id: number): void {
         if (!this.inBounds(x, y, z)) return;
+        const blockDef = BlockRegistry.get(id);
+        if(blockDef.lightEmissive) {
+            globalEventBus.emit('LIGHT_ADD', {
+                position: { 
+                x: ((this.chunkX * Chunk.WIDTH) + x + 0.5) * Engine.voxelSize,
+                y: ((this.chunkY * Chunk.HEIGHT) + y + 0.5) * Engine.voxelSize,
+                z: ((this.chunkZ * Chunk.DEPTH) + z + 0.5) * Engine.voxelSize
+            },
+                color: {
+                    r: blockDef.lightColor![0],
+                    g: blockDef.lightColor![1],
+                    b: blockDef.lightColor![2]
+                },
+                radius: blockDef.lightRadius!,
+            });
+        }
         this.blocks[this.getIndex(x, y, z)] = id;
     }
 

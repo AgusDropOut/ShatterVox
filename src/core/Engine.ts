@@ -107,6 +107,7 @@ export class Engine {
         
         this.terrainPhysics = new TerrainPhysics();
         this.terrainPhysics.buildColliders(this.world);
+        this.world.terrainPhysics = this.terrainPhysics;
 
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
@@ -174,7 +175,6 @@ export class Engine {
         
         this.renderer.drawWorld(this.world);
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
-        this.renderer.drawDeferred(this.physicsFacade);
         if(this.showPhysicsDebug) {
             this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
         }
@@ -187,6 +187,8 @@ export class Engine {
         if(this.showAlbedoDebug) {
             this.renderer.debugDrawTexture(this.renderer.albedoView);
         }
+        this.renderer.drawDeferred(this.physicsFacade);
+        
 
         this.renderer.endFrame();
     }

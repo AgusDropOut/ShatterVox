@@ -1,3 +1,4 @@
+import type { TerrainPhysics } from "../physics/TerrainPhysics";
 import { Chunk } from "./Chunk";
 import { ChunkMesher } from "./ChunkMesher";
 import type { Debri } from "./Debri";
@@ -8,12 +9,14 @@ export class World {
     public readonly debri: Debri[];
     private readonly mesher: ChunkMesher;
     private readonly device: GPUDevice;
+    public terrainPhysics: TerrainPhysics | null = null;
 
-    constructor(device: GPUDevice, modelLayout: GPUBindGroupLayout) {
+    constructor(device: GPUDevice, modelLayout: GPUBindGroupLayout, terrainPhysics: TerrainPhysics | null = null) {
         this.mesher = new ChunkMesher();
         this.debri = [];
         this.device = device;
-        
+        this.terrainPhysics = terrainPhysics;
+
         const generator = new TerrainGenerator(this, device, modelLayout);
         generator.generateTestMap();
         
@@ -57,8 +60,9 @@ export class World {
         const cz = Math.floor(worldZ / Chunk.DEPTH);
         
         const chunk = this.chunks.get(`${cx},${cy},${cz}`);
+        if(chunk?.isDirty) return;
         if (chunk) chunk.isDirty = true;
-
+        console.log(`Chunk at (${cx}, ${cy}, ${cz}) marked as dirty.`);
         const lx = ((worldX % Chunk.WIDTH) + Chunk.WIDTH) % Chunk.WIDTH;
         const ly = ((worldY % Chunk.HEIGHT) + Chunk.HEIGHT) % Chunk.HEIGHT;
         const lz = ((worldZ % Chunk.DEPTH) + Chunk.DEPTH) % Chunk.DEPTH;
@@ -93,6 +97,9 @@ export class World {
         for (const chunk of this.chunks.values()) {
             if (chunk.isDirty) {
                 this.updateChunkMesh(chunk);
+                if (this.terrainPhysics) {
+                    this.terrainPhysics.rebuildChunkColliders(chunk);
+                }
                 chunk.isDirty = false;
             }
         }
@@ -101,6 +108,9 @@ export class World {
     public updateAllMeshes(): void {
         for (const chunk of this.chunks.values()) {
             this.updateChunkMesh(chunk);
+            if (this.terrainPhysics) {
+                this.terrainPhysics.rebuildChunkColliders(chunk);
+            }
         }  
         for (const debri of this.debri) {
             this.updateDebriMesh(debri);

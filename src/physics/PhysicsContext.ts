@@ -7,4 +7,5 @@ export class PhysicsContext {
     public terrainRigidBody: RAPIER.RigidBody | null = null;
     public isInitialized: boolean = false;
     public blockDefs: Record<number, { density: number, friction: number, restitution: number }> = {};
+    public terrainCollidersMap: Map<number, RAPIER.Collider> | null = null;
 }

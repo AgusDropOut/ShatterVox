@@ -12,6 +12,8 @@ export class RemoveTerrainColliderCommand implements CommandHandler<Extract<Phys
         if (collider) {
             context.world.removeCollider(collider, true);
             context.terrainColliders.delete(key);
+        } else {
+            console.warn(`No terrain collider found at (${command.x}, ${command.y}, ${command.z}) to remove.`);
         }
     }
 }

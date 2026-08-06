@@ -14,6 +14,8 @@ export class DetachmentChecker {
     private detachmentWorker: Worker;
     private shatterWorker: Worker;
     
+
+    
     private flagedForCheckingChunks: Set<string> = new Set();
     private flagedForCheckingDebris: Set<number> = new Set();
 
@@ -52,6 +54,7 @@ export class DetachmentChecker {
     public flagDebriForChecking(debriId: number): void {
         this.flagedForCheckingDebris.add(debriId);
     }
+
 
     private makePeriodicDynamicCheck(): void {
         if (!this.physicsFacade.isReady || this.flagedForCheckingDebris.size === 0) return;
@@ -132,12 +135,9 @@ export class DetachmentChecker {
                 const fragmentationChance = blockDef?.fragmentationChance ?? 0.3;
 
                 this.world.setBlock(worldX, worldY, worldZ, 0);
-                this.world.setChunkDirtyAt(worldX, worldY, worldZ);
-
-                globalEventBus.emit("PHYSICS_COMMAND", {
-                    type: 'REMOVE_TERRAIN_COLLIDER',
-                    x: worldX, y: worldY, z: worldZ
-                });
+                
+             
+                this.world.setChunkDirtyAt(worldX, worldY, worldZ); 
 
                 if (Math.random() < fragmentationChance) {
                     const debriId = this.physicsFacade.generateId();

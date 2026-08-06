@@ -8,6 +8,8 @@ export class RemoveBodyCommand implements CommandHandler<Extract<PhysicsCommand,
         if (body && context.world) {
             context.world.removeRigidBody(body);
             context.dynamicBodies.delete(command.id);
+        } else {
+            console.warn(`No dynamic body found with ID ${command.id} to remove.`);
         }
     }
 }

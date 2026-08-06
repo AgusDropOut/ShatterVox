@@ -14,6 +14,8 @@ export class StructuralIntegrity {
     private readonly physicsFacade: PhysicsFacade;
     private detachmentChecker: DetachmentChecker;
     private worker: Worker;
+    
+   
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, world: World, physicsFacade: PhysicsFacade) {
         this.world = world;
@@ -122,12 +124,11 @@ export class StructuralIntegrity {
 
                 this.world.setBlock(worldX, worldY, worldZ, 0);
                 this.world.setChunkDirtyAt(worldX, worldY, worldZ);
-                this.detachmentChecker.flagChunkForChecking(Math.floor(worldX / Chunk.WIDTH), Math.floor(worldY / Chunk.HEIGHT), Math.floor(worldZ / Chunk.DEPTH));
-
-                globalEventBus.emit("PHYSICS_COMMAND", {
-                    type: 'REMOVE_TERRAIN_COLLIDER',
-                    x: worldX, y: worldY, z: worldZ
-                });
+                
+                const cx = Math.floor(worldX / Chunk.WIDTH);
+                const cy = Math.floor(worldY / Chunk.HEIGHT);
+                const cz = Math.floor(worldZ / Chunk.DEPTH);
+                this.detachmentChecker.flagChunkForChecking(cx, cy, cz);
 
                 islandBlocksFormatted.push([worldX, worldY, worldZ, blockId]);
             }
@@ -187,10 +188,9 @@ export class StructuralIntegrity {
 
                             if (forceAtPoint > fractureThreshold) {
                                 this.world.setBlock(x, y, z, 0);
+                              
                                 this.world.setChunkDirtyAt(x, y, z);
                                 
-                                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_TERRAIN_COLLIDER', x, y, z });
-
                                 const fragmentationChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.15; 
                                 if (Math.random() < fragmentationChance) {
                                     const debriId = this.physicsFacade.generateId();
@@ -214,16 +214,12 @@ export class StructuralIntegrity {
 
         const regionSize = 64; 
         const halfSize = regionSize / 2;
-        
-
         const regionMinX = Math.floor(cx - halfSize);
         const regionMinY = Math.max(0, Math.floor(cy - halfSize)); 
         const regionMinZ = Math.floor(cz - halfSize);
 
-   
         const regionBlocks = new Uint8Array(regionSize * regionSize * regionSize);
         let index = 0;
-
 
         for (let sz = 0; sz < regionSize; sz++) {
             for (let sy = 0; sy < regionSize; sy++) {
@@ -237,7 +233,6 @@ export class StructuralIntegrity {
             }
         }
 
-    
         this.worker.postMessage({
             type: 'CHECK_STATIC_SUPPORT',
             blocks: regionBlocks, 

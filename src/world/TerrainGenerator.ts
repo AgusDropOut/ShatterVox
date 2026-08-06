@@ -6,7 +6,7 @@ export class TerrainGenerator {
     private device: GPUDevice;
     private modelLayout: GPUBindGroupLayout;
     
-    public debugChunkBorders: boolean = true; 
+    public debugChunkBorders: boolean = false; 
 
     constructor(world: World, device: GPUDevice, modelLayout: GPUBindGroupLayout) {
         this.world = world;
@@ -15,9 +15,9 @@ export class TerrainGenerator {
     }
 
     public generateTestMap(): void {
-        const CHUNKS_X = 4;
+        const CHUNKS_X = 2;
         const CHUNKS_Y = 2; 
-        const CHUNKS_Z = 4;
+        const CHUNKS_Z = 3;
 
         for (let cx = 0; cx < CHUNKS_X; cx++) {
             for (let cy = 0; cy < CHUNKS_Y; cy++) {
@@ -29,138 +29,143 @@ export class TerrainGenerator {
         }
 
         const WORLD_WIDTH = CHUNKS_X * Chunk.WIDTH;
+        const WORLD_HEIGHT = CHUNKS_Y * Chunk.HEIGHT;
         const WORLD_DEPTH = CHUNKS_Z * Chunk.DEPTH;
 
         const ID_STONE = 1;
-        const ID_GRASS = 2;
         const ID_WOOD = 3;
-        const ID_LEAVES = 4;
         const ID_AMETHYST = 5;
         const ID_RUBY = 6;
         const ID_EMERALD = 7;
         const ID_SAPPHIRE = 8;
         const ID_GLOWSTONE = 9;
 
+
         for (let x = 0; x < WORLD_WIDTH; x++) {
-            for (let z = 0; z < WORLD_DEPTH; z++) {
-                this.world.setBlock(x, 0, z, ID_GRASS);
-                if (Math.random() > 0.99) {
-                    this.world.setBlock(x, 1, z, ID_GRASS);
-                }
-            }
-        }
+            for (let y = 0; y < WORLD_HEIGHT; y++) {
+                for (let z = 0; z < WORLD_DEPTH; z++) {
+                    let isStone = true;
 
-        const templeX = 40, templeZ = 40, templeY = 1; 
-        const templeWidth = 40, templeDepth = 26;
+                    const spineX = (WORLD_WIDTH / 2) + Math.sin(z * 0.15) * 8;
+                    const spineY = (WORLD_HEIGHT / 2) - 4 + Math.cos(z * 0.1) * 4;
 
-        for (let x = templeX; x < templeX + templeWidth; x++) {
-            for (let z = templeZ; z < templeZ + templeDepth; z++) {
-                this.world.setBlock(x, templeY, z, ID_STONE);
-                this.world.setBlock(x, templeY + 1, z, ID_STONE);
-                this.world.setBlock(x, templeY + 2, z, ID_STONE); 
-            }
-        }
+                    const dx = x - spineX;
+                    const dy = y - spineY;
+                    
+                    const noise = Math.sin(x * 0.2) * Math.cos(y * 0.2) * Math.sin(z * 0.2) * 3;
+                    const zRatio = z / WORLD_DEPTH;
+                    const cavernBulge = Math.sin(zRatio * Math.PI) * 6; 
+                    
+                    const radius = 10 + Math.sin(z * 0.1) * 3 + noise + cavernBulge;
+                    const distSq = (dx * dx) + (dy * dy * 1.8); 
 
-        const columnSpacing = 8;
-        for (let x = templeX + 3; x < templeX + templeWidth - 3; x += columnSpacing) {
-            for (let z of [templeZ + 3, templeZ + templeDepth - 6]) {
-                for (let y = templeY + 3; y < templeY + 18; y++) {
-                    for(let cx = 0; cx < 3; cx++) {
-                        for(let cz = 0; cz < 3; cz++) {
-                            this.world.setBlock(x + cx, y, z + cz, ID_STONE);
-                        }
+                    if (distSq < radius * radius) {
+                        isStone = false;
+                    }
+
+                    if (y < 4 + Math.sin(x * 0.3 + z * 0.3) * 1.5) {
+                        isStone = true;
+                    }
+
+                    if (x < 2 || x >= WORLD_WIDTH - 2 || y < 2 || y >= WORLD_HEIGHT - 2 || z < 2 || z >= WORLD_DEPTH - 2) {
+                        isStone = true;
+                    }
+
+                    if (isStone) {
+                        this.world.setBlock(x, y, z, ID_STONE);
                     }
                 }
-                this.world.setBlock(x - 1, templeY + 10, z + 1, ID_GLOWSTONE);
-                this.world.setBlock(x + 3, templeY + 10, z + 1, ID_GLOWSTONE);
-                this.world.setBlock(x + 1, templeY + 10, z - 1, ID_GLOWSTONE);
-                this.world.setBlock(x + 1, templeY + 10, z + 3, ID_GLOWSTONE);
             }
         }
 
-        for (let x = templeX - 2; x < templeX + templeWidth + 2; x++) {
-            for (let z = templeZ - 2; z < templeZ + templeDepth + 2; z++) {
-                this.world.setBlock(x, templeY + 18, z, ID_STONE);
-                this.world.setBlock(x, templeY + 19, z, ID_STONE);
-                this.world.setBlock(x, templeY + 20, z, ID_STONE);
+        const ruinWidth = 16;
+        const ruinDepth = 16;
+        const ruinCX = Math.floor((WORLD_WIDTH / 2) + Math.sin((WORLD_DEPTH / 2) * 0.15) * 8);
+        const ruinCZ = Math.floor(WORLD_DEPTH / 2);
+        
+        const startX = ruinCX - Math.floor(ruinWidth / 2);
+        const startZ = ruinCZ - Math.floor(ruinDepth / 2);
+        const ruinBaseY = 5;
+
+        for (let x = startX; x < startX + ruinWidth; x++) {
+            for (let z = startZ; z < startZ + ruinDepth; z++) {
+                for (let y = 1; y <= ruinBaseY; y++) {
+                    this.world.setBlock(x, y, z, ID_STONE);
+                }
+                for (let y = ruinBaseY + 1; y < ruinBaseY + 12; y++) {
+                    this.world.setBlock(x, y, z, 0); 
+                }
+            }
+        }
+
+        for (let x = startX; x < startX + ruinWidth; x++) {
+            if (Math.random() > 0.3) this.world.setBlock(x, ruinBaseY + 1, startZ, ID_STONE);
+            if (Math.random() > 0.3) this.world.setBlock(x, ruinBaseY + 1, startZ + ruinDepth - 1, ID_STONE);
+        }
+        for (let z = startZ; z < startZ + ruinDepth; z++) {
+            if (Math.random() > 0.3) this.world.setBlock(startX, ruinBaseY + 1, z, ID_STONE);
+            if (Math.random() > 0.3) this.world.setBlock(startX + ruinWidth - 1, ruinBaseY + 1, z, ID_STONE);
+        }
+
+        const addPillar = (px: number, pz: number) => {
+            const height = 4 + Math.floor(Math.random() * 3);
+            for (let y = ruinBaseY + 1; y <= ruinBaseY + height; y++) {
+                this.world.setBlock(px, y, pz, ID_STONE);
+                if (y === ruinBaseY + height) {
+                    this.world.setBlock(px, y + 1, pz, ID_GLOWSTONE);
+                }
+            }
+        };
+
+        addPillar(startX + 3, startZ + 3);
+        addPillar(startX + ruinWidth - 4, startZ + 3);
+        addPillar(startX + 3, startZ + ruinDepth - 4);
+        addPillar(startX + ruinWidth - 4, startZ + ruinDepth - 4);
+
+     
+        const gems = [ID_AMETHYST, ID_RUBY, ID_EMERALD, ID_SAPPHIRE, ID_GLOWSTONE];
+        
+        for (let i = 0; i < 70; i++) {
+            const x = Math.floor(Math.random() * WORLD_WIDTH);
+            const z = Math.floor(Math.random() * WORLD_DEPTH);
+            
+            let y = WORLD_HEIGHT - 3;
+            while (this.world.getBlock(x, y, z) !== 0 && y > 0) {
+                y--;
+            }
+            
+            if (y > ruinBaseY + 4 && y < WORLD_HEIGHT - 3) {
+                const len = 2 + Math.floor(Math.random() * 6);
+                const gemId = gems[Math.floor(Math.random() * gems.length)];
                 
-                if (x > templeX + 2 && x < templeX + templeWidth - 2) {
-                    this.world.setBlock(x, templeY + 21, z, ID_STONE);
-                    this.world.setBlock(x, templeY + 22, z, ID_STONE);
-                    if (z > templeZ + 6 && z < templeZ + templeDepth - 6) {
-                        this.world.setBlock(x, templeY + 23, z, ID_STONE);
+                for (let j = 0; j < len; j++) {
+                    const blockId = (j === len - 1) ? gemId : ID_STONE;
+                    this.world.setBlock(x, y - j, z, blockId);
+                }
+            }
+        }
+
+        for (let i = 0; i < 8; i++) {
+            const cx = startX + 4 + Math.floor(Math.random() * (ruinWidth - 8));
+            const cz = startZ + 4 + Math.floor(Math.random() * (ruinDepth - 8));
+            
+            for (let bx = 0; bx < 2; bx++) {
+                for (let by = 0; by < 2; by++) {
+                    for (let bz = 0; bz < 2; bz++) {
+                        this.world.setBlock(cx + bx, ruinBaseY + 1 + by, cz + bz, ID_WOOD);
                     }
                 }
             }
         }
-
-        this.world.setBlock(templeX - 2, templeY + 21, templeZ - 2, ID_SAPPHIRE);
-        this.world.setBlock(templeX + templeWidth + 1, templeY + 21, templeZ - 2, ID_SAPPHIRE);
-        this.world.setBlock(templeX - 2, templeY + 21, templeZ + templeDepth + 1, ID_SAPPHIRE);
-        this.world.setBlock(templeX + templeWidth + 1, templeY + 21, templeZ + templeDepth + 1, ID_SAPPHIRE);
-
-        const treeX = 90, treeZ = 90;
-        const treeBaseY = 1; 
-
-        for (let y = treeBaseY; y < treeBaseY + 20; y++) {
-            for (let x = treeX - 2; x <= treeX + 2; x++) {
-                for (let z = treeZ - 2; z <= treeZ + 2; z++) {
-                    if (Math.random() > 0.05) this.world.setBlock(x, y, z, ID_WOOD);
-                }
-            }
-        }
-
-        const radius = 12;
-        const canopyCenterY = treeBaseY + 22;
-        for (let x = treeX - radius; x <= treeX + radius; x++) {
-            for (let y = canopyCenterY - radius; y <= canopyCenterY + radius; y++) {
-                for (let z = treeZ - radius; z <= treeZ + radius; z++) {
-                    const dx = x - treeX;
-                    const dy = y - canopyCenterY;
-                    const dz = z - treeZ;
-                    if (dx*dx + dy*dy + dz*dz <= radius*radius - Math.random() * 8) {
-                        this.world.setBlock(x, y, z, ID_LEAVES);
-                        
-                        if (Math.random() > 0.98) {
-                            this.world.setBlock(x, y, z, ID_EMERALD);
-                        }
-                    }
-                }
-            }
-        }
-
-        const archX = 15, archZ = 90, archY = 1;
-        for (let i = 0; i < 15; i++) { 
-            this.world.setBlock(archX, archY + i, archZ, ID_STONE);
-            this.world.setBlock(archX + 1, archY + i, archZ, ID_STONE);
-        }
-        for (let i = 0; i < 15; i++) { 
-            this.world.setBlock(archX + 16, archY + i, archZ, ID_STONE);
-            this.world.setBlock(archX + 17, archY + i, archZ, ID_STONE);
-        }
-        for (let i = 0; i <= 16; i++) { 
-            if (i < 6 || i > 10) { 
-                this.world.setBlock(archX + i, archY + 14, archZ, ID_STONE);
-                this.world.setBlock(archX + i, archY + 15, archZ, ID_STONE);
-            }
-        }
-
-        this.world.setBlock(archX + 1, archY + 14, archZ, ID_RUBY);
-        this.world.setBlock(archX + 16, archY + 14, archZ, ID_RUBY);
-        this.world.setBlock(archX, archY + 7, archZ + 1, ID_AMETHYST);
-        this.world.setBlock(archX + 17, archY + 7, archZ + 1, ID_AMETHYST);
 
         if (this.debugChunkBorders) {
             const BORDER_MATERIAL = ID_WOOD; 
-
             for (let x = 0; x < WORLD_WIDTH; x++) {
                 for (let z = 0; z < WORLD_DEPTH; z++) {
                     const isBorderX = (x % Chunk.WIDTH === 0);
                     const isBorderZ = (z % Chunk.DEPTH === 0);
-
                     if (isBorderX || isBorderZ) {
-                        this.world.setBlock(x, 0, z, BORDER_MATERIAL);
-                        this.world.setBlock(x, 1, z, 0); 
+                        this.world.setBlock(x, 1, z, BORDER_MATERIAL);
                     }
                 }
             }

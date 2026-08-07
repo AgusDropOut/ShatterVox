@@ -175,9 +175,10 @@ export class Engine {
         
         this.renderer.drawWorld(this.world);
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
-        if(this.showPhysicsDebug) {
-            this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
-        }
+        
+        this.renderer.drawDeferred(this.physicsFacade);
+
+        
         if(this.showDepthDebug) {
             this.renderer.debugDrawTexture(this.renderer.depthView, true);
         }
@@ -187,7 +188,10 @@ export class Engine {
         if(this.showAlbedoDebug) {
             this.renderer.debugDrawTexture(this.renderer.albedoView);
         }
-        this.renderer.drawDeferred(this.physicsFacade);
+
+        if(this.showPhysicsDebug) {
+            this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
+        }
         
 
         this.renderer.endFrame();

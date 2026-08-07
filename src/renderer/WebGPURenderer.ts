@@ -10,12 +10,15 @@ import { entityShaderWGSL } from "./shaders/EntityShader.wgsl";
 import { physicsDebugShaderWGSL } from "./shaders/PhysicsDebugShader.wgsl";
 import { Debri } from "../world/Debri";
 import { DebriBatchManager } from "./DebriBatchManager";
+import { SmallDebriBatchManager } from "./SmallDebriBatchManager";
 import { mat4 } from "gl-matrix";
 import { debriShaderWGSL } from "./shaders/DebriShader.wgsl";
 import { globalEventBus } from "../core/EventBus";
 import { debugColorQuadShaderWGSL, debugDepthQuadShaderWGSL } from "./shaders/DebugQuadShader";
 import { deferredShader } from "./shaders/DeferredShader.wgsl";
 import { LightManager } from "./LightManager";
+import { smallDebriShaderWGSL } from "./shaders/SmallDebriShader.wgsl";
+
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -26,6 +29,7 @@ export class WebGPURenderer {
     private chunkPipeline!: GPURenderPipeline;
     public entityPipeline!: GPURenderPipeline;
     private debriPipeline!: GPURenderPipeline;
+    private smallDebriPipeline!: GPURenderPipeline;
     private debugPipeline!: GPURenderPipeline;
     private deferredPipeline!: GPURenderPipeline;
 
@@ -47,6 +51,7 @@ export class WebGPURenderer {
     private cameraBindGroup!: GPUBindGroup;
     public entityCameraBindGroup!: GPUBindGroup;
     private debriCameraBindGroup!: GPUBindGroup;
+    private smallDebriCameraBindGroup!: GPUBindGroup;
     private debugCameraBindGroup!: GPUBindGroup;
     private deferredCameraBindGroup!: GPUBindGroup;
     private gBufferBindGroup!: GPUBindGroup;
@@ -57,6 +62,7 @@ export class WebGPURenderer {
 
     private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup }> = new Map();
     private debriBatchManager!: DebriBatchManager;
+    private smallDebriBatchManager!: SmallDebriBatchManager;
     private lightManager!: LightManager;
 
     private debugPosBuffer: GPUBuffer | null = null;
@@ -93,9 +99,11 @@ export class WebGPURenderer {
         this.chunkPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'CHUNK', chunkShaderWGSL, this.presentationFormat, true);
         this.entityPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'ENTITY', entityShaderWGSL, this.presentationFormat, true);
         this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat, true);
+        this.smallDebriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'SMALL_DEBRI', smallDebriShaderWGSL, this.presentationFormat, true);
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
         this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, this.presentationFormat, false, false);
 
+        this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
         this.lightManager = new LightManager(this.device, this.deferredPipeline.getBindGroupLayout(2));
 
@@ -131,6 +139,16 @@ export class WebGPURenderer {
             ]
         });
 
+        this.smallDebriCameraBindGroup = this.device.createBindGroup({
+            layout: this.smallDebriPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: this.cameraBuffer } },
+                { binding: 1, resource: this.atlas.sampler },
+                { binding: 2, resource: this.atlas.view }
+            ]
+        });
+
+
         this.entityCameraBindGroup = this.device.createBindGroup({
             layout: this.entityPipeline.getBindGroupLayout(0),
             entries: [
@@ -138,6 +156,7 @@ export class WebGPURenderer {
             ]
         });
 
+        
         this.debugCameraBindGroup = this.device.createBindGroup({
             layout: this.debugPipeline.getBindGroupLayout(0),
             entries: [
@@ -317,13 +336,25 @@ export class WebGPURenderer {
         this.renderPass.setPipeline(this.debriPipeline);
         this.renderPass.setBindGroup(0, this.debriCameraBindGroup);
         
-        this.debriBatchManager.updateAndUpload(world.debri);
+        this.debriBatchManager.updateAndUploadModelMatrixes(world.debri);
         this.renderPass.setBindGroup(1, this.debriBatchManager.getBindGroup());
 
         for (let i = 0; i < world.debri.length; i++) {
             const debri = world.debri[i];
-            debri.draw(this.renderPass, i); 
+            if(!debri.isSingleBlockMesh()) {
+                debri.draw(this.renderPass, i); 
+            }
         }
+
+        this.renderPass.setPipeline(this.smallDebriPipeline);
+        this.renderPass.setBindGroup(0, this.smallDebriCameraBindGroup);
+        const count = this.smallDebriBatchManager.updateAndUploadModelMatrixesandUvs(world.debri);
+        this.renderPass.setBindGroup(1, this.smallDebriBatchManager.getBindGroup());
+        // Draw small debris
+        this.renderPass.setVertexBuffer(0, this.smallDebriBatchManager.getVertexBuffer().buffer);
+        this.renderPass.setVertexBuffer(1, this.smallDebriBatchManager.getNormalBuffer().buffer);
+        this.renderPass.draw(36, count, 0, 0);
+
     }
 
     public drawEntities(entityRepository: EntityRepository, physicsFacade: PhysicsFacade): void {
@@ -405,6 +436,7 @@ export class WebGPURenderer {
         this.renderPass.setBindGroup(0, this.debugCameraBindGroup);
         this.renderPass.setVertexBuffer(0, this.debugPosBuffer);
         this.renderPass.setVertexBuffer(1, this.debugColBuffer);
+       
 
         this.renderPass.draw(vertices.length / 3);
     }

@@ -1,4 +1,4 @@
-export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED';
+export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED' | 'SMALL_DEBRI';
 
 
 interface PipelineConfig {
@@ -44,6 +44,14 @@ const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
             { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: "float32x3" }] },
             { arrayStride: 12, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x3" }] },
             { arrayStride: 8,  attributes: [{ shaderLocation: 3, offset: 0, format: "float32x2" }] }
+        ]
+    },
+    SMALL_DEBRI: {
+        label: 'Small Debri Forward Pipeline',
+        topology: 'triangle-list',
+        buffers: [
+            { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }] },
+            { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: "float32x3" }] }
         ]
     },
     DEFERRED: {

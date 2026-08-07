@@ -21,8 +21,8 @@ export class PlayerController {
     constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade) {
         this.world = world;
         this.physicsFacade = physicsFacade;
-        this.camera = new Camera(vec3.fromValues(5, 10, 5));
-        this.targetPosition = vec3.fromValues(5, 10.8, 5);
+        this.camera = new Camera(vec3.fromValues(5, 0, 5));
+        this.targetPosition = vec3.fromValues(5, 0.8, 5);
         this.input = new Input(canvas);
         this.playerId = this.physicsFacade.generateId();
 
@@ -33,6 +33,8 @@ export class PlayerController {
             radius: 0.2,
             halfHeight: 0.6
         });
+
+        this.targetPosition = vec3.fromValues(5, 0.8, 5);
 
         canvas.addEventListener("mousedown", (e) => {
             if (this.input.isLocked && e.button === 0) {

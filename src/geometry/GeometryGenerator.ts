@@ -107,6 +107,48 @@ export class GeometryGenerator {
         return buffer;
     }
 
+    static getCubePositionsScaled(scale: number): Float32Array {
+        const faces = [
+            this.getFrontFace(), this.getBackFace(),
+            this.getLeftFace(), this.getRightFace(),
+            this.getTopFace(), this.getBottomFace()
+        ]
+      
+
+      
+        for (const face of faces) {
+            for (let i = 0; i < face.length; i += 3) {
+                face[i] *= scale;
+                face[i + 1] *= scale;
+                face[i + 2] *= scale;
+            }
+        }
+
+        let totalLength = 0;
+        for (const face of faces) totalLength += face.length;
+
+        const buffer = new Float32Array(totalLength);
+        let offset = 0;
+        for (const face of faces) {
+            buffer.set(face, offset); 
+            offset += face.length;
+        }
+        return buffer;
+       
+    }
+
+    public static getCubeUVs(): Float32Array {
+        const faceUvs = [
+            0, 0,
+            1, 0,
+            1, 1,
+            1, 1,
+            0, 1,
+            0, 0
+        ];
+        return new Float32Array([...faceUvs, ...faceUvs, ...faceUvs, ...faceUvs, ...faceUvs, ...faceUvs]);
+    }
+
     
     static getCubeNormals(): Int8Array {
         const faces = [
@@ -126,4 +168,24 @@ export class GeometryGenerator {
         }
         return buffer;
     }
+
+    static getCubeNormalsAsFloat32Array(): Float32Array {
+    const faces = [
+        this.getFrontNormal(), this.getBackNormal(), 
+        this.getLeftNormal(), this.getRightNormal(), 
+        this.getTopNormal(), this.getBottomNormal()
+    ];
+    
+    let totalLength = 0;
+    for (const face of faces) totalLength += face.length;
+
+
+    const buffer = new Float32Array(totalLength);
+    let offset = 0;
+    for (const face of faces) {
+        buffer.set(face, offset); 
+        offset += face.length;
+    }
+    return buffer;
+}
 }

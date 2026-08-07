@@ -7,12 +7,15 @@ export class VoxelMesh {
     private colors: WebGPUVertexBuffer | null = null;
     private uvs: WebGPUVertexBuffer | null = null;
     private vertexCount: number = 0;
+    private uvData: Float32Array | null = null;
 
     public updateGraphics(device: GPUDevice, meshData: MeshData) { 
         if (meshData.vertexCount === 0) {
             this.deleteBuffers();
             return;
         }
+
+        this.uvData = meshData.uvs;
 
         if (!this.positions || !this.normals || !this.colors || !this.uvs) {
             this.positions = new WebGPUVertexBuffer(device, meshData.positions);
@@ -45,6 +48,14 @@ export class VoxelMesh {
         renderPass.setVertexBuffer(3, this.uvs.buffer);
 
         renderPass.draw(this.vertexCount);
+    }
+
+    public isSingleBlockMesh(): boolean {
+        return this.vertexCount === 36; 
+    }
+
+    public getUVOffset(): Float32Array {
+        return this.uvData ? this.uvData : new Float32Array([0, 0, 1, 1]);
     }
 
     public drawWithInstance(renderPass: GPURenderPassEncoder, instanceIndex: number) { 

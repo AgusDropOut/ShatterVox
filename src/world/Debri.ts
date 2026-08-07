@@ -144,6 +144,14 @@ export class Debri implements Mesheable {
         this.modelBuffer.destroy();
     }
 
+    public isSingleBlockMesh(): boolean {
+        return this.mesh.isSingleBlockMesh();
+    }
+
+    public getUVOffsets(): Float32Array {
+        return this.mesh.getUVOffset();
+    }
+
     public draw(renderPass: GPURenderPassEncoder, instanceIndex: number): void {
         this.mesh.drawWithInstance(renderPass, instanceIndex);
     }

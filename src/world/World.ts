@@ -60,33 +60,33 @@ export class World {
         const cz = Math.floor(worldZ / Chunk.DEPTH);
         
         const chunk = this.chunks.get(`${cx},${cy},${cz}`);
-        if(chunk?.isDirty) return;
         if (chunk) chunk.isDirty = true;
-        console.log(`Chunk at (${cx}, ${cy}, ${cz}) marked as dirty.`);
-        const lx = ((worldX % Chunk.WIDTH) + Chunk.WIDTH) % Chunk.WIDTH;
-        const ly = ((worldY % Chunk.HEIGHT) + Chunk.HEIGHT) % Chunk.HEIGHT;
-        const lz = ((worldZ % Chunk.DEPTH) + Chunk.DEPTH) % Chunk.DEPTH;
 
-        if (lx === 0) {
+        
+        const modX = ((worldX % Chunk.WIDTH) + Chunk.WIDTH) % Chunk.WIDTH;
+        const modY = ((worldY % Chunk.HEIGHT) + Chunk.HEIGHT) % Chunk.HEIGHT;
+        const modZ = ((worldZ % Chunk.DEPTH) + Chunk.DEPTH) % Chunk.DEPTH;
+
+        if (modX === 0) {
             const neighbor = this.chunks.get(`${cx - 1},${cy},${cz}`);
             if (neighbor) neighbor.isDirty = true;
-        } else if (lx === Chunk.WIDTH - 1) {
+        } else if (modX === Chunk.WIDTH - 1) {
             const neighbor = this.chunks.get(`${cx + 1},${cy},${cz}`);
             if (neighbor) neighbor.isDirty = true;
         }
 
-        if (ly === 0) {
+        if (modY === 0) {
             const neighbor = this.chunks.get(`${cx},${cy - 1},${cz}`);
             if (neighbor) neighbor.isDirty = true;
-        } else if (ly === Chunk.HEIGHT - 1) {
+        } else if (modY === Chunk.HEIGHT - 1) {
             const neighbor = this.chunks.get(`${cx},${cy + 1},${cz}`);
             if (neighbor) neighbor.isDirty = true;
         }
 
-        if (lz === 0) {
+        if (modZ === 0) {
             const neighbor = this.chunks.get(`${cx},${cy},${cz - 1}`);
             if (neighbor) neighbor.isDirty = true;
-        } else if (lz === Chunk.DEPTH - 1) {
+        } else if (modZ === Chunk.DEPTH - 1) {
             const neighbor = this.chunks.get(`${cx},${cy},${cz + 1}`);
             if (neighbor) neighbor.isDirty = true;
         }

@@ -15,6 +15,7 @@ export class WebGPUStorageBuffer {
         this.device.queue.writeBuffer(this.buffer, 0, initialData);
     }
 
+
     public update(data: Float32Array): void {
         this.device.queue.writeBuffer(this.buffer, 0, data);
     }

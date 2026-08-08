@@ -100,6 +100,7 @@ export class World {
                 if (this.terrainPhysics) {
                     this.terrainPhysics.rebuildChunkColliders(chunk);
                 }
+                console.log(`Updated mesh for dirty chunk at (${chunk.chunkX}, ${chunk.chunkY}, ${chunk.chunkZ})`);
                 chunk.isDirty = false;
             }
         }

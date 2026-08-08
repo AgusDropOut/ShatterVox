@@ -23,7 +23,7 @@ export interface LightInfo {
 
 export class LightManager {
     private lights: Map<number, Light> = new Map();
-    private readonly maxLights: number = 200;
+    private readonly maxLights: number = 2000;
     private nextLightId: number = 0;
     private readonly floatsPerLight: number = 8;
     

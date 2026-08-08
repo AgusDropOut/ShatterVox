@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.19.3",
-    "gl-matrix": "^3.4.4"
+    "gl-matrix": "^3.4.4",
+    "webgpu-utils": "^2.1.1"
   }
 }

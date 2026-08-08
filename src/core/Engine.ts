@@ -38,6 +38,12 @@ export class Engine {
     private entityRepository: EntityRepository;
     private explosiveManager!: ExplosiveManager;
 
+    public static projectionMatrix: mat4 = mat4.create();
+    public static zNear: number = 0.1;
+    public static zFar: number = 100.0;
+    public static screenWidth: number = 0;
+    public static screenHeight: number = 0;
+
 
     constructor(canvasId: string) {
         const canvasElement = document.getElementById(canvasId) as HTMLCanvasElement | null;
@@ -56,6 +62,10 @@ export class Engine {
 
         globalEventBus.on("WINDOW_RESIZE", (data) => {
             this.renderer.resize(data.width, data.height);
+            Engine.projectionMatrix = mat4.create();
+            mat4.perspective(Engine.projectionMatrix, Math.PI / 4, data.width / data.height, Engine.zNear, Engine.zFar);
+            Engine.screenWidth = data.width;
+            Engine.screenHeight = data.height;
         });
 
         globalEventBus.on("TOGGLE_PHYSICS_DEBUG", () => {
@@ -82,6 +92,11 @@ export class Engine {
 
         this.window = new Window(this.canvas);
         this.entityRepository = new EntityRepository();
+
+        Engine.projectionMatrix = mat4.create();
+        mat4.perspective(Engine.projectionMatrix, Math.PI / 4, this.canvas.width / this.canvas.height, Engine.zNear, Engine.zFar);
+        Engine.screenWidth = this.canvas.width;
+        Engine.screenHeight = this.canvas.height;
         
         
     }
@@ -162,13 +177,12 @@ export class Engine {
     }
 
     private render(): void {
-        const projection = mat4.create();
-        mat4.perspective(projection, Math.PI / 4, this.canvas.width / this.canvas.height, 0.1, 100.0);
-        
+       
+     
         const view = this.player.camera.getViewMatrix(); 
         const invViewProj = mat4.create();
         const viewProj = mat4.create();
-        mat4.multiply(viewProj, projection, view);
+        mat4.multiply(viewProj, Engine.projectionMatrix, view);
         mat4.invert(invViewProj, viewProj);
 
         this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array);

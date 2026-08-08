@@ -18,6 +18,7 @@ import { debugColorQuadShaderWGSL, debugDepthQuadShaderWGSL } from "./shaders/De
 import { deferredShader } from "./shaders/DeferredShader.wgsl";
 import { LightManager } from "./LightManager";
 import { smallDebriShaderWGSL } from "./shaders/SmallDebriShader.wgsl";
+import { ClusteredShading } from "./ClusteredShading";
 
 
 export class WebGPURenderer {
@@ -63,6 +64,7 @@ export class WebGPURenderer {
     private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup }> = new Map();
     private debriBatchManager!: DebriBatchManager;
     private smallDebriBatchManager!: SmallDebriBatchManager;
+    private clusteredShading!: ClusteredShading;
     private lightManager!: LightManager;
 
     private debugPosBuffer: GPUBuffer | null = null;
@@ -190,7 +192,10 @@ export class WebGPURenderer {
             ]
         });
 
-        
+        this.clusteredShading = new ClusteredShading(this.device);
+        this.clusteredShading.createClusters();
+
+            
 
         return true;
     }

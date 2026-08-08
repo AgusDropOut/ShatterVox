@@ -83,6 +83,6 @@ export const deferredShader = `
 
         let mappedColor = finalColor / (finalColor + vec3<f32>(1.0, 1.0, 1.0));
         let gammaCorrectedColor = pow(mappedColor, vec3<f32>(1.0 / 2.2));
-        return vec4<f32>(gammaCorrectedColor, albedo.w);
+        return vec4<f32>(finalColor, albedo.w);
     }
 `;

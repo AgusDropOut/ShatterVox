@@ -61,11 +61,11 @@ export class Engine {
         });
 
         globalEventBus.on("WINDOW_RESIZE", (data) => {
-            this.renderer.resize(data.width, data.height);
             Engine.projectionMatrix = mat4.create();
-            mat4.perspective(Engine.projectionMatrix, Math.PI / 4, data.width / data.height, Engine.zNear, Engine.zFar);
+            mat4.perspectiveZO(Engine.projectionMatrix, Math.PI / 4, data.width / data.height, Engine.zNear, Engine.zFar);
             Engine.screenWidth = data.width;
             Engine.screenHeight = data.height;
+            this.renderer.resize(data.width, data.height);
         });
 
         globalEventBus.on("TOGGLE_PHYSICS_DEBUG", () => {

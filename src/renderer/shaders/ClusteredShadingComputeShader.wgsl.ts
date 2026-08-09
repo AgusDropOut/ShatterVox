@@ -4,10 +4,9 @@ export const clusteredShadingComputeShaderWGSL = `
         minPoint: vec4<f32>,
         maxPoint: vec4<f32>,
         lightCount: u32,
-        _padding: vec3<u32>,
-        lightIndices: array<u32, 100>,
+        _padding: array<u32, 3>,
+        lightIndices: array<u32, 200>,
     }
-
    
     struct ClusterParams {
         inverseProjectionMatrix: mat4x4<f32>, 
@@ -41,22 +40,31 @@ export const clusteredShadingComputeShaderWGSL = `
         let planeNear: f32 = params.zNear * pow(params.zFar / params.zNear, f32(global_id.z) / f32(params.gridSize.z));
         let planeFar: f32 = params.zNear * pow(params.zFar / params.zNear, f32(global_id.z + 1u) / f32(params.gridSize.z));
 
-        let minTile: vec3<f32> = screenToView(vec2<f32>(minXTileInScreenSpace, minYTileInScreenSpace));
-        let maxTile: vec3<f32> = screenToView(vec2<f32>(maxXTileInScreenSpace, maxYTileInScreenSpace));
+       
+      
+        let p0 = screenToView(vec2<f32>(minXTileInScreenSpace, minYTileInScreenSpace));
+        let p1 = screenToView(vec2<f32>(maxXTileInScreenSpace, minYTileInScreenSpace));
+        let p2 = screenToView(vec2<f32>(minXTileInScreenSpace, maxYTileInScreenSpace));
+        let p3 = screenToView(vec2<f32>(maxXTileInScreenSpace, maxYTileInScreenSpace));
 
-        let minPointNear: vec3<f32> =
-            lineIntersectionWithZPlane(vec3<f32>(0, 0, 0), minTile, planeNear);
-        let minPointFar: vec3<f32> =
-            lineIntersectionWithZPlane(vec3<f32>(0, 0, 0), minTile, planeFar);
-        let maxPointNear: vec3<f32> =
-            lineIntersectionWithZPlane(vec3<f32>(0, 0, 0), maxTile, planeNear);
-        let maxPointFar: vec3<f32> =
-            lineIntersectionWithZPlane(vec3<f32>(0, 0, 0), maxTile, planeFar);
+        let eye = vec3<f32>(0.0, 0.0, 0.0);
+        
+        let n0 = lineIntersectionWithZPlane(eye, p0, planeNear);
+        let n1 = lineIntersectionWithZPlane(eye, p1, planeNear);
+        let n2 = lineIntersectionWithZPlane(eye, p2, planeNear);
+        let n3 = lineIntersectionWithZPlane(eye, p3, planeNear);
 
-        // grabbing the min and max points for the cluster gives an AABB in view space
-        clusterBuffer[tileIndex].minPoint = vec4(min(minPointNear, minPointFar), 0.0);
-        clusterBuffer[tileIndex].maxPoint = vec4(max(maxPointNear, maxPointFar), 0.0);
+        let f0 = lineIntersectionWithZPlane(eye, p0, planeFar);
+        let f1 = lineIntersectionWithZPlane(eye, p1, planeFar);
+        let f2 = lineIntersectionWithZPlane(eye, p2, planeFar);
+        let f3 = lineIntersectionWithZPlane(eye, p3, planeFar);
 
+      
+        let minP = min(min(min(n0, n1), min(n2, n3)), min(min(f0, f1), min(f2, f3)));
+        let maxP = max(max(max(n0, n1), max(n2, n3)), max(max(f0, f1), max(f2, f3)));
+
+        clusterBuffer[tileIndex].minPoint = vec4(minP, 0.0);
+        clusterBuffer[tileIndex].maxPoint = vec4(maxP, 0.0);
     }
 
     fn lineIntersectionWithZPlane(startPoint: vec3<f32>, endPoint: vec3<f32>, zDistance: f32) -> vec3<f32> {
@@ -70,14 +78,11 @@ export const clusteredShadingComputeShaderWGSL = `
         let xNDC: f32 = (screenCoord.x / params.screenResolution.x) * 2.0 - 1.0;
         let yNDC: f32 = 1.0 - (screenCoord.y / params.screenResolution.y) * 2.0;
 
-
-        // 0.0 cause we start from the near plane, 1.0 cause we are in clip space
+        
         let clipSpacePos: vec4<f32> = vec4<f32>(xNDC, yNDC, 0.0, 1.0);
         var viewCoord: vec4<f32> = params.inverseProjectionMatrix * clipSpacePos;
         viewCoord /= viewCoord.w;
 
         return viewCoord.xyz;
-    
     }
-
 `;

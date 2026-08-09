@@ -4,8 +4,8 @@ export const clusteredShadingLightsToClustersComputeShaderWGSL = `
         minPoint: vec4<f32>,
         maxPoint: vec4<f32>,
         lightCount: u32,
-        _padding: vec3<u32>,
-        lightIndices: array<u32, 100>,
+        _padding: array<u32, 3>, 
+        lightIndices: array<u32, 200>,
     }
 
     struct Light {
@@ -15,7 +15,7 @@ export const clusteredShadingLightsToClustersComputeShaderWGSL = `
         padding: f32,
     }
 
-    const TOTAL_CLUSTERS = 3456u; // 12 * 12 * 24
+    const TOTAL_CLUSTERS = 4608u; // 12 * 12 * 32
 
     @group(0) @binding(0) var<storage, read_write> clusterBuffer: array<Cluster>;
 
@@ -33,22 +33,17 @@ export const clusteredShadingLightsToClustersComputeShaderWGSL = `
         }
 
         let lightCount: u32 = u32(lightInfo.x);
-
         let index: u32 = global_id.x;
-
         let cluster = &clusterBuffer[index];
 
         cluster.lightCount = 0u;
 
-        for (var i = 0u; i < lightCount; i++)
-        {
-            if (testSphereAABB(i, *cluster) && cluster.lightCount < 100u)
-            {
+        for (var i = 0u; i < lightCount; i++) {
+            if (testSphereAABB(i, *cluster) && cluster.lightCount < 200u) {
                 cluster.lightIndices[cluster.lightCount] = i;
                 cluster.lightCount++;
             }
         }
-    
     }
 
     fn sphereAABBIntersection(center: vec3<f32>, radius: f32, aabbMin: vec3<f32>, aabbMax: vec3<f32>) -> bool {
@@ -68,8 +63,4 @@ export const clusteredShadingLightsToClustersComputeShaderWGSL = `
 
         return sphereAABBIntersection(center, radius, aabbMin, aabbMax);
     }
-
-
-
-  
 `;

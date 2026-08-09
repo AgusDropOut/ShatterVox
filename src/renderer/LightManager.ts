@@ -23,7 +23,7 @@ export interface LightInfo {
 
 export class LightManager {
     private lights: Map<number, Light> = new Map();
-    private readonly maxLights: number = 2000;
+    private readonly maxLights: number = 2500;
     private nextLightId: number = 0;
     private readonly floatsPerLight: number = 8;
     
@@ -45,8 +45,7 @@ export class LightManager {
         this.lightBindGroup = device.createBindGroup({
             layout: this.lightBindGroupLayout,
             entries: [
-                { binding: 0, resource: { buffer: this.lightBuffer.buffer } },
-                { binding: 1, resource: { buffer: this.lightAmountBuffer.buffer } }
+                { binding: 0, resource: { buffer: this.lightBuffer.buffer } }
             ]
         });
 

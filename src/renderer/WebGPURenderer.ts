@@ -57,6 +57,7 @@ export class WebGPURenderer {
     private debugCameraBindGroup!: GPUBindGroup;
     private deferredCameraBindGroup!: GPUBindGroup;
     private gBufferBindGroup!: GPUBindGroup;
+    private clusteredShadingBindGroup!: GPUBindGroup;
 
     private commandEncoder: GPUCommandEncoder | null = null;
     private renderPass: GPURenderPassEncoder | null = null;
@@ -109,8 +110,10 @@ export class WebGPURenderer {
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
         this.lightManager = new LightManager(this.device, this.deferredPipeline.getBindGroupLayout(2));
-
+        
         this.resize(this.canvas.width, this.canvas.height);
+
+     
 
         
 
@@ -200,6 +203,18 @@ export class WebGPURenderer {
 
         this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
         this.clusteredShading.createClusters();
+
+        this.clusteredShadingBindGroup = this.device.createBindGroup({
+            layout: this.deferredPipeline.getBindGroupLayout(3),
+            entries: [
+                { binding: 0, resource: { buffer: this.clusteredShading.getClusterBuffer() } },
+                { binding: 1, resource: { buffer: this.clusteredShading.getParamsBuffer() } }
+            ]
+        });
+
+      
+
+       
 
             
 
@@ -483,6 +498,8 @@ export class WebGPURenderer {
         this.deferredRenderPass.setBindGroup(0, this.gBufferBindGroup);
         this.deferredRenderPass.setBindGroup(1, this.deferredCameraBindGroup);
         this.deferredRenderPass.setBindGroup(2, this.lightManager.getBindGroup());
+        this.deferredRenderPass.setBindGroup(3, this.clusteredShadingBindGroup);
+
         this.deferredRenderPass.draw(6, 1, 0, 0);
         this.deferredRenderPass.end();
         this.deferredRenderPass = null;

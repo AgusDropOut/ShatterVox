@@ -38,9 +38,28 @@ export const deferredShader = `
         color: vec3<f32>,
         padding: f32,
     };
+
+    struct Cluster {
+        minPoint: vec4<f32>,
+        maxPoint: vec4<f32>,
+        lightCount: u32,
+        _padding: array<u32, 3>, 
+        lightIndices: array<u32, 200>,
+    }
+
+   
+    struct ClusterParams {
+        inverseProjectionMatrix: mat4x4<f32>, 
+        gridSize: vec3<u32>,                  
+        zNear: f32,                           
+        screenResolution: vec2<f32>,         
+        zFar: f32,                            
+    }
     
     @group(2) @binding(0) var<storage, read> lightBuffer: array<Light>;
-    @group(2) @binding(1) var<uniform> lightInfo: vec4<f32>;
+
+    @group(3) @binding(0) var<storage, read> clusterBuffer: array<Cluster>;
+    @group(3) @binding(1) var<uniform> clusterParams: ClusterParams;
     
 
     @fragment
@@ -59,14 +78,26 @@ export const deferredShader = `
         let zNDC = depth;
 
         let clip = vec4<f32>(xNDC, yNDC, zNDC, 1.0);
-        let WHomogenous = camera.invViewProj * clip;
-        let worldPos = WHomogenous.xyz / WHomogenous.w;
+        let WHomogenousWorld = camera.invViewProj * clip;
+        let WHomogenousView = clusterParams.inverseProjectionMatrix * clip;
+        let worldPos = WHomogenousWorld.xyz / WHomogenousWorld.w;
+        let viewPos = WHomogenousView.xyz / WHomogenousView.w;
+
+        let tileSizeX: f32 = clusterParams.screenResolution.x / f32(clusterParams.gridSize.x);
+        let tileSizeY: f32 = clusterParams.screenResolution.y / f32(clusterParams.gridSize.y);
+
+        let zTile: u32 = u32((log(abs(viewPos.z)/ clusterParams.zNear)* f32(clusterParams.gridSize.z)) / log(clusterParams.zFar / clusterParams.zNear));
+        let tile: vec3<u32> = vec3<u32>(u32(in.position.x / tileSizeX), u32(in.position.y / tileSizeY), zTile);
+        let tileIndex: u32 = u32(tile.x + (tile.y * clusterParams.gridSize.x) + (tile.z * clusterParams.gridSize.x * clusterParams.gridSize.y));
+        let lightCount = i32(clusterBuffer[tileIndex].lightCount);
+        
 
         var lightAccum: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
-        let lightCount = i32(lightInfo.x);
+        
 
         for(var i: i32 = 0; i < lightCount; i = i + 1) {
-            let light = lightBuffer[i];
+            let lightIndex = clusterBuffer[tileIndex].lightIndices[i];
+            let light = lightBuffer[lightIndex];
             let lightDir = light.position - worldPos;
             let distance = length(lightDir);
             

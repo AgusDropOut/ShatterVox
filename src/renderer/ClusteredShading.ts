@@ -21,11 +21,11 @@ export class ClusteredShading {
 
     private readonly GRID_X = 12;
     private readonly GRID_Y = 12;
-    private readonly GRID_Z = 24;
+    private readonly GRID_Z = 32;
     private readonly WORKGROUP_SIZE_X = 8;
     private readonly WORKGROUP_SIZE_Y = 8;
     private readonly WORKGROUP_SIZE_Z = 1;
-    private readonly CLUSTER_SIZE_BYTES = 448;
+    private readonly CLUSTER_SIZE_BYTES = 848;
     private readonly TOTAL_CLUSTERS = this.GRID_X * this.GRID_Y * this.GRID_Z;
 
     private lightManager: LightManager;
@@ -155,5 +155,13 @@ export class ClusteredShading {
         passEncoder.dispatchWorkgroups(workgroupCount, 1, 1);
         passEncoder.end();
 
+    }
+
+    public getClusterBuffer(): GPUBuffer {
+        return this.clusterBuffer;
+    }
+
+    public getParamsBuffer(): GPUBuffer {
+        return this.paramsBuffer;
     }
 }

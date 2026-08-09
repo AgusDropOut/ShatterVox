@@ -185,7 +185,7 @@ export class Engine {
         mat4.multiply(viewProj, Engine.projectionMatrix, view);
         mat4.invert(invViewProj, viewProj);
 
-        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array);
+        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array);
         
         this.renderer.drawWorld(this.world);
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);

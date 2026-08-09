@@ -156,4 +156,11 @@ export class LightManager {
     public getBindGroup(): GPUBindGroup {
         return this.lightBindGroup;
     }
+
+    public getLightBufferSources(): { lightBuffer: GPUBuffer; lightAmountBuffer: GPUBuffer } {
+        return {
+            lightBuffer: this.lightBuffer.buffer,
+            lightAmountBuffer: this.lightAmountBuffer.buffer
+        };
+    }
 }

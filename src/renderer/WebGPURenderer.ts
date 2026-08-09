@@ -47,7 +47,8 @@ export class WebGPURenderer {
     public normalView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
-    private cameraBuffer!: GPUBuffer;
+    private viewBuffer!: GPUBuffer;
+    private viewProjBuffer!: GPUBuffer;
     private cameraBufferPlus!: GPUBuffer;
     private cameraBindGroup!: GPUBindGroup;
     public entityCameraBindGroup!: GPUBindGroup;
@@ -113,7 +114,12 @@ export class WebGPURenderer {
 
         
 
-        this.cameraBuffer = this.device.createBuffer({
+        this.viewProjBuffer = this.device.createBuffer({
+            size: 64,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.viewBuffer = this.device.createBuffer({
             size: 64,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
@@ -126,7 +132,7 @@ export class WebGPURenderer {
         this.cameraBindGroup = this.device.createBindGroup({
             layout: this.chunkPipeline.getBindGroupLayout(0),
             entries: [
-                { binding: 0, resource: { buffer: this.cameraBuffer } },
+                { binding: 0, resource: { buffer: this.viewProjBuffer } },
                 { binding: 1, resource: this.atlas.sampler },
                 { binding: 2, resource: this.atlas.view }
             ]
@@ -135,7 +141,7 @@ export class WebGPURenderer {
         this.debriCameraBindGroup = this.device.createBindGroup({
             layout: this.debriPipeline.getBindGroupLayout(0),
             entries: [
-                { binding: 0, resource: { buffer: this.cameraBuffer } },
+                { binding: 0, resource: { buffer: this.viewProjBuffer } },
                 { binding: 1, resource: this.atlas.sampler },
                 { binding: 2, resource: this.atlas.view }
             ]
@@ -144,7 +150,7 @@ export class WebGPURenderer {
         this.smallDebriCameraBindGroup = this.device.createBindGroup({
             layout: this.smallDebriPipeline.getBindGroupLayout(0),
             entries: [
-                { binding: 0, resource: { buffer: this.cameraBuffer } },
+                { binding: 0, resource: { buffer: this.viewProjBuffer } },
                 { binding: 1, resource: this.atlas.sampler },
                 { binding: 2, resource: this.atlas.view }
             ]
@@ -154,7 +160,7 @@ export class WebGPURenderer {
         this.entityCameraBindGroup = this.device.createBindGroup({
             layout: this.entityPipeline.getBindGroupLayout(0),
             entries: [
-                { binding: 0, resource: { buffer: this.cameraBuffer } }
+                { binding: 0, resource: { buffer: this.viewProjBuffer } }
             ]
         });
 
@@ -162,7 +168,7 @@ export class WebGPURenderer {
         this.debugCameraBindGroup = this.device.createBindGroup({
             layout: this.debugPipeline.getBindGroupLayout(0),
             entries: [
-                { binding: 0, resource: { buffer: this.cameraBuffer } }
+                { binding: 0, resource: { buffer: this.viewProjBuffer } }
             ]
         });
 
@@ -192,7 +198,7 @@ export class WebGPURenderer {
             ]
         });
 
-        this.clusteredShading = new ClusteredShading(this.device);
+        this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
         this.clusteredShading.createClusters();
 
             
@@ -233,6 +239,11 @@ export class WebGPURenderer {
         this.canvas.height = height;
         if (!this.device) return; 
         this.resizeGBuffers(width, height);
+
+        if (this.clusteredShading) {
+            this.clusteredShading.updateParamsBuffer();
+            this.clusteredShading.createClusters();
+        }
     }
 
     private resizeGBuffers(width: number, height: number): void {
@@ -278,14 +289,20 @@ export class WebGPURenderer {
         
     }
 
-    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array): GPURenderPassEncoder {
+    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array): GPURenderPassEncoder {
         const combinedCameraData = new Float32Array(32);
+
         combinedCameraData.set(viewProjMatrix, 0);       
         combinedCameraData.set(invViewProjMatrix, 16);   
-        this.device.queue.writeBuffer(this.cameraBuffer, 0, viewProjMatrix);
+        this.device.queue.writeBuffer(this.viewBuffer, 0, viewMatrix);
+        this.device.queue.writeBuffer(this.viewProjBuffer, 0, viewProjMatrix);
         this.device.queue.writeBuffer(this.cameraBufferPlus, 0, combinedCameraData);
 
         this.commandEncoder = this.device.createCommandEncoder();
+
+        if (this.clusteredShading) {
+            this.clusteredShading.assignLightsToClusters(this.commandEncoder);
+        }
 
         this.renderPass = this.commandEncoder.beginRenderPass({
             colorAttachments: [

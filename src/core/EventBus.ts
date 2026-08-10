@@ -13,6 +13,7 @@ export interface GameEvents {
     "DEBUG_DEPTH": {};
     "DEBUG_NORMALS": {};
     "DEBUG_ALBEDO": {};
+    "DEBUG_GTAO": {};
     "LIGHT_ADD": { position: { x: number, y: number, z: number }, color: { r: number, g: number, b: number }, radius: number, debriId?: number, localPos?: { x: number, y: number, z: number } };
     "LIGHT_REMOVE": { position?: { x: number, y: number, z: number }, debriId?: number };
     

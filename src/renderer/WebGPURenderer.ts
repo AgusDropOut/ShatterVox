@@ -19,6 +19,9 @@ import { deferredShader } from "./shaders/DeferredShader.wgsl";
 import { LightManager } from "./LightManager";
 import { smallDebriShaderWGSL } from "./shaders/SmallDebriShader.wgsl";
 import { ClusteredShading } from "./ClusteredShading";
+import { InitialGTAOComputeShaderWGSL } from "./shaders/InitialGTAOComputeShader.wgsl";
+import { Engine } from "../core/Engine";
+import { makeShaderDataDefinitions, makeStructuredView, type StructuredView } from  "webgpu-utils";
 
 
 export class WebGPURenderer {
@@ -32,6 +35,7 @@ export class WebGPURenderer {
     private debriPipeline!: GPURenderPipeline;
     private smallDebriPipeline!: GPURenderPipeline;
     private debugPipeline!: GPURenderPipeline;
+    private GTAOComputePipeline!: GPUComputePipeline;
     private deferredPipeline!: GPURenderPipeline;
 
     private debugColorPipeline: GPURenderPipeline | null = null;
@@ -41,14 +45,17 @@ export class WebGPURenderer {
 
     private depthTexture!: GPUTexture;
     private albedoTexture!: GPUTexture;
-    private normalTexture!: GPUTexture
+    private normalTexture!: GPUTexture;
+    private noisyGTAOTexture!: GPUTexture;
     public depthView!: GPUTextureView;
     public albedoView!: GPUTextureView;
     public normalView!: GPUTextureView;
+    public noisyGTAOView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
     private viewBuffer!: GPUBuffer;
     private viewProjBuffer!: GPUBuffer;
+    private projectionBuffer!: GPUBuffer;
     private cameraBufferPlus!: GPUBuffer;
     private cameraBindGroup!: GPUBindGroup;
     public entityCameraBindGroup!: GPUBindGroup;
@@ -57,6 +64,10 @@ export class WebGPURenderer {
     private debugCameraBindGroup!: GPUBindGroup;
     private deferredCameraBindGroup!: GPUBindGroup;
     private gBufferBindGroup!: GPUBindGroup;
+    private GTAOComputeBindGroup!: GPUBindGroup;
+    private GTAOComputeBindMatrixesBindGroup!: GPUBindGroup;
+    private gtaoParamsBuffer!: GPUBuffer;
+    private gtaoParamsView!: StructuredView;
     private clusteredShadingBindGroup!: GPUBindGroup;
 
     private commandEncoder: GPUCommandEncoder | null = null;
@@ -106,6 +117,7 @@ export class WebGPURenderer {
         this.smallDebriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'SMALL_DEBRI', smallDebriShaderWGSL, this.presentationFormat, true);
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
         this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, this.presentationFormat, false, false);
+        this.GTAOComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: InitialGTAOComputeShaderWGSL }),entryPoint: 'main',},});
 
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
@@ -118,6 +130,11 @@ export class WebGPURenderer {
         
 
         this.viewProjBuffer = this.device.createBuffer({
+            size: 64,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        this.projectionBuffer = this.device.createBuffer({
             size: 64,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
         });
@@ -200,6 +217,41 @@ export class WebGPURenderer {
                 { binding: 4, resource: this.depthView }
             ]
         });
+
+        this.GTAOComputeBindGroup = this.device.createBindGroup({
+            layout: this.GTAOComputePipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: this.nearestSampler },
+                { binding: 1, resource: this.normalView },
+                { binding: 2, resource: this.depthView },
+                { binding: 3, resource: this.noisyGTAOView }
+            ]
+        });
+
+        const defs = makeShaderDataDefinitions(`
+            struct GTAOParams {
+                screenResolution: vec2<f32>,
+                zNear: f32,
+                zFar: f32,
+                inverseProjectionMatrix: mat4x4<f32>,
+                projectionMatrix: mat4x4<f32>,
+                viewMatrix: mat4x4<f32>,
+            };
+            `);
+            this.gtaoParamsView = makeStructuredView(defs.structs.GTAOParams);
+
+            this.gtaoParamsBuffer = this.device.createBuffer({
+                label: "GTAO Params Buffer",
+                size: this.gtaoParamsView.arrayBuffer.byteLength,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            });
+
+            this.GTAOComputeBindMatrixesBindGroup = this.device.createBindGroup({
+                layout: this.GTAOComputePipeline.getBindGroupLayout(1),
+                entries: [
+                    { binding: 0, resource: { buffer: this.gtaoParamsBuffer } }
+                ]
+            });
 
         this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
         this.clusteredShading.createClusters();
@@ -291,6 +343,13 @@ export class WebGPURenderer {
         if(!this.linearSampler || !this.nearestSampler) {
             throw new Error("Samplers not initialized");
         }
+        this.noisyGTAOTexture = this.device.createTexture({
+            size: [width, height],
+            format: "rgba8unorm", 
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.noisyGTAOView = this.noisyGTAOTexture.createView();
+
         this.gBufferBindGroup = this.device.createBindGroup({
             layout: this.deferredPipeline.getBindGroupLayout(0),
             entries: [
@@ -312,7 +371,8 @@ export class WebGPURenderer {
         this.device.queue.writeBuffer(this.viewBuffer, 0, viewMatrix);
         this.device.queue.writeBuffer(this.viewProjBuffer, 0, viewProjMatrix);
         this.device.queue.writeBuffer(this.cameraBufferPlus, 0, combinedCameraData);
-
+        this.device.queue.writeBuffer(this.projectionBuffer, 0, Engine.projectionMatrix as Float32Array);
+        this.updateGTAOParams(viewMatrix, invViewProjMatrix);
         this.commandEncoder = this.device.createCommandEncoder();
 
         if (this.clusteredShading) {
@@ -392,6 +452,42 @@ export class WebGPURenderer {
         this.renderPass.setVertexBuffer(1, this.smallDebriBatchManager.getNormalBuffer().buffer);
         this.renderPass.draw(36, count, 0, 0);
 
+    }
+
+    public updateGTAOParams(viewMatrix: Float32Array, invProjMatrix: Float32Array): void {
+        this.gtaoParamsView.set({
+            screenResolution: [this.canvas.width, this.canvas.height],
+            zNear: Engine.zNear,
+            zFar: Engine.zFar,
+            inverseProjectionMatrix: invProjMatrix,
+            projectionMatrix: Engine.projectionMatrix as Float32Array,
+            viewMatrix: viewMatrix,
+        });
+
+        this.device.queue.writeBuffer(
+            this.gtaoParamsBuffer,
+            0,
+            this.gtaoParamsView.arrayBuffer
+        );
+    }
+
+    public computeGTAO(): void {
+        if (this.renderPass) {
+            this.renderPass.end();
+            this.renderPass = null;
+        }
+
+        if (!this.commandEncoder) return;
+
+        const groupsX = Math.ceil(this.canvas.width / 8);
+        const groupsY = Math.ceil(this.canvas.height / 8);
+
+        const computePass = this.commandEncoder.beginComputePass();
+        computePass.setPipeline(this.GTAOComputePipeline);
+        computePass.setBindGroup(0, this.GTAOComputeBindGroup);
+        computePass.setBindGroup(1, this.GTAOComputeBindMatrixesBindGroup);
+        computePass.dispatchWorkgroups(groupsX, groupsY, 1);
+        computePass.end();
     }
 
     public drawEntities(entityRepository: EntityRepository, physicsFacade: PhysicsFacade): void {

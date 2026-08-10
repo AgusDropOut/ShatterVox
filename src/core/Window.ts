@@ -38,6 +38,9 @@ export class Window {
         if(e.code === "Digit3") {
             globalEventBus.emit("DEBUG_ALBEDO", {});
         }
+        if(e.code === "Digit4") {
+            globalEventBus.emit("DEBUG_GTAO", {});
+        }
 
     }
 }

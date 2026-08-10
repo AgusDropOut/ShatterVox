@@ -31,6 +31,7 @@ export class Engine {
     private showDepthDebug: boolean = false;
     private showNormalsDebug: boolean = false;
     private showAlbedoDebug: boolean = false;
+    private showGTAODebug: boolean = false;
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;
     private lastFpsTime: number = 0;
@@ -86,6 +87,13 @@ export class Engine {
 
         globalEventBus.on("DEBUG_ALBEDO", () => {
             this.showAlbedoDebug = !this.showAlbedoDebug; 
+            this.showDepthDebug = false;
+            this.showNormalsDebug = false;
+        });
+
+        globalEventBus.on("DEBUG_GTAO", () => {
+            this.showGTAODebug = !this.showGTAODebug;
+            this.showAlbedoDebug = false;
             this.showDepthDebug = false;
             this.showNormalsDebug = false;
         });
@@ -189,7 +197,9 @@ export class Engine {
         
         this.renderer.drawWorld(this.world);
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
-        
+
+        this.renderer.computeGTAO();
+
         this.renderer.drawDeferred(this.physicsFacade);
 
         
@@ -201,6 +211,9 @@ export class Engine {
         }
         if(this.showAlbedoDebug) {
             this.renderer.debugDrawTexture(this.renderer.albedoView);
+        }
+        if(this.showGTAODebug) {
+            this.renderer.debugDrawTexture(this.renderer.noisyGTAOView);
         }
 
         if(this.showPhysicsDebug) {

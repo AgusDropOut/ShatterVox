@@ -32,6 +32,7 @@ export class Engine {
     private showNormalsDebug: boolean = false;
     private showAlbedoDebug: boolean = false;
     private showGTAODebug: boolean = false;
+    private showBlurGTAODebug: boolean = false;
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;
     private lastFpsTime: number = 0;
@@ -77,18 +78,24 @@ export class Engine {
             this.showDepthDebug = !this.showDepthDebug; 
             this.showAlbedoDebug = false;
             this.showNormalsDebug = false;
+            this.showGTAODebug = false;
+            this.showBlurGTAODebug = false;
         });
 
         globalEventBus.on("DEBUG_NORMALS", () => {
             this.showNormalsDebug = !this.showNormalsDebug; 
             this.showAlbedoDebug = false;
             this.showDepthDebug = false;
+            this.showGTAODebug = false;
+            this.showBlurGTAODebug = false;
         });
 
         globalEventBus.on("DEBUG_ALBEDO", () => {
             this.showAlbedoDebug = !this.showAlbedoDebug; 
             this.showDepthDebug = false;
             this.showNormalsDebug = false;
+            this.showGTAODebug = false;
+            this.showBlurGTAODebug = false;
         });
 
         globalEventBus.on("DEBUG_GTAO", () => {
@@ -96,13 +103,23 @@ export class Engine {
             this.showAlbedoDebug = false;
             this.showDepthDebug = false;
             this.showNormalsDebug = false;
+            this.showBlurGTAODebug = false;
         });
+
+        globalEventBus.on("DEBUG_BLUR_GTAO", () => {
+            this.showBlurGTAODebug = !this.showBlurGTAODebug;
+            this.showAlbedoDebug = false;
+            this.showDepthDebug = false;
+            this.showNormalsDebug = false;
+            this.showGTAODebug = false;
+        });
+
 
         this.window = new Window(this.canvas);
         this.entityRepository = new EntityRepository();
 
         Engine.projectionMatrix = mat4.create();
-        mat4.perspective(Engine.projectionMatrix, Math.PI / 4, this.canvas.width / this.canvas.height, Engine.zNear, Engine.zFar);
+        mat4.perspectiveZO(Engine.projectionMatrix, Math.PI / 4, this.canvas.width / this.canvas.height, Engine.zNear, Engine.zFar);
         Engine.screenWidth = this.canvas.width;
         Engine.screenHeight = this.canvas.height;
         
@@ -214,6 +231,10 @@ export class Engine {
         }
         if(this.showGTAODebug) {
             this.renderer.debugDrawTexture(this.renderer.noisyGTAOView);
+        }
+
+        if(this.showBlurGTAODebug) {
+            this.renderer.debugDrawTexture(this.renderer.blurredGTAOView);
         }
 
         if(this.showPhysicsDebug) {

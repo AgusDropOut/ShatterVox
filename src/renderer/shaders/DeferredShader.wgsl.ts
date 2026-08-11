@@ -30,6 +30,7 @@ export const deferredShader = `
     @group(0) @binding(2) var albedoTex: texture_2d<f32>;
     @group(0) @binding(3) var normalTex: texture_2d<f32>;
     @group(0) @binding(4) var depthTex: texture_depth_2d;
+    @group(0) @binding(5) var gtaoTexture: texture_2d<f32>;
     @group(1) @binding(0) var<uniform> camera: Camera;
 
     struct Light {
@@ -60,6 +61,7 @@ export const deferredShader = `
 
     @group(3) @binding(0) var<storage, read> clusterBuffer: array<Cluster>;
     @group(3) @binding(1) var<uniform> clusterParams: ClusterParams;
+    
     
 
     @fragment
@@ -109,11 +111,15 @@ export const deferredShader = `
             }
         }
         
-        let ambient = vec3<f32>(0.2, 0.2, 0.2);
-        let finalColor = albedo.xyz * (lightAccum + ambient);
+        let ambient = vec3<f32>(1.0, 1.0, 1.0);
+        let gtao = textureSample(gtaoTexture, texSamplerLinear, in.uv).r;
+        let occludedAmbient = ambient *  gtao;
+        let finalColor = albedo.xyz * (lightAccum + occludedAmbient);
+
+        
 
         let mappedColor = finalColor / (finalColor + vec3<f32>(1.0, 1.0, 1.0));
         let gammaCorrectedColor = pow(mappedColor, vec3<f32>(1.0 / 2.2));
-        return vec4<f32>(finalColor, albedo.w);
+        return vec4<f32>(finalColor , albedo.w);
     }
 `;

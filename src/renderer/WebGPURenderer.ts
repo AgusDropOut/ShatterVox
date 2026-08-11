@@ -22,6 +22,7 @@ import { ClusteredShading } from "./ClusteredShading";
 import { InitialGTAOComputeShaderWGSL } from "./shaders/InitialGTAOComputeShader.wgsl";
 import { Engine } from "../core/Engine";
 import { makeShaderDataDefinitions, makeStructuredView, type StructuredView } from  "webgpu-utils";
+import { GTAOBlurComputeShaderWGSL } from "./shaders/GTAOBlurComputeShader.wgsl";
 
 
 export class WebGPURenderer {
@@ -36,6 +37,7 @@ export class WebGPURenderer {
     private smallDebriPipeline!: GPURenderPipeline;
     private debugPipeline!: GPURenderPipeline;
     private GTAOComputePipeline!: GPUComputePipeline;
+    private GTAOBlurComputePipeline!: GPUComputePipeline;
     private deferredPipeline!: GPURenderPipeline;
 
     private debugColorPipeline: GPURenderPipeline | null = null;
@@ -47,10 +49,13 @@ export class WebGPURenderer {
     private albedoTexture!: GPUTexture;
     private normalTexture!: GPUTexture;
     private noisyGTAOTexture!: GPUTexture;
+    private blurredGTAOTexture!: GPUTexture;
     public depthView!: GPUTextureView;
     public albedoView!: GPUTextureView;
     public normalView!: GPUTextureView;
     public noisyGTAOView!: GPUTextureView;
+    public blurredGTAOView!: GPUTextureView;
+    
 
     private atlas!: WebGPUTexture;
     private viewBuffer!: GPUBuffer;
@@ -66,6 +71,8 @@ export class WebGPURenderer {
     private gBufferBindGroup!: GPUBindGroup;
     private GTAOComputeBindGroup!: GPUBindGroup;
     private GTAOComputeBindMatrixesBindGroup!: GPUBindGroup;
+    private GTAOComputeParamsBindGroup!: GPUBindGroup;
+    private GTAOBlurComputeBindGroup!: GPUBindGroup;
     private gtaoParamsBuffer!: GPUBuffer;
     private gtaoParamsView!: StructuredView;
     private clusteredShadingBindGroup!: GPUBindGroup;
@@ -118,6 +125,7 @@ export class WebGPURenderer {
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
         this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, this.presentationFormat, false, false);
         this.GTAOComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: InitialGTAOComputeShaderWGSL }),entryPoint: 'main',},});
+        this.GTAOBlurComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: GTAOBlurComputeShaderWGSL }),entryPoint: 'main',},});
 
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
@@ -214,7 +222,8 @@ export class WebGPURenderer {
                 { binding: 1, resource: this.nearestSampler },
                 { binding: 2, resource: this.albedoView },
                 { binding: 3, resource: this.normalView },
-                { binding: 4, resource: this.depthView }
+                { binding: 4, resource: this.depthView },
+                { binding: 5, resource: this.blurredGTAOView }
             ]
         });
 
@@ -253,16 +262,37 @@ export class WebGPURenderer {
                 ]
             });
 
-        this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
-        this.clusteredShading.createClusters();
+            this.GTAOBlurComputeBindGroup = this.device.createBindGroup({
+                layout: this.GTAOBlurComputePipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: this.depthView },
+                    { binding: 1, resource: this.noisyGTAOView },
+                    { binding: 2, resource: this.blurredGTAOView }
+                ]
+            });
 
-        this.clusteredShadingBindGroup = this.device.createBindGroup({
-            layout: this.deferredPipeline.getBindGroupLayout(3),
-            entries: [
-                { binding: 0, resource: { buffer: this.clusteredShading.getClusterBuffer() } },
-                { binding: 1, resource: { buffer: this.clusteredShading.getParamsBuffer() } }
-            ]
-        });
+            this.GTAOComputeParamsBindGroup = this.device.createBindGroup({
+                layout: this.GTAOBlurComputePipeline.getBindGroupLayout(1),
+                entries: [
+                    { binding: 0, resource: this.gtaoParamsBuffer }
+                ]
+            });
+
+
+            
+
+            this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
+            this.clusteredShading.createClusters();
+
+            this.clusteredShadingBindGroup = this.device.createBindGroup({
+                layout: this.deferredPipeline.getBindGroupLayout(3),
+                entries: [
+                    { binding: 0, resource: { buffer: this.clusteredShading.getClusterBuffer() } },
+                    { binding: 1, resource: { buffer: this.clusteredShading.getParamsBuffer() } }
+                ]
+            });
+
+          
 
       
 
@@ -321,6 +351,7 @@ export class WebGPURenderer {
 
        
         this.albedoTexture = this.device.createTexture({
+            label: "Albedo Texture",
             size: [width, height],
             format: "rgba8unorm",
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
@@ -328,6 +359,7 @@ export class WebGPURenderer {
         this.albedoView = this.albedoTexture.createView();
 
         this.normalTexture = this.device.createTexture({
+            label: "Normal Texture",
             size: [width, height],
             format: "rgba16float",
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
@@ -335,6 +367,7 @@ export class WebGPURenderer {
         this.normalView = this.normalTexture.createView();
 
         this.depthTexture = this.device.createTexture({
+            label: "Depth Texture",
             size: [width, height],
             format: "depth32float", 
             usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
@@ -344,11 +377,22 @@ export class WebGPURenderer {
             throw new Error("Samplers not initialized");
         }
         this.noisyGTAOTexture = this.device.createTexture({
+            label: "Noisy GTAO Texture",
             size: [width, height],
             format: "rgba8unorm", 
             usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
         });
         this.noisyGTAOView = this.noisyGTAOTexture.createView();
+
+        this.blurredGTAOTexture = this.device.createTexture({
+            label: "Blurred GTAO Texture",
+            size: [width, height],
+            format: "rgba8unorm", 
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.blurredGTAOView = this.blurredGTAOTexture.createView();
+
+        
 
         this.gBufferBindGroup = this.device.createBindGroup({
             layout: this.deferredPipeline.getBindGroupLayout(0),
@@ -357,7 +401,27 @@ export class WebGPURenderer {
                 { binding: 1, resource: this.nearestSampler },
                 { binding: 2, resource: this.albedoView },
                 { binding: 3, resource: this.normalView },
-                { binding: 4, resource: this.depthView }
+                { binding: 4, resource: this.depthView },
+                { binding: 5, resource: this.blurredGTAOView }
+            ]
+        });
+
+        this.GTAOComputeBindGroup = this.device.createBindGroup({
+            layout: this.GTAOComputePipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: this.nearestSampler },
+                { binding: 1, resource: this.normalView },
+                { binding: 2, resource: this.depthView },
+                { binding: 3, resource: this.noisyGTAOView }
+            ]
+        });
+
+        this.GTAOBlurComputeBindGroup = this.device.createBindGroup({
+            layout: this.GTAOBlurComputePipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: this.depthView },
+                { binding: 1, resource: this.noisyGTAOView },
+                { binding: 2, resource: this.blurredGTAOView }
             ]
         });
         
@@ -372,7 +436,9 @@ export class WebGPURenderer {
         this.device.queue.writeBuffer(this.viewProjBuffer, 0, viewProjMatrix);
         this.device.queue.writeBuffer(this.cameraBufferPlus, 0, combinedCameraData);
         this.device.queue.writeBuffer(this.projectionBuffer, 0, Engine.projectionMatrix as Float32Array);
-        this.updateGTAOParams(viewMatrix, invViewProjMatrix);
+        const invProjMatrix = mat4.create();
+        mat4.invert(invProjMatrix, Engine.projectionMatrix);
+        this.updateGTAOParams(viewMatrix, invProjMatrix as Float32Array);
         this.commandEncoder = this.device.createCommandEncoder();
 
         if (this.clusteredShading) {
@@ -488,7 +554,16 @@ export class WebGPURenderer {
         computePass.setBindGroup(1, this.GTAOComputeBindMatrixesBindGroup);
         computePass.dispatchWorkgroups(groupsX, groupsY, 1);
         computePass.end();
+ 
+        const blurPass = this.commandEncoder.beginComputePass();
+        blurPass.setPipeline(this.GTAOBlurComputePipeline);
+        blurPass.setBindGroup(0, this.GTAOBlurComputeBindGroup);
+        blurPass.setBindGroup(1, this.GTAOComputeParamsBindGroup);
+        blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+        blurPass.end();
     }
+
+
 
     public drawEntities(entityRepository: EntityRepository, physicsFacade: PhysicsFacade): void {
         if (!this.renderPass) return;
@@ -595,6 +670,7 @@ export class WebGPURenderer {
         this.deferredRenderPass.setBindGroup(1, this.deferredCameraBindGroup);
         this.deferredRenderPass.setBindGroup(2, this.lightManager.getBindGroup());
         this.deferredRenderPass.setBindGroup(3, this.clusteredShadingBindGroup);
+       
 
         this.deferredRenderPass.draw(6, 1, 0, 0);
         this.deferredRenderPass.end();

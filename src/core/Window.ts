@@ -41,6 +41,9 @@ export class Window {
         if(e.code === "Digit4") {
             globalEventBus.emit("DEBUG_GTAO", {});
         }
+        if(e.code === "Digit5") {
+            globalEventBus.emit("DEBUG_BLUR_GTAO", {});
+        }
 
     }
 }

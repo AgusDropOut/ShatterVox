@@ -18,10 +18,10 @@ export const InitialGTAOComputeShaderWGSL = `
     @group(1) @binding(0) var<uniform> params: GTAOParams;
 
     const RADIUS_WORLD: f32 = 1.5; 
-    const MIN_RADIUS_PIXELS: f32 = 2.0; 
+    const MIN_RADIUS_PIXELS: f32 = 1.0; 
     const MAX_RADIUS_PIXELS: f32 = 128.0; 
-    const NUM_SLICES: u32 = 3u;
-    const MAX_STEPS: u32 = 6u;
+    const NUM_SLICES: u32 = 2u;
+    const MAX_STEPS: u32 = 3u;
 
     @compute @workgroup_size(8, 8, 1)
     fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -34,7 +34,7 @@ export const InitialGTAOComputeShaderWGSL = `
         let pixelNormalView = normalize((params.viewMatrix * vec4<f32>(pixelNormalWorld, 0.0)).xyz);
 
         if (pixelDepth >= 1.0) {
-            textureStore(noisyGTAO, vec2<i32>(global_id.xy), vec4<f32>(0.0, 1.0, 0.0, 1.0));
+            textureStore(noisyGTAO, vec2<i32>(global_id.xy), vec4<f32>(1.0, 0.0, 0.0, 1.0));
             return;
         }
 
@@ -91,7 +91,7 @@ export const InitialGTAOComputeShaderWGSL = `
         }
 
         let finalVisibility = totalVisibility / f32(NUM_SLICES);
-        textureStore(noisyGTAO, vec2<i32>(global_id.xy), vec4<f32>(0.0, finalVisibility, 0.0, 1.0));
+        textureStore(noisyGTAO, vec2<i32>(global_id.xy), vec4<f32>(finalVisibility, 0.0, 0.0, 1.0));
         
     }
 

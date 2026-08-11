@@ -2,6 +2,7 @@ import { GeometryGenerator } from "../geometry/GeometryGenerator";
 import { Debri } from "../world/Debri";
 import { WebGPUVertexBuffer } from "./WebGPUVertexBuffer";
 import { Engine } from "../core/Engine";
+import { mat4 } from "gl-matrix";
 
 export class SmallDebriBatchManager {
     private device: GPUDevice;
@@ -37,15 +38,24 @@ export class SmallDebriBatchManager {
         });
     }
 
-    public updateAndUploadModelMatrixesandUvs(debris: Debri[]): number {
+   public updateAndUploadModelMatrixesandUvs(debris: Debri[]): number {
         const count = Math.min(debris.length, this.maxCapacity);
-       
 
         for (let i = 0; i < count; i++) {
             if (!debris[i].isSingleBlockMesh()) continue; 
             const baseIndex = i * this.FLOATS_PER_INSTANCE;
 
-            const matrix = debris[i].getModelMatrix();
+           
+            const originalMatrix = debris[i].getModelMatrix();
+            const matrix = mat4.clone(originalMatrix);
+
+          
+            mat4.translate(matrix, matrix, [
+                Engine.voxelSize / 2, 
+                Engine.voxelSize / 2, 
+                Engine.voxelSize / 2
+            ]);
+            
             this.hostArray.set(matrix as Float32Array, baseIndex);
     
             const fullUVs = debris[i].getUVOffsets(); 

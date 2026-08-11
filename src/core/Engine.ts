@@ -211,6 +211,10 @@ export class Engine {
         mat4.invert(invViewProj, viewProj);
 
         this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array);
+
+        if(this.showPhysicsDebug) {
+            this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
+        }
         
         this.renderer.drawWorld(this.world);
         this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
@@ -237,9 +241,7 @@ export class Engine {
             this.renderer.debugDrawTexture(this.renderer.blurredGTAOView);
         }
 
-        if(this.showPhysicsDebug) {
-            this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
-        }
+        
         
 
         this.renderer.endFrame();

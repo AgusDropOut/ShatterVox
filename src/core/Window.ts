@@ -45,5 +45,9 @@ export class Window {
             globalEventBus.emit("DEBUG_BLUR_GTAO", {});
         }
 
+        if(e.code === "Digit6") {
+            globalEventBus.emit("DEBUG_NOISY_SSGI", {});
+        }
+
     }
 }

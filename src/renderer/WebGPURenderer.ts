@@ -23,6 +23,7 @@ import { InitialGTAOComputeShaderWGSL } from "./shaders/InitialGTAOComputeShader
 import { Engine } from "../core/Engine";
 import { makeShaderDataDefinitions, makeStructuredView, type StructuredView } from  "webgpu-utils";
 import { GTAOBlurComputeShaderWGSL } from "./shaders/GTAOBlurComputeShader.wgsl";
+import { SSGIComputeShaderWGSL } from "./shaders/SSGIComputeShader.wgsl";
 
 
 export class WebGPURenderer {
@@ -39,6 +40,7 @@ export class WebGPURenderer {
     private GTAOComputePipeline!: GPUComputePipeline;
     private GTAOBlurComputePipeline!: GPUComputePipeline;
     private deferredPipeline!: GPURenderPipeline;
+    private SSGIComputePipeline!: GPUComputePipeline;
 
     private debugColorPipeline: GPURenderPipeline | null = null;
     private debugDepthPipeline: GPURenderPipeline | null = null;
@@ -50,11 +52,15 @@ export class WebGPURenderer {
     private normalTexture!: GPUTexture;
     private noisyGTAOTexture!: GPUTexture;
     private blurredGTAOTexture!: GPUTexture;
+    private noisySSGITexture!: GPUTexture;
+    private deferredTexture!: GPUTexture;
     public depthView!: GPUTextureView;
     public albedoView!: GPUTextureView;
     public normalView!: GPUTextureView;
     public noisyGTAOView!: GPUTextureView;
     public blurredGTAOView!: GPUTextureView;
+    public noisySSGIView!: GPUTextureView;
+    public deferredView!: GPUTextureView;
     
 
     private atlas!: WebGPUTexture;
@@ -73,8 +79,13 @@ export class WebGPURenderer {
     private GTAOComputeBindMatrixesBindGroup!: GPUBindGroup;
     private GTAOComputeParamsBindGroup!: GPUBindGroup;
     private GTAOBlurComputeBindGroup!: GPUBindGroup;
+    private SSGIComputeParamsBindGroup!: GPUBindGroup;
+    private SSGIComputeSamplersBindGroup!: GPUBindGroup;
+    private SSGIComputeTexturesBindGroup!: GPUBindGroup;
     private gtaoParamsBuffer!: GPUBuffer;
     private gtaoParamsView!: StructuredView;
+    private ssgiParamsBuffer!: GPUBuffer;
+    private ssgiParamsView!: StructuredView;
     private clusteredShadingBindGroup!: GPUBindGroup;
 
     private commandEncoder: GPUCommandEncoder | null = null;
@@ -123,9 +134,10 @@ export class WebGPURenderer {
         this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat, true);
         this.smallDebriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'SMALL_DEBRI', smallDebriShaderWGSL, this.presentationFormat, true);
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
-        this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, this.presentationFormat, false, false);
+        this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, "rgba16float", false, false);
         this.GTAOComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: InitialGTAOComputeShaderWGSL }),entryPoint: 'main',},});
         this.GTAOBlurComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: GTAOBlurComputeShaderWGSL }),entryPoint: 'main',},});
+        this.SSGIComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: SSGIComputeShaderWGSL }),entryPoint: 'main',},});
 
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
@@ -278,9 +290,35 @@ export class WebGPURenderer {
                 ]
             });
 
+            const SSGIdefs = makeShaderDataDefinitions(`
+            struct SSGIParams {
+                projectionMatrix: mat4x4<f32>,
+                inverseProjectionMatrix: mat4x4<f32>,
+                inverseViewMatrix: mat4x4<f32>,
+                viewMatrix: mat4x4<f32>,
+                screenResolution: vec2<f32>,
+                rayStepSize: f32,
+                maxSteps: u32,
+                thickness: f32,
+                frameCounter: u32,
+            };
+            `);
+            this.ssgiParamsView = makeStructuredView(SSGIdefs.structs.SSGIParams);
+
+            this.ssgiParamsBuffer = this.device.createBuffer({
+                label: "SSGI Params Buffer",
+                size: this.ssgiParamsView.arrayBuffer.byteLength,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            });
+
+            this.SSGIComputeParamsBindGroup = this.device.createBindGroup({
+                layout: this.SSGIComputePipeline.getBindGroupLayout(2),
+                entries: [
+                    { binding: 0, resource: { buffer: this.ssgiParamsBuffer } }
+                ]
+            });
 
             
-
             this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
             this.clusteredShading.createClusters();
 
@@ -291,13 +329,6 @@ export class WebGPURenderer {
                     { binding: 1, resource: { buffer: this.clusteredShading.getParamsBuffer() } }
                 ]
             });
-
-          
-
-      
-
-       
-
             
 
         return true;
@@ -348,6 +379,11 @@ export class WebGPURenderer {
         if (this.depthTexture) this.depthTexture.destroy();
         if (this.albedoTexture) this.albedoTexture.destroy();
         if (this.normalTexture) this.normalTexture.destroy();
+        if(this.noisyGTAOTexture) this.noisyGTAOTexture.destroy();
+        if(this.blurredGTAOTexture) this.blurredGTAOTexture.destroy();
+        if(this.deferredTexture) this.deferredTexture.destroy();
+        if(this.noisySSGITexture) this.noisySSGITexture.destroy();
+
 
        
         this.albedoTexture = this.device.createTexture({
@@ -392,7 +428,21 @@ export class WebGPURenderer {
         });
         this.blurredGTAOView = this.blurredGTAOTexture.createView();
 
-        
+        this.deferredTexture = this.device.createTexture({
+            label: "Deferred Texture",
+            size: [width, height],
+            format: "rgba16float",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.deferredView = this.deferredTexture.createView();
+
+        this.noisySSGITexture = this.device.createTexture({
+            label: "Noisy SSGI Texture",
+            size: [width, height],
+            format: "rgba16float",
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.noisySSGIView = this.noisySSGITexture.createView();
 
         this.gBufferBindGroup = this.device.createBindGroup({
             layout: this.deferredPipeline.getBindGroupLayout(0),
@@ -424,10 +474,29 @@ export class WebGPURenderer {
                 { binding: 2, resource: this.blurredGTAOView }
             ]
         });
+
+        this.SSGIComputeSamplersBindGroup = this.device.createBindGroup({
+                layout: this.SSGIComputePipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: this.linearSampler },
+                    { binding: 1, resource: this.nearestSampler }
+                ]
+            });
+
+            this.SSGIComputeTexturesBindGroup = this.device.createBindGroup({
+                layout: this.SSGIComputePipeline.getBindGroupLayout(1),
+                entries: [
+                    { binding: 0, resource: this.depthView },
+                    { binding: 1, resource: this.normalView },
+                    { binding: 2, resource: this.deferredView },
+                    { binding: 3, resource: this.noisySSGIView }
+                ]
+            });
+
         
     }
 
-    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array): GPURenderPassEncoder {
+    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): GPURenderPassEncoder {
         const combinedCameraData = new Float32Array(32);
 
         combinedCameraData.set(viewProjMatrix, 0);       
@@ -439,6 +508,7 @@ export class WebGPURenderer {
         const invProjMatrix = mat4.create();
         mat4.invert(invProjMatrix, Engine.projectionMatrix);
         this.updateGTAOParams(viewMatrix, invProjMatrix as Float32Array);
+        this.updateSSGIParams(viewMatrix, mat4.invert(mat4.create(), viewMatrix) as Float32Array, invProjMatrix as Float32Array, frameCounter);
         this.commandEncoder = this.device.createCommandEncoder();
 
         if (this.clusteredShading) {
@@ -537,6 +607,28 @@ export class WebGPURenderer {
         );
     }
 
+
+
+    public updateSSGIParams( viewMatrix: Float32Array, invViewMatrix: Float32Array, invProjMatrix: Float32Array, frameCounter: number): void {
+            this.ssgiParamsView.set({
+            projectionMatrix: Engine.projectionMatrix as Float32Array,
+            inverseProjectionMatrix: invProjMatrix,
+            inverseViewMatrix: invViewMatrix,
+            viewMatrix: viewMatrix,
+            screenResolution: [this.canvas.width, this.canvas.height],
+            rayStepSize: 0.1, 
+            maxSteps: 16,     
+            thickness: 0.5,    
+            frameCounter: frameCounter  
+        });
+
+        this.device.queue.writeBuffer(
+            this.ssgiParamsBuffer,
+            0,
+            this.ssgiParamsView.arrayBuffer
+        );
+    }
+
     public computeGTAO(): void {
         if (this.renderPass) {
             this.renderPass.end();
@@ -561,6 +653,27 @@ export class WebGPURenderer {
         blurPass.setBindGroup(1, this.GTAOComputeParamsBindGroup);
         blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
         blurPass.end();
+    }
+
+    public computeSSGI(): void {
+        if (this.renderPass) {
+            this.renderPass.end();
+            this.renderPass = null;
+        }
+
+        if (!this.commandEncoder) return;
+
+        const groupsX = Math.ceil(this.canvas.width / 8);
+        const groupsY = Math.ceil(this.canvas.height / 8);
+
+        const computePass = this.commandEncoder.beginComputePass();
+        computePass.setPipeline(this.SSGIComputePipeline);
+        computePass.setBindGroup(0, this.SSGIComputeSamplersBindGroup);
+        computePass.setBindGroup(1, this.SSGIComputeTexturesBindGroup);
+        computePass.setBindGroup(2, this.SSGIComputeParamsBindGroup);
+        computePass.dispatchWorkgroups(groupsX, groupsY, 1);
+        computePass.end();
+
     }
 
 
@@ -659,7 +772,7 @@ export class WebGPURenderer {
         this.lightManager.updateLightBuffer();
         this.deferredRenderPass = this.commandEncoder.beginRenderPass({
             colorAttachments: [{
-                view: this.context.getCurrentTexture().createView(),
+                view: this.deferredView,
                 clearValue: { r: 0.0, g: 0.8, b: 0.8, a: 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store',

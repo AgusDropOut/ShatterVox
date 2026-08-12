@@ -33,8 +33,10 @@ export class Engine {
     private showAlbedoDebug: boolean = false;
     private showGTAODebug: boolean = false;
     private showBlurGTAODebug: boolean = false;
+    private showNoisySSGIDebug: boolean = false;
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;
+    private totalFrames: number = 0;
     private lastFpsTime: number = 0;
 
     private entityRepository: EntityRepository;
@@ -114,6 +116,15 @@ export class Engine {
             this.showGTAODebug = false;
         });
 
+        globalEventBus.on("DEBUG_NOISY_SSGI", () => {
+            this.showNoisySSGIDebug = !this.showNoisySSGIDebug;
+            this.showAlbedoDebug = false;
+            this.showDepthDebug = false;
+            this.showNormalsDebug = false;
+            this.showGTAODebug = false;
+            this.showBlurGTAODebug = false;
+        });
+
 
         this.window = new Window(this.canvas);
         this.entityRepository = new EntityRepository();
@@ -166,7 +177,7 @@ export class Engine {
 
     private loop(time: number): void {
         if (!this.isRunning) return;
-
+        this.totalFrames++;
         if (this.lastTime === 0) {
             this.lastTime = time;
             this.lastFpsTime = time;
@@ -210,7 +221,7 @@ export class Engine {
         mat4.multiply(viewProj, Engine.projectionMatrix, view);
         mat4.invert(invViewProj, viewProj);
 
-        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array);
+        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array, this.totalFrames);
 
         if(this.showPhysicsDebug) {
             this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
@@ -223,7 +234,9 @@ export class Engine {
 
         this.renderer.drawDeferred(this.physicsFacade);
 
-        
+        this.renderer.computeSSGI();
+
+        this.renderer.debugDrawTexture(this.renderer.deferredView, false);
         if(this.showDepthDebug) {
             this.renderer.debugDrawTexture(this.renderer.depthView, true);
         }
@@ -239,6 +252,10 @@ export class Engine {
 
         if(this.showBlurGTAODebug) {
             this.renderer.debugDrawTexture(this.renderer.blurredGTAOView);
+        }
+
+        if(this.showNoisySSGIDebug) {
+            this.renderer.debugDrawTexture(this.renderer.noisySSGIView);
         }
 
         

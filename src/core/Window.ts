@@ -49,5 +49,9 @@ export class Window {
             globalEventBus.emit("DEBUG_NOISY_SSGI", {});
         }
 
+        if(e.code === "Digit7") {
+            globalEventBus.emit("DEBUG_BLUR_SSGI", {});
+        }
+
     }
 }

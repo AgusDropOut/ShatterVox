@@ -24,6 +24,7 @@ import { Engine } from "../core/Engine";
 import { makeShaderDataDefinitions, makeStructuredView, type StructuredView } from  "webgpu-utils";
 import { GTAOBlurComputeShaderWGSL } from "./shaders/GTAOBlurComputeShader.wgsl";
 import { SSGIComputeShaderWGSL } from "./shaders/SSGIComputeShader.wgsl";
+import { SSGISpatialBlurComputeShaderWGSL } from "./shaders/SSGISpatialBlurComputeShader.wgsl";
 
 
 export class WebGPURenderer {
@@ -41,7 +42,7 @@ export class WebGPURenderer {
     private GTAOBlurComputePipeline!: GPUComputePipeline;
     private deferredPipeline!: GPURenderPipeline;
     private SSGIComputePipeline!: GPUComputePipeline;
-
+    private SSGISpatialBlurComputePipeline!: GPUComputePipeline;
     private debugColorPipeline: GPURenderPipeline | null = null;
     private debugDepthPipeline: GPURenderPipeline | null = null;
     private linearSampler: GPUSampler | null = null;
@@ -53,6 +54,7 @@ export class WebGPURenderer {
     private noisyGTAOTexture!: GPUTexture;
     private blurredGTAOTexture!: GPUTexture;
     private noisySSGITexture!: GPUTexture;
+    private blurredSSGITexture!: GPUTexture;
     private deferredTexture!: GPUTexture;
     public depthView!: GPUTextureView;
     public albedoView!: GPUTextureView;
@@ -60,6 +62,7 @@ export class WebGPURenderer {
     public noisyGTAOView!: GPUTextureView;
     public blurredGTAOView!: GPUTextureView;
     public noisySSGIView!: GPUTextureView;
+    public blurredSSGIView!: GPUTextureView;
     public deferredView!: GPUTextureView;
     
 
@@ -82,10 +85,14 @@ export class WebGPURenderer {
     private SSGIComputeParamsBindGroup!: GPUBindGroup;
     private SSGIComputeSamplersBindGroup!: GPUBindGroup;
     private SSGIComputeTexturesBindGroup!: GPUBindGroup;
+    private blurredSSGIComputeParamsBindGroup!: GPUBindGroup;
+    private blurredSSGIComputeTexturesBindGroup!: GPUBindGroup;
     private gtaoParamsBuffer!: GPUBuffer;
     private gtaoParamsView!: StructuredView;
     private ssgiParamsBuffer!: GPUBuffer;
     private ssgiParamsView!: StructuredView;
+    private blurredSsgiParamsView!: StructuredView;
+    private blurredSsgiParamsBuffer!: GPUBuffer;
     private clusteredShadingBindGroup!: GPUBindGroup;
 
     private commandEncoder: GPUCommandEncoder | null = null;
@@ -110,7 +117,7 @@ export class WebGPURenderer {
     public async init(): Promise<boolean> {
         if (!navigator.gpu) return false;
 
-        const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        const adapter = await navigator.gpu.requestAdapter();
         if (!adapter) return false;
 
         this.device = await adapter.requestDevice();
@@ -138,6 +145,7 @@ export class WebGPURenderer {
         this.GTAOComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: InitialGTAOComputeShaderWGSL }),entryPoint: 'main',},});
         this.GTAOBlurComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: GTAOBlurComputeShaderWGSL }),entryPoint: 'main',},});
         this.SSGIComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: SSGIComputeShaderWGSL }),entryPoint: 'main',},});
+        this.SSGISpatialBlurComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: SSGISpatialBlurComputeShaderWGSL }),entryPoint: 'main',},});
 
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
@@ -318,6 +326,33 @@ export class WebGPURenderer {
                 ]
             });
 
+
+            const blurredSSGIdefs = makeShaderDataDefinitions(`
+            struct blurredSSGIParams {
+                normalSharpness: f32,
+                depthSharpness: f32,
+                blurRadius: f32,
+                screenResolution: vec2<f32>,
+                zNear: f32,
+                zFar: f32,
+            };
+            `);
+
+            this.blurredSsgiParamsView = makeStructuredView(blurredSSGIdefs.structs.blurredSSGIParams);
+
+            this.blurredSsgiParamsBuffer = this.device.createBuffer({
+                label: "Blurred SSGI Params Buffer",
+                size: this.blurredSsgiParamsView.arrayBuffer.byteLength,
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            });
+
+            this.blurredSSGIComputeParamsBindGroup = this.device.createBindGroup({
+                layout: this.SSGISpatialBlurComputePipeline.getBindGroupLayout(1),
+                entries: [
+                    { binding: 0, resource: { buffer: this.blurredSsgiParamsBuffer } }
+                ]
+            });
+
             
             this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
             this.clusteredShading.createClusters();
@@ -444,6 +479,15 @@ export class WebGPURenderer {
         });
         this.noisySSGIView = this.noisySSGITexture.createView();
 
+
+        this.blurredSSGITexture = this.device.createTexture({
+            label: "Blurred SSGI Texture",
+            size: [width, height],
+            format: "rgba16float",
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.blurredSSGIView = this.blurredSSGITexture.createView();
+
         this.gBufferBindGroup = this.device.createBindGroup({
             layout: this.deferredPipeline.getBindGroupLayout(0),
             entries: [
@@ -493,6 +537,21 @@ export class WebGPURenderer {
                 ]
             });
 
+
+       
+
+            this.blurredSSGIComputeTexturesBindGroup = this.device.createBindGroup({
+                layout: this.SSGISpatialBlurComputePipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: this.depthView },
+                    { binding: 1, resource: this.normalView },
+                    { binding: 2, resource: this.noisySSGIView },
+                    { binding: 3, resource: this.blurredSSGIView },
+                ]
+            });
+
+        
+
         
     }
 
@@ -509,6 +568,7 @@ export class WebGPURenderer {
         mat4.invert(invProjMatrix, Engine.projectionMatrix);
         this.updateGTAOParams(viewMatrix, invProjMatrix as Float32Array);
         this.updateSSGIParams(viewMatrix, mat4.invert(mat4.create(), viewMatrix) as Float32Array, invProjMatrix as Float32Array, frameCounter);
+        this.updateSSGISpatialBlurParams();
         this.commandEncoder = this.device.createCommandEncoder();
 
         if (this.clusteredShading) {
@@ -629,6 +689,23 @@ export class WebGPURenderer {
         );
     }
 
+    public updateSSGISpatialBlurParams( ): void {
+            this.blurredSsgiParamsView.set({
+            normalSharpness: 4.0,
+            depthSharpness: 4.0,
+            blurRadius: 3.0,
+            screenResolution: [this.canvas.width, this.canvas.height],
+            zNear: Engine.zNear,
+            zFar: Engine.zFar,
+        });
+
+        this.device.queue.writeBuffer(
+            this.blurredSsgiParamsBuffer,
+            0,
+            this.blurredSsgiParamsView.arrayBuffer
+        );
+    }
+
     public computeGTAO(): void {
         if (this.renderPass) {
             this.renderPass.end();
@@ -671,6 +748,26 @@ export class WebGPURenderer {
         computePass.setBindGroup(0, this.SSGIComputeSamplersBindGroup);
         computePass.setBindGroup(1, this.SSGIComputeTexturesBindGroup);
         computePass.setBindGroup(2, this.SSGIComputeParamsBindGroup);
+        computePass.dispatchWorkgroups(groupsX, groupsY, 1);
+        computePass.end();
+
+    }
+
+    public computeSSGISpatialBlur(): void {
+        if (this.renderPass) {
+            this.renderPass.end();
+            this.renderPass = null;
+        }
+
+        if (!this.commandEncoder) return;
+
+        const groupsX = Math.ceil(this.canvas.width / 8);
+        const groupsY = Math.ceil(this.canvas.height / 8);
+
+        const computePass = this.commandEncoder.beginComputePass();
+        computePass.setPipeline(this.SSGISpatialBlurComputePipeline);
+        computePass.setBindGroup(0, this.blurredSSGIComputeTexturesBindGroup);
+        computePass.setBindGroup(1, this.blurredSSGIComputeParamsBindGroup);
         computePass.dispatchWorkgroups(groupsX, groupsY, 1);
         computePass.end();
 

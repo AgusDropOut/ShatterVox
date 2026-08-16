@@ -34,6 +34,7 @@ export class Engine {
     private showGTAODebug: boolean = false;
     private showBlurGTAODebug: boolean = false;
     private showNoisySSGIDebug: boolean = false;
+    private showBlurredSSGIDebug: boolean = false;
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;
     private totalFrames: number = 0;
@@ -124,6 +125,17 @@ export class Engine {
             this.showGTAODebug = false;
             this.showBlurGTAODebug = false;
         });
+
+        globalEventBus.on("DEBUG_BLUR_SSGI", () => {
+            this.showBlurredSSGIDebug = !this.showBlurredSSGIDebug;
+            this.showAlbedoDebug = false;
+            this.showDepthDebug = false;
+            this.showNormalsDebug = false;
+            this.showGTAODebug = false;
+            this.showBlurGTAODebug = false;
+            this.showNoisySSGIDebug = false;
+        });
+
 
 
         this.window = new Window(this.canvas);
@@ -235,6 +247,7 @@ export class Engine {
         this.renderer.drawDeferred(this.physicsFacade);
 
         this.renderer.computeSSGI();
+        this.renderer.computeSSGISpatialBlur();
 
         this.renderer.debugDrawTexture(this.renderer.deferredView, false);
         if(this.showDepthDebug) {
@@ -256,6 +269,10 @@ export class Engine {
 
         if(this.showNoisySSGIDebug) {
             this.renderer.debugDrawTexture(this.renderer.noisySSGIView);
+        }
+
+        if(this.showBlurredSSGIDebug) {
+            this.renderer.debugDrawTexture(this.renderer.blurredSSGIView);
         }
 
         

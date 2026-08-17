@@ -27,9 +27,17 @@ export const smallDebriShaderWGSL = `
     ) -> VertexOutput {
         var out: VertexOutput;
         let modelMatrix = debriBuffer[instanceIndex].matrix;
+        
+        let normalMatrix = mat3x3<f32>(
+            modelMatrix[0].xyz,
+            modelMatrix[1].xyz,
+            modelMatrix[2].xyz
+        );
+
         out.position = camera.viewProj * modelMatrix * vec4<f32>(pos, 1.0);
         out.uv = debriBuffer[instanceIndex].uvs[vertexIndex];
-        out.normal = norm ;
+        out.normal = normalMatrix * norm;
+        
         return out;
     }
 

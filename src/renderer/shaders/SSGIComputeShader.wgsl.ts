@@ -92,15 +92,21 @@ export const SSGIComputeShaderWGSL = `
         let endInvZ = 1.0 / endViewZ;
         let deltaInvZ = (endInvZ - startInvZ) / f32(params.maxSteps);
 
+        // ditheriung
+        let jitter = noise1;
+
         for(var step: u32 = 1u; step < params.maxSteps; step = step + 1u) {
-            let currentRayUV = uvOrigin + deltaUV * f32(step);
+
+            let stepOffset = f32(step) - jitter;
+            let currentRayUV = uvOrigin + deltaUV * stepOffset;
+            let currentRayInvZ = startInvZ + deltaInvZ * stepOffset;
+            let currentRayViewZ = 1.0 / currentRayInvZ;
 
             if (currentRayUV.x < 0.0 || currentRayUV.x > 1.0 || currentRayUV.y < 0.0 || currentRayUV.y > 1.0) {
                 break; 
             }
 
-            let currentRayInvZ = startInvZ + deltaInvZ * f32(step);
-            let currentRayViewZ = 1.0 / currentRayInvZ;
+          
 
             let currentSampleDepth = textureSampleLevel(depthTex, texSamplerNearest, currentRayUV, 0);
            

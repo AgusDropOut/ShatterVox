@@ -53,5 +53,9 @@ export class Window {
             globalEventBus.emit("DEBUG_BLUR_SSGI", {});
         }
 
+        if(e.code === "Digit8") {
+            globalEventBus.emit("DEBUG_DEFERRED", {});
+        }
+
     }
 }

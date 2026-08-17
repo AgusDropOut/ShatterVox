@@ -30,7 +30,8 @@ export const SSGISpatialBlurComputeShaderWGSL = `
             return;
         }
 
-        let pixelNormal = textureLoad(normalTex, pixelCoords, 0).xyz;
+        let rawPixelNormal = textureLoad(normalTex, pixelCoords, 0).xyz;
+        let pixelNormal = normalize(rawPixelNormal);
         let linearPixelDepth = linearizeDepth(pixelDepth, params.zNear, params.zFar);
 
         var colorAccum = vec4<f32>(0.0, 0.0, 0.0, 0.0);
@@ -53,7 +54,8 @@ export const SSGISpatialBlurComputeShaderWGSL = `
                 }
 
                 let sampleColor = textureLoad(noisySSGITex, sampleCoords, 0);
-                let sampleNormal = textureLoad(normalTex, sampleCoords, 0).xyz;
+                let rawSampleNormal = textureLoad(normalTex, sampleCoords, 0).xyz;
+                let sampleNormal = normalize(rawSampleNormal);
 
                 let xf = f32(x);
                 let yf = f32(y);

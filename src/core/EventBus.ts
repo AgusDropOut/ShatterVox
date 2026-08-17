@@ -17,6 +17,7 @@ export interface GameEvents {
     "DEBUG_BLUR_GTAO": {};
     "DEBUG_NOISY_SSGI": {};
     "DEBUG_BLUR_SSGI": {};
+    "DEBUG_DEFERRED": {};
     "LIGHT_ADD": { position: { x: number, y: number, z: number }, color: { r: number, g: number, b: number }, radius: number, debriId?: number, localPos?: { x: number, y: number, z: number } };
     "LIGHT_REMOVE": { position?: { x: number, y: number, z: number }, debriId?: number };
     

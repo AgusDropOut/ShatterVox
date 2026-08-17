@@ -245,4 +245,67 @@ export class TerrainGenerator {
             }
         }
     }
+
+    public generateSSGITestMap(): void {
+        const CHUNKS_X = 4;
+        const CHUNKS_Y = 2; 
+        const CHUNKS_Z = 4;
+
+        for (let cx = 0; cx < CHUNKS_X; cx++) {
+            for (let cy = 0; cy < CHUNKS_Y; cy++) {
+                for (let cz = 0; cz < CHUNKS_Z; cz++) {
+                    const chunk = new Chunk(this.device, this.modelLayout, cx, cy, cz);
+                    this.world.chunks.set(`${cx},${cy},${cz}`, chunk);
+                }
+            }
+        }
+
+        const WORLD_WIDTH = CHUNKS_X * Chunk.WIDTH;
+        const WORLD_HEIGHT = CHUNKS_Y * Chunk.HEIGHT;
+        const WORLD_DEPTH = CHUNKS_Z * Chunk.DEPTH;
+
+        for (let x = 0; x < WORLD_WIDTH; x++) {
+            for (let y = 0; y < WORLD_HEIGHT; y++) {
+                for (let z = 0; z < WORLD_DEPTH; z++) {
+                    this.world.setBlock(x, y, z, TerrainGenerator.ID_STONE);
+                }
+            }
+        }
+
+        const padding = 2;
+        for (let x = padding; x < WORLD_WIDTH - padding; x++) {
+            for (let y = padding; y < WORLD_HEIGHT - padding; y++) {
+                for (let z = padding; z < WORLD_DEPTH - padding; z++) {
+                    this.world.setBlock(x, y, z, 0); 
+                    
+                    if (y === padding) {
+                        this.world.setBlock(x, y, z, TerrainGenerator.ID_WOOD);
+                    }
+                }
+            }
+        }
+
+        const midZ = Math.floor(WORLD_DEPTH / 2);
+        for (let x = padding; x < WORLD_WIDTH - padding; x++) {
+            for (let y = padding + 1; y < WORLD_HEIGHT - 6; y++) {
+                if (x > padding + 3 && x < WORLD_WIDTH - padding - 3) {
+                    this.world.setBlock(x, y, midZ, TerrainGenerator.ID_STONE);
+                }
+            }
+        }
+
+        const lightZ = midZ - 6;
+        for (let x = padding + 4; x < WORLD_WIDTH - padding - 4; x += 4) {
+            this.world.setBlock(x, WORLD_HEIGHT - padding - 1, lightZ, TerrainGenerator.ID_GLOWSTONE);
+        }
+        
+        const darkZ = midZ + 6;
+        const centerX = Math.floor(WORLD_WIDTH / 2);
+        for(let y = padding + 1; y <= padding + 4; y++) {
+            this.world.setBlock(centerX, y, darkZ, TerrainGenerator.ID_STONE);
+            this.world.setBlock(centerX + 1, y, darkZ, TerrainGenerator.ID_STONE);
+            this.world.setBlock(centerX, y, darkZ + 1, TerrainGenerator.ID_STONE);
+            this.world.setBlock(centerX + 1, y, darkZ + 1, TerrainGenerator.ID_STONE);
+        }
+    }
 }

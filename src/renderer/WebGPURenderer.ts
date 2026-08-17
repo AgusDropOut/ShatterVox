@@ -24,6 +24,7 @@ import { Engine } from "../core/Engine";
 import { GTAOPass } from "./pass/GTAOPass";
 import { SSGIPass } from "./pass/SSGIPass";
 import { CompositionPass } from "./pass/CompositionPass";
+import { TAAPass } from "./pass/TAAPass";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -53,10 +54,11 @@ export class WebGPURenderer {
     public deferredView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
-    private viewBuffer!: GPUBuffer;
     private viewProjBuffer!: GPUBuffer;
+    private viewBuffer!: GPUBuffer;
     private projectionBuffer!: GPUBuffer;
     private cameraBufferPlus!: GPUBuffer;
+    private cameraData = new Float32Array(32); 
 
     private cameraBindGroup!: GPUBindGroup;
     public entityCameraBindGroup!: GPUBindGroup;
@@ -70,7 +72,7 @@ export class WebGPURenderer {
     private commandEncoder: GPUCommandEncoder | null = null;
     private renderPass: GPURenderPassEncoder | null = null;
 
-    private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup }> = new Map();
+    private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup, lastMatrix: Float32Array }> = new Map();
     private debriBatchManager!: DebriBatchManager;
     private smallDebriBatchManager!: SmallDebriBatchManager;
     private clusteredShading!: ClusteredShading;
@@ -84,6 +86,7 @@ export class WebGPURenderer {
     private gtaoPass!: GTAOPass;
     private ssgiPass!: SSGIPass;
     private compositionPass!: CompositionPass;
+    private taaPass!: TAAPass;
 
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
@@ -117,13 +120,16 @@ export class WebGPURenderer {
 
         this.gtaoPass = new GTAOPass(this.device);
         this.ssgiPass = new SSGIPass(this.device);
-        this.compositionPass = new CompositionPass(this.device, this.presentationFormat);
+        
+        
+        this.compositionPass = new CompositionPass(this.device, "rgba16float"); 
+        this.taaPass = new TAAPass(this.device, this.presentationFormat);
 
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
         this.lightManager = new LightManager(this.device, this.deferredPipeline.getBindGroupLayout(2));
 
-        this.viewProjBuffer = this.device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        this.viewProjBuffer = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); 
         this.projectionBuffer = this.device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.viewBuffer = this.device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.cameraBufferPlus = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
@@ -183,7 +189,8 @@ export class WebGPURenderer {
 
         this.gtaoPass.resize(width, height, this.depthView, this.normalView, this.nearestSampler);
         this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredView, this.linearSampler, this.nearestSampler);
-        this.compositionPass.resize(this.deferredView, this.albedoView, this.ssgiPass.getResultView(), this.linearSampler);
+        this.compositionPass.resize(width, height, this.deferredView, this.albedoView, this.ssgiPass.getResultView(), this.linearSampler);
+        this.taaPass.resize(width, height, this.compositionPass.getResultView(), this.linearSampler);
 
         this.gBufferBindGroup = this.device.createBindGroup({
             layout: this.deferredPipeline.getBindGroupLayout(0),
@@ -213,11 +220,17 @@ export class WebGPURenderer {
     }
 
     public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): GPURenderPassEncoder {
+        
+        const currentViewProj = this.cameraData.subarray(0, 16);
+        this.cameraData.set(currentViewProj, 16); 
+        this.cameraData.set(viewProjMatrix, 0);   
+        this.device.queue.writeBuffer(this.viewProjBuffer, 0, this.cameraData);
+
         const combinedCameraData = new Float32Array(32);
         combinedCameraData.set(viewProjMatrix, 0);       
         combinedCameraData.set(invViewProjMatrix, 16);   
+        
         this.device.queue.writeBuffer(this.viewBuffer, 0, viewMatrix);
-        this.device.queue.writeBuffer(this.viewProjBuffer, 0, viewProjMatrix);
         this.device.queue.writeBuffer(this.cameraBufferPlus, 0, combinedCameraData);
         this.device.queue.writeBuffer(this.projectionBuffer, 0, Engine.projectionMatrix as Float32Array);
 
@@ -228,6 +241,7 @@ export class WebGPURenderer {
 
         this.gtaoPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, Engine.zNear, Engine.zFar);
         this.ssgiPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, invViewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter, Engine.zNear, Engine.zFar);
+        this.taaPass.updateParams(this.canvas.width, this.canvas.height, 0.05); 
 
         this.commandEncoder = this.device.createCommandEncoder();
 
@@ -238,7 +252,8 @@ export class WebGPURenderer {
         this.renderPass = this.commandEncoder.beginRenderPass({
             colorAttachments: [
                 { view: this.albedoView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }, loadOp: 'clear', storeOp: 'store' },
-                { view: this.normalView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }, loadOp: 'clear', storeOp: 'store' }
+                { view: this.normalView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }, loadOp: 'clear', storeOp: 'store' },
+                { view: this.taaPass.motionVectorView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }, loadOp: 'clear', storeOp: 'store' } 
             ],
             depthStencilAttachment: { view: this.depthView, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' }
         });
@@ -314,16 +329,25 @@ export class WebGPURenderer {
             mat4.scale(modelMatrix, modelMatrix, renderComp.scale);
 
             let instanceData = this.entityBuffers.get(entityId);
+            const dataArray = new Float32Array(32);
+
             if (!instanceData) {
-                const buffer = new WebGPUUniformBuffer(this.device, modelMatrix as Float32Array);
+                dataArray.set(modelMatrix as Float32Array, 0);
+                dataArray.set(modelMatrix as Float32Array, 16); 
+
+                const buffer = new WebGPUUniformBuffer(this.device, dataArray);
                 const bindGroup = this.device.createBindGroup({
                     layout: this.entityPipeline.getBindGroupLayout(2),
                     entries: [{ binding: 0, resource: { buffer: buffer.buffer } }]
                 });
-                instanceData = { buffer, bindGroup };
+                instanceData = { buffer, bindGroup, lastMatrix: new Float32Array(modelMatrix) };
                 this.entityBuffers.set(entityId, instanceData);
             } else {
-                instanceData.buffer.update(modelMatrix as Float32Array);
+                dataArray.set(modelMatrix as Float32Array, 0);
+                dataArray.set(instanceData.lastMatrix, 16);
+                
+                instanceData.buffer.update(dataArray);
+                instanceData.lastMatrix.set(modelMatrix as Float32Array);
             }
 
             this.renderPass.setBindGroup(1, asset.materialBindGroup);
@@ -374,8 +398,13 @@ export class WebGPURenderer {
 
     public drawComposition(): void {
         if (!this.commandEncoder) return;
+        this.compositionPass.draw(this.commandEncoder);
+    }
+
+    public drawTAA(frameCounter: number): void {
+        if (!this.commandEncoder) return;
         const screenTextureView = this.context.getCurrentTexture().createView();
-        this.compositionPass.draw(this.commandEncoder, screenTextureView);
+        this.taaPass.draw(this.commandEncoder, screenTextureView, frameCounter);
     }
 
     public drawPhysicsDebug(vertices: Float32Array | null, colors: Float32Array | null): void {
@@ -449,7 +478,6 @@ export class WebGPURenderer {
         debugPass.end();
     }
     
-  
     public get noisyGTAOView() { return this.gtaoPass.noisyView; }
     public get blurredGTAOView() { return this.gtaoPass.blurredView; }
     public get noisySSGIView() { return this.ssgiPass.noisyView; }

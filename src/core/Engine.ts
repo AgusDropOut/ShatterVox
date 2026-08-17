@@ -262,6 +262,8 @@ export class Engine {
 
         this.renderer.drawComposition();
 
+        this.renderer.drawTAA(this.totalFrames);
+
        
         if(this.showDepthDebug) {
             this.renderer.debugDrawTexture(this.renderer.depthView, true);

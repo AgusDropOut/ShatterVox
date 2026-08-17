@@ -1,12 +1,10 @@
 export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED' | 'SMALL_DEBRI' | 'COMPOSITION';
 
-
 interface PipelineConfig {
     label: string;
     topology?: GPUPrimitiveTopology;
     buffers: GPUVertexBufferLayout[];
 }
-
 
 const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
     CHUNK: {
@@ -64,7 +62,6 @@ const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
         topology: 'triangle-list',
         buffers: [] 
     }
-
 };
 
 export class WebGPUPipelineFactory {
@@ -89,11 +86,11 @@ export class WebGPUPipelineFactory {
 
         if (gBuffer) {
             fragmentTargets = [
-                { format: "rgba8unorm" }, 
-                { format: "rgba16float" }, 
+                { format: "rgba8unorm" },    
+                { format: "rgba16float" },   
+                { format: "rg16float" }   
             ];
         }
-
 
         let depthStencil: {
             format: "depth32float",
@@ -108,7 +105,6 @@ export class WebGPUPipelineFactory {
         if (!needsDepthStencil) {
             depthStencil = undefined;
         }
-
 
         return device.createRenderPipeline({
             label: config.label,

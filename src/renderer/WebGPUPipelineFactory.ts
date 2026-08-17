@@ -1,4 +1,4 @@
-export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED' | 'SMALL_DEBRI';
+export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED' | 'SMALL_DEBRI' | 'COMPOSITION';
 
 
 interface PipelineConfig {
@@ -56,6 +56,11 @@ const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
     },
     DEFERRED: {
         label: 'Deferred Pipeline',
+        topology: 'triangle-list',
+        buffers: [] 
+    },
+    COMPOSITION: {
+        label: 'Composition Pipeline',
         topology: 'triangle-list',
         buffers: [] 
     }

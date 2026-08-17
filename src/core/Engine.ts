@@ -249,7 +249,9 @@ export class Engine {
         this.renderer.computeSSGI();
         this.renderer.computeSSGISpatialBlur();
 
-        this.renderer.debugDrawTexture(this.renderer.deferredView, false);
+        this.renderer.drawComposition();
+
+       
         if(this.showDepthDebug) {
             this.renderer.debugDrawTexture(this.renderer.depthView, true);
         }

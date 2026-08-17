@@ -25,6 +25,7 @@ import { makeShaderDataDefinitions, makeStructuredView, type StructuredView } fr
 import { GTAOBlurComputeShaderWGSL } from "./shaders/GTAOBlurComputeShader.wgsl";
 import { SSGIComputeShaderWGSL } from "./shaders/SSGIComputeShader.wgsl";
 import { SSGISpatialBlurComputeShaderWGSL } from "./shaders/SSGISpatialBlurComputeShader.wgsl";
+import { compositionShaderWGSL } from "./shaders/CompositionShader.wgsl";
 
 
 export class WebGPURenderer {
@@ -47,6 +48,10 @@ export class WebGPURenderer {
     private debugDepthPipeline: GPURenderPipeline | null = null;
     private linearSampler: GPUSampler | null = null;
     private nearestSampler: GPUSampler | null = null;
+
+    private compositionPipeline!: GPURenderPipeline;
+    private compositionBindGroup!: GPUBindGroup;
+    private compositionRenderPass: GPURenderPassEncoder | null = null;
 
     private depthTexture!: GPUTexture;
     private albedoTexture!: GPUTexture;
@@ -146,6 +151,7 @@ export class WebGPURenderer {
         this.GTAOBlurComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: GTAOBlurComputeShaderWGSL }),entryPoint: 'main',},});
         this.SSGIComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: SSGIComputeShaderWGSL }),entryPoint: 'main',},});
         this.SSGISpatialBlurComputePipeline = this.device.createComputePipeline({layout: 'auto',compute: {module: this.device.createShaderModule({ code: SSGISpatialBlurComputeShaderWGSL }),entryPoint: 'main',},});
+        this.compositionPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'COMPOSITION', compositionShaderWGSL, this.presentationFormat, false, false);
 
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
@@ -550,6 +556,16 @@ export class WebGPURenderer {
                 ]
             });
 
+            this.compositionBindGroup = this.device.createBindGroup({
+                layout: this.compositionPipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: this.linearSampler },
+                    { binding: 1, resource: this.deferredView }, 
+                    { binding: 2, resource: this.albedoView },
+                    { binding: 3, resource: this.blurredSSGIView }
+                ]
+            });
+
         
 
         
@@ -691,9 +707,9 @@ export class WebGPURenderer {
 
     public updateSSGISpatialBlurParams( ): void {
             this.blurredSsgiParamsView.set({
-            normalSharpness: 4.0,
-            depthSharpness: 4.0,
-            blurRadius: 3.0,
+            normalSharpness: 64.0,
+            depthSharpness: 64.0,
+            blurRadius: 2.0,
             screenResolution: [this.canvas.width, this.canvas.height],
             zNear: Engine.zNear,
             zFar: Engine.zFar,
@@ -704,6 +720,26 @@ export class WebGPURenderer {
             0,
             this.blurredSsgiParamsView.arrayBuffer
         );
+    }
+
+    public drawComposition(): void {
+        if (!this.commandEncoder) return;
+
+        const screenTextureView = this.context.getCurrentTexture().createView();
+        this.compositionRenderPass = this.commandEncoder.beginRenderPass({
+            colorAttachments: [{
+                view: screenTextureView, 
+                clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                loadOp: 'clear',
+                storeOp: 'store',
+            }]
+        });
+
+        this.compositionRenderPass.setPipeline(this.compositionPipeline);
+        this.compositionRenderPass.setBindGroup(0, this.compositionBindGroup);
+        this.compositionRenderPass.draw(6, 1, 0, 0);
+        this.compositionRenderPass.end();
+        this.compositionRenderPass = null;
     }
 
     public computeGTAO(): void {

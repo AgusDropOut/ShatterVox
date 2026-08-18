@@ -145,6 +145,8 @@ export const SSGIComputeShaderWGSL = `
         return fract(52.9829189 * fract(dot(seed, magicVector)));
     }
 
+    
+
    
   
 `;

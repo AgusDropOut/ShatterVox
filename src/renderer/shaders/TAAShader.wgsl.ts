@@ -24,6 +24,7 @@ export const TAAShaderWGSL = `
         screenResolution: vec2<f32>,
         alpha: f32,
         padding: f32,
+        vectorSearchRadius: f32,
     };
 
     @group(0) @binding(0) var texSamplerLinear: sampler;
@@ -42,7 +43,7 @@ export const TAAShaderWGSL = `
        
         
         let currentPixelColor = textureSample(compositeTex, texSamplerLinear, in.uv);
-        let motionVector = textureSample(motionVectorTex, texSamplerLinear, in.uv).rg;
+        let motionVector = getBiggestVectorFromNeighboringVectors(in.uv);
         let pastUV = in.uv - motionVector;
         let pastColor = textureSample(historyTex, texSamplerLinear, pastUV);
         let finalColor = (currentPixelColor * params.alpha) + (pastColor * (1.0 - params.alpha));
@@ -51,5 +52,35 @@ export const TAAShaderWGSL = `
         out.screenColor = vec4<f32>(finalColor); 
         out.historyColor = vec4<f32>(finalColor); 
         return out;
+    }
+
+    fn getBiggestVectorFromNeighboringVectors(uv: vec2<f32>) -> vec2<f32> {
+        let xTexel = 1.0 / params.screenResolution.x;
+        let yTexel = 1.0 / params.screenResolution.y;
+
+        var currentBiggestSquaredLenght = 0.0;
+        var biggestVector = vec2<f32>(0.0,0.0);
+
+        for(var x = -i32(params.vectorSearchRadius); x <= i32(params.vectorSearchRadius) ; x = x + 1){
+            
+            for(var y = -i32(params.vectorSearchRadius); y <= i32(params.vectorSearchRadius) ; y = y + 1){
+
+                let sampleUV = uv + vec2<f32>(f32(x) * xTexel, f32(y) * yTexel);
+
+                let sampleMotionVector = textureSampleLevel(motionVectorTex, texSamplerLinear, sampleUV, 0.0).rg;
+
+                let sampleLenght = (sampleMotionVector.x * sampleMotionVector.x) + (sampleMotionVector.y * sampleMotionVector.y);
+
+                if(sampleLenght > currentBiggestSquaredLenght){
+                    currentBiggestSquaredLenght = sampleLenght;
+                    biggestVector = sampleMotionVector;
+                }
+
+            }
+
+        }
+
+        return biggestVector;
+
     }
 `;

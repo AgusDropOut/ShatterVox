@@ -241,7 +241,7 @@ export class WebGPURenderer {
 
         this.gtaoPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, Engine.zNear, Engine.zFar);
         this.ssgiPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, invViewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter, Engine.zNear, Engine.zFar);
-        this.taaPass.updateParams(this.canvas.width, this.canvas.height, 0.05); 
+        this.taaPass.updateParams(this.canvas.width, this.canvas.height, 0.20); 
 
         this.commandEncoder = this.device.createCommandEncoder();
 

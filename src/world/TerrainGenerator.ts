@@ -296,7 +296,7 @@ export class TerrainGenerator {
 
         const lightZ = midZ - 6;
         for (let x = padding + 4; x < WORLD_WIDTH - padding - 4; x += 4) {
-            this.world.setBlock(x, WORLD_HEIGHT - padding - 1, lightZ, TerrainGenerator.ID_GLOWSTONE);
+            this.world.setBlock(x, WORLD_HEIGHT - padding - 1, lightZ, TerrainGenerator.ID_RUBY);
         }
         
         const darkZ = midZ + 6;

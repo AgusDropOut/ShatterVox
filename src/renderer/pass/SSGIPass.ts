@@ -5,11 +5,15 @@ import { SSGISpatialBlurComputeShaderWGSL } from "../shaders/SSGISpatialBlurComp
 export class SSGIPass {
     private device: GPUDevice;
     private computePipeline!: GPUComputePipeline;
-    private blurPipeline!: GPUComputePipeline;
+    private blurXPipeline!: GPUComputePipeline;
+    private blurYPipeline!: GPUComputePipeline;
 
     private noisyTexture!: GPUTexture;
+    private intermediateTexture!: GPUTexture;
     private blurredTexture!: GPUTexture;
+    
     public noisyView!: GPUTextureView;
+    private intermediateView!: GPUTextureView;
     public blurredView!: GPUTextureView;
 
     private ssgiParamsBuffer!: GPUBuffer;
@@ -20,8 +24,11 @@ export class SSGIPass {
     private computeSamplersBindGroup!: GPUBindGroup;
     private computeTexturesBindGroup!: GPUBindGroup;
     private computeParamsBindGroup!: GPUBindGroup;
-    private blurTexturesBindGroup!: GPUBindGroup;
-    private blurParamsBindGroup!: GPUBindGroup;
+    
+    private blurXTexturesBindGroup!: GPUBindGroup;
+    private blurYTexturesBindGroup!: GPUBindGroup;
+    private blurXParamsBindGroup!: GPUBindGroup;
+    private blurYParamsBindGroup!: GPUBindGroup;
 
     constructor(device: GPUDevice) {
         this.device = device;
@@ -34,9 +41,17 @@ export class SSGIPass {
             layout: 'auto',
             compute: { module: this.device.createShaderModule({ code: SSGIComputeShaderWGSL }), entryPoint: 'main' }
         });
-        this.blurPipeline = this.device.createComputePipeline({
+
+        const blurModule = this.device.createShaderModule({ code: SSGISpatialBlurComputeShaderWGSL });
+
+        this.blurXPipeline = this.device.createComputePipeline({
             layout: 'auto',
-            compute: { module: this.device.createShaderModule({ code: SSGISpatialBlurComputeShaderWGSL }), entryPoint: 'main' }
+            compute: { module: blurModule, entryPoint: 'mainX' }
+        });
+
+        this.blurYPipeline = this.device.createComputePipeline({
+            layout: 'auto',
+            compute: { module: blurModule, entryPoint: 'mainY' }
         });
     }
 
@@ -79,6 +94,7 @@ export class SSGIPass {
 
     public resize(width: number, height: number, depthView: GPUTextureView, normalView: GPUTextureView, deferredView: GPUTextureView, linearSampler: GPUSampler, nearestSampler: GPUSampler): void {
         if (this.noisyTexture) this.noisyTexture.destroy();
+        if (this.intermediateTexture) this.intermediateTexture.destroy();
         if (this.blurredTexture) this.blurredTexture.destroy();
 
         this.noisyTexture = this.device.createTexture({
@@ -87,6 +103,13 @@ export class SSGIPass {
             usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
         });
         this.noisyView = this.noisyTexture.createView();
+
+        this.intermediateTexture = this.device.createTexture({
+            size: [width, height],
+            format: "rgba16float",
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.intermediateView = this.intermediateTexture.createView();
 
         this.blurredTexture = this.device.createTexture({
             size: [width, height],
@@ -118,18 +141,33 @@ export class SSGIPass {
             entries: [{ binding: 0, resource: { buffer: this.ssgiParamsBuffer } }]
         });
 
-        this.blurTexturesBindGroup = this.device.createBindGroup({
-            layout: this.blurPipeline.getBindGroupLayout(0),
+        this.blurXTexturesBindGroup = this.device.createBindGroup({
+            layout: this.blurXPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: depthView },
                 { binding: 1, resource: normalView },
                 { binding: 2, resource: this.noisyView },
+                { binding: 3, resource: this.intermediateView }
+            ]
+        });
+
+        this.blurYTexturesBindGroup = this.device.createBindGroup({
+            layout: this.blurYPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: depthView },
+                { binding: 1, resource: normalView },
+                { binding: 2, resource: this.intermediateView },
                 { binding: 3, resource: this.blurredView }
             ]
         });
 
-        this.blurParamsBindGroup = this.device.createBindGroup({
-            layout: this.blurPipeline.getBindGroupLayout(1),
+        this.blurXParamsBindGroup = this.device.createBindGroup({
+            layout: this.blurXPipeline.getBindGroupLayout(1),
+            entries: [{ binding: 0, resource: { buffer: this.blurredParamsBuffer } }]
+        });
+
+        this.blurYParamsBindGroup = this.device.createBindGroup({
+            layout: this.blurYPipeline.getBindGroupLayout(1),
             entries: [{ binding: 0, resource: { buffer: this.blurredParamsBuffer } }]
         });
     }
@@ -172,10 +210,17 @@ export class SSGIPass {
         computePass.end();
 
         const blurPass = commandEncoder.beginComputePass();
-        blurPass.setPipeline(this.blurPipeline);
-        blurPass.setBindGroup(0, this.blurTexturesBindGroup);
-        blurPass.setBindGroup(1, this.blurParamsBindGroup);
+        
+        blurPass.setPipeline(this.blurXPipeline);
+        blurPass.setBindGroup(0, this.blurXTexturesBindGroup);
+        blurPass.setBindGroup(1, this.blurXParamsBindGroup);
         blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+
+        blurPass.setPipeline(this.blurYPipeline);
+        blurPass.setBindGroup(0, this.blurYTexturesBindGroup);
+        blurPass.setBindGroup(1, this.blurYParamsBindGroup);
+        blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+        
         blurPass.end();
     }
 

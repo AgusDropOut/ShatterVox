@@ -52,8 +52,8 @@ export class TAAPass {
             struct TAAParams {
                 screenResolution: vec2<f32>,
                 alpha: f32,
-                padding: f32,
                 vectorSearchRadius: f32,
+                colorClampRadius: f32,
             };
         `);
         this.taaParamsView = makeStructuredView(defs.structs.TAAParams);
@@ -110,8 +110,8 @@ export class TAAPass {
         this.taaParamsView.set({
             screenResolution: [width, height],
             alpha: alpha,
-            padding: 0.0,
-            vectorSearchRadius: 4
+            vectorSearchRadius: 2,
+            colorClampRadius: 2
         });
         this.device.queue.writeBuffer(this.taaParamsBuffer, 0, this.taaParamsView.arrayBuffer);
     }

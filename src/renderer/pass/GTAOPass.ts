@@ -5,11 +5,15 @@ import { GTAOBlurComputeShaderWGSL } from "../shaders/GTAOBlurComputeShader.wgsl
 export class GTAOPass {
     private device: GPUDevice;
     private computePipeline!: GPUComputePipeline;
-    private blurPipeline!: GPUComputePipeline;
+    private blurXPipeline!: GPUComputePipeline;
+    private blurYPipeline!: GPUComputePipeline;
 
     private noisyTexture!: GPUTexture;
+    private intermediateTexture!: GPUTexture;
     private blurredTexture!: GPUTexture;
+    
     public noisyView!: GPUTextureView;
+    private intermediateView!: GPUTextureView;
     public blurredView!: GPUTextureView;
 
     private paramsBuffer!: GPUBuffer;
@@ -17,8 +21,11 @@ export class GTAOPass {
 
     private computeBindGroup!: GPUBindGroup;
     private computeMatrixesBindGroup!: GPUBindGroup;
-    private blurBindGroup!: GPUBindGroup;
-    private blurParamsBindGroup!: GPUBindGroup;
+    
+    private blurXBindGroup!: GPUBindGroup;
+    private blurYBindGroup!: GPUBindGroup;
+    private blurXParamsBindGroup!: GPUBindGroup;
+    private blurYParamsBindGroup!: GPUBindGroup;
 
     constructor(device: GPUDevice) {
         this.device = device;
@@ -31,9 +38,17 @@ export class GTAOPass {
             layout: 'auto',
             compute: { module: this.device.createShaderModule({ code: InitialGTAOComputeShaderWGSL }), entryPoint: 'main' }
         });
-        this.blurPipeline = this.device.createComputePipeline({
+
+        const blurModule = this.device.createShaderModule({ code: GTAOBlurComputeShaderWGSL });
+        
+        this.blurXPipeline = this.device.createComputePipeline({
             layout: 'auto',
-            compute: { module: this.device.createShaderModule({ code: GTAOBlurComputeShaderWGSL }), entryPoint: 'main' }
+            compute: { module: blurModule, entryPoint: 'mainX' }
+        });
+
+        this.blurYPipeline = this.device.createComputePipeline({
+            layout: 'auto',
+            compute: { module: blurModule, entryPoint: 'mainY' }
         });
     }
 
@@ -57,6 +72,7 @@ export class GTAOPass {
 
     public resize(width: number, height: number, depthView: GPUTextureView, normalView: GPUTextureView, nearestSampler: GPUSampler): void {
         if (this.noisyTexture) this.noisyTexture.destroy();
+        if (this.intermediateTexture) this.intermediateTexture.destroy();
         if (this.blurredTexture) this.blurredTexture.destroy();
 
         this.noisyTexture = this.device.createTexture({
@@ -65,6 +81,13 @@ export class GTAOPass {
             usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
         });
         this.noisyView = this.noisyTexture.createView();
+
+        this.intermediateTexture = this.device.createTexture({
+            size: [width, height],
+            format: "rgba8unorm",
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+        this.intermediateView = this.intermediateTexture.createView();
 
         this.blurredTexture = this.device.createTexture({
             size: [width, height],
@@ -88,17 +111,31 @@ export class GTAOPass {
             entries: [{ binding: 0, resource: { buffer: this.paramsBuffer } }]
         });
 
-        this.blurBindGroup = this.device.createBindGroup({
-            layout: this.blurPipeline.getBindGroupLayout(0),
+        this.blurXBindGroup = this.device.createBindGroup({
+            layout: this.blurXPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: depthView },
                 { binding: 1, resource: this.noisyView },
+                { binding: 2, resource: this.intermediateView }
+            ]
+        });
+
+        this.blurYBindGroup = this.device.createBindGroup({
+            layout: this.blurYPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: depthView },
+                { binding: 1, resource: this.intermediateView },
                 { binding: 2, resource: this.blurredView }
             ]
         });
 
-        this.blurParamsBindGroup = this.device.createBindGroup({
-            layout: this.blurPipeline.getBindGroupLayout(1),
+        this.blurXParamsBindGroup = this.device.createBindGroup({
+            layout: this.blurXPipeline.getBindGroupLayout(1),
+            entries: [{ binding: 0, resource: { buffer: this.paramsBuffer } }]
+        });
+
+        this.blurYParamsBindGroup = this.device.createBindGroup({
+            layout: this.blurYPipeline.getBindGroupLayout(1),
             entries: [{ binding: 0, resource: { buffer: this.paramsBuffer } }]
         });
     }
@@ -127,10 +164,17 @@ export class GTAOPass {
         computePass.end();
 
         const blurPass = commandEncoder.beginComputePass();
-        blurPass.setPipeline(this.blurPipeline);
-        blurPass.setBindGroup(0, this.blurBindGroup);
-        blurPass.setBindGroup(1, this.blurParamsBindGroup);
+        
+        blurPass.setPipeline(this.blurXPipeline);
+        blurPass.setBindGroup(0, this.blurXBindGroup);
+        blurPass.setBindGroup(1, this.blurXParamsBindGroup);
         blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+
+        blurPass.setPipeline(this.blurYPipeline);
+        blurPass.setBindGroup(0, this.blurYBindGroup);
+        blurPass.setBindGroup(1, this.blurYParamsBindGroup);
+        blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+        
         blurPass.end();
     }
 

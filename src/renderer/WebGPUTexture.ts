@@ -33,8 +33,8 @@ export class WebGPUTexture {
         tex.sampler = device.createSampler({
             magFilter: 'nearest', 
             minFilter: 'nearest', 
-            addressModeU: 'clamp-to-edge',
-            addressModeV: 'clamp-to-edge',
+            addressModeU: 'repeat',
+            addressModeV: 'repeat',
         });
 
         return tex;

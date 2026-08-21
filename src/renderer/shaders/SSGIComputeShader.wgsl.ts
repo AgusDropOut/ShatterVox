@@ -22,6 +22,9 @@ export const SSGIComputeShaderWGSL = `
 
     @group(2) @binding(0) var<uniform> params: SSGIParams;
 
+    
+    @group(3) @binding(0) var noiseTex: texture_2d<f32>;
+
     @compute @workgroup_size(8, 8, 1)
     fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if (global_id.x >= u32(params.screenResolution.x) || global_id.y >= u32(params.screenResolution.y)) {
@@ -37,8 +40,17 @@ export const SSGIComputeShaderWGSL = `
         let pixelNormalWorld = textureLoad(normalTex, pixelCoords, 0).xyz;
         let pixelNormalView = normalize((params.viewMatrix * vec4<f32>(pixelNormalWorld, 0.0)).xyz);
 
-        let noise1 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords), params.frameCounter);
-        let noise2 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords) + vec2<f32>(47.0, 17.0), params.frameCounter);
+        //let noise1 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords % 64), params.frameCounter);
+        //let noise2 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords % 64) + vec2<f32>(47.0, 17.0), params.frameCounter);
+
+        let frameOffset = vec2<f32>(fract(f32(params.frameCounter) * 0.7548776), fract(f32(params.frameCounter) * 0.5698402));
+        let pixelsJump = vec2<u32>(floor(frameOffset * 64.0));
+
+        let bruteCoord = vec2<u32>(pixelCoords) + pixelsJump;
+
+       
+        let noise1 = textureLoad(noiseTex, bruteCoord % 64, 0).r;
+        let noise2 = textureLoad(noiseTex, bruteCoord % 64, 0).g;
 
         let tetha = acos(sqrt(1.0 - noise1));
         let phi = 2.0 * 3.14159265358979323846 * noise2;
@@ -92,8 +104,9 @@ export const SSGIComputeShaderWGSL = `
         let endInvZ = 1.0 / endViewZ;
         let deltaInvZ = (endInvZ - startInvZ) / f32(params.maxSteps);
 
-        // ditheriung
-        let jitter = noise1;
+        // dithering
+        let noise3 = textureLoad(noiseTex, bruteCoord % 64, 0).b;
+        let jitter = noise3;
 
         for(var step: u32 = 1u; step < params.maxSteps; step = step + 1u) {
 

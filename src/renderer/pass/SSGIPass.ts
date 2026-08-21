@@ -1,6 +1,7 @@
 import { makeShaderDataDefinitions, makeStructuredView, type StructuredView } from "webgpu-utils";
 import { SSGIComputeShaderWGSL } from "../shaders/SSGIComputeShader.wgsl";
 import { SSGISpatialBlurComputeShaderWGSL } from "../shaders/SSGISpatialBlurComputeShader.wgsl";
+import { WebGPUTexture } from "../WebGPUTexture";
 
 export class SSGIPass {
     private device: GPUDevice;
@@ -24,16 +25,27 @@ export class SSGIPass {
     private computeSamplersBindGroup!: GPUBindGroup;
     private computeTexturesBindGroup!: GPUBindGroup;
     private computeParamsBindGroup!: GPUBindGroup;
+    private noiseBindGroup!: GPUBindGroup;
     
     private blurXTexturesBindGroup!: GPUBindGroup;
     private blurYTexturesBindGroup!: GPUBindGroup;
     private blurXParamsBindGroup!: GPUBindGroup;
     private blurYParamsBindGroup!: GPUBindGroup;
 
+    private noise!: WebGPUTexture;
+
     constructor(device: GPUDevice) {
         this.device = device;
+    }
+
+    public async init(){
+        await this.initTextures();
         this.initPipelines();
         this.initBuffers();
+    }
+
+    private async initTextures(){
+        this.noise = await WebGPUTexture.create(this.device, "/assets/LDR_RGB1_58.png");
     }
 
     private initPipelines(): void {
@@ -141,6 +153,13 @@ export class SSGIPass {
             entries: [{ binding: 0, resource: { buffer: this.ssgiParamsBuffer } }]
         });
 
+        this.noiseBindGroup = this.device.createBindGroup({
+            layout: this.computePipeline.getBindGroupLayout(3),
+            entries: [
+                { binding: 0, resource: this.noise.view }
+            ]
+        });
+
         this.blurXTexturesBindGroup = this.device.createBindGroup({
             layout: this.blurXPipeline.getBindGroupLayout(0),
             entries: [
@@ -179,16 +198,16 @@ export class SSGIPass {
             inverseViewMatrix: invViewMatrix,
             viewMatrix: viewMatrix,
             screenResolution: [width, height],
-            rayStepSize: 0.1,
+            rayStepSize: 0.05,
             maxSteps: 16,
-            thickness: 0.5,
+            thickness: 0.3,
             frameCounter: frameCounter
         });
         this.device.queue.writeBuffer(this.ssgiParamsBuffer, 0, this.ssgiParamsView.arrayBuffer);
 
         this.blurredParamsView.set({
             normalSharpness: 256.0,
-            depthSharpness: 64.0,
+            depthSharpness: 256.0,
             blurRadius: 4.0,
             screenResolution: [width, height],
             zNear: zNear,
@@ -206,6 +225,7 @@ export class SSGIPass {
         computePass.setBindGroup(0, this.computeSamplersBindGroup);
         computePass.setBindGroup(1, this.computeTexturesBindGroup);
         computePass.setBindGroup(2, this.computeParamsBindGroup);
+        computePass.setBindGroup(3, this.noiseBindGroup);
         computePass.dispatchWorkgroups(groupsX, groupsY, 1);
         computePass.end();
 

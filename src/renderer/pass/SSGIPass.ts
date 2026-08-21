@@ -34,6 +34,15 @@ export class SSGIPass {
 
     private noise!: WebGPUTexture;
 
+    public config = {
+        rayStepSize: 0.1,
+        maxSteps: 8,
+        thickness: 2.0,
+        normalSharpness: 256.0,
+        depthSharpness: 256.0,
+        blurRadius: 4.0
+    };
+
     constructor(device: GPUDevice) {
         this.device = device;
     }
@@ -45,7 +54,7 @@ export class SSGIPass {
     }
 
     private async initTextures(){
-        this.noise = await WebGPUTexture.create(this.device, "/assets/LDR_RGB1_58.png");
+        this.noise = await WebGPUTexture.create(this.device, "/assets/LDR_RG01_58.png");
     }
 
     private initPipelines(): void {
@@ -198,17 +207,17 @@ export class SSGIPass {
             inverseViewMatrix: invViewMatrix,
             viewMatrix: viewMatrix,
             screenResolution: [width, height],
-            rayStepSize: 0.05,
-            maxSteps: 16,
-            thickness: 0.3,
+            rayStepSize: this.config.rayStepSize,
+            maxSteps: this.config.maxSteps,
+            thickness: this.config.thickness,
             frameCounter: frameCounter
         });
         this.device.queue.writeBuffer(this.ssgiParamsBuffer, 0, this.ssgiParamsView.arrayBuffer);
 
         this.blurredParamsView.set({
-            normalSharpness: 256.0,
-            depthSharpness: 256.0,
-            blurRadius: 4.0,
+            normalSharpness: this.config.normalSharpness,
+            depthSharpness: this.config.depthSharpness,
+            blurRadius: this.config.blurRadius,
             screenResolution: [width, height],
             zNear: zNear,
             zFar: zFar,

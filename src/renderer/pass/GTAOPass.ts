@@ -27,6 +27,14 @@ export class GTAOPass {
     private blurXParamsBindGroup!: GPUBindGroup;
     private blurYParamsBindGroup!: GPUBindGroup;
 
+    public config = {
+        radius: 1.0,
+        falloff: 0.1,
+        thickness: 0.5,
+        blurRadius: 4.0,
+        blurSharpness: 500.0
+    };
+
     constructor(device: GPUDevice) {
         this.device = device;
         this.initPipelines();
@@ -61,6 +69,11 @@ export class GTAOPass {
                 inverseProjectionMatrix: mat4x4<f32>,
                 projectionMatrix: mat4x4<f32>,
                 viewMatrix: mat4x4<f32>,
+                radius: f32,
+                falloff: f32,
+                thickness: f32,
+                blurRadius: f32,
+                blurSharpness: f32,
             };
         `);
         this.paramsView = makeStructuredView(defs.structs.GTAOParams);
@@ -148,6 +161,11 @@ export class GTAOPass {
             inverseProjectionMatrix: invProjMatrix,
             projectionMatrix: projMatrix,
             viewMatrix: viewMatrix,
+            radius: this.config.radius,
+            falloff: this.config.falloff,
+            thickness: this.config.thickness,
+            blurRadius: this.config.blurRadius,
+            blurSharpness: this.config.blurSharpness,
         });
         this.device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsView.arrayBuffer);
     }

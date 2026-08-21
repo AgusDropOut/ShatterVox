@@ -1,4 +1,3 @@
-
 import { makeShaderDataDefinitions, makeStructuredView, type StructuredView } from "webgpu-utils";
 import { TAAShaderWGSL } from "../shaders/TAAShader.wgsl"
 
@@ -20,11 +19,15 @@ export class TAAPass {
     private bindGroupA!: GPUBindGroup;
     private bindGroupB!: GPUBindGroup;
 
+    public config = {
+        alpha: 0.09,
+        vectorSearchRadius: 2,
+        colorClampRadius: 2
+    };
+
     constructor(device: GPUDevice, presentationFormat: GPUTextureFormat) {
         this.device = device;
        
-
-    
         const shaderModule = this.device.createShaderModule({ code: TAAShaderWGSL });
         this.pipeline = this.device.createRenderPipeline({
             label: 'TAA Pipeline',
@@ -106,12 +109,12 @@ export class TAAPass {
         this.bindGroupB = createBindGroup(this.historyViewA);
     }
 
-    public updateParams(width: number, height: number, alpha: number): void {
+    public updateParams(width: number, height: number): void {
         this.taaParamsView.set({
             screenResolution: [width, height],
-            alpha: alpha,
-            vectorSearchRadius: 2,
-            colorClampRadius: 2
+            alpha: this.config.alpha,
+            vectorSearchRadius: this.config.vectorSearchRadius,
+            colorClampRadius: this.config.colorClampRadius
         });
         this.device.queue.writeBuffer(this.taaParamsBuffer, 0, this.taaParamsView.arrayBuffer);
     }

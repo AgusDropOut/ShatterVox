@@ -1,5 +1,4 @@
 export const GTAOBlurComputeShaderWGSL = `
-
     struct GTAOParams {
         screenResolution: vec2<f32>,
         zNear: f32,
@@ -7,6 +6,11 @@ export const GTAOBlurComputeShaderWGSL = `
         inverseProjectionMatrix: mat4x4<f32>,
         projectionMatrix: mat4x4<f32>,
         viewMatrix: mat4x4<f32>,
+        radius: f32,
+        falloff: f32,
+        thickness: f32,
+        blurRadius: f32,
+        blurSharpness: f32,
     };
 
     @group(0) @binding(0) var depthTex: texture_depth_2d;
@@ -14,9 +18,6 @@ export const GTAOBlurComputeShaderWGSL = `
     @group(0) @binding(2) var outputTex: texture_storage_2d<rgba8unorm, write>;
 
     @group(1) @binding(0) var<uniform> params: GTAOParams;
-
-    const RADIUS: i32 = 3; 
-    const SHARPNESS: f32 = 500.0;
 
     fn linearizeDepth(depth: f32, zNear: f32, zFar: f32) -> f32 {
         let zNdc = depth * 2.0 - 1.0;
@@ -40,7 +41,9 @@ export const GTAOBlurComputeShaderWGSL = `
             return;
         }
 
-        for (var i: i32 = -RADIUS; i <= RADIUS; i++) {
+        let radiusInt = i32(params.blurRadius);
+
+        for (var i: i32 = -radiusInt; i <= radiusInt; i++) {
             let sampleCoords = pixelCoords + direction * i;
 
             if (sampleCoords.x < 0 || sampleCoords.y < 0 || sampleCoords.x >= i32(params.screenResolution.x) || sampleCoords.y >= i32(params.screenResolution.y)) {
@@ -55,7 +58,7 @@ export const GTAOBlurComputeShaderWGSL = `
            
             let linearSampleDepth = linearizeDepth(sampleDepth, params.zNear, params.zFar);
             let depthDifference = abs(linearSampleDepth - linearCenterDepth);
-            let depthWeight = max(0.0, 1.0 - (depthDifference * SHARPNESS));
+            let depthWeight = max(0.0, 1.0 - (depthDifference * params.blurSharpness));
 
             let sampleValue = textureLoad(inputTex, sampleCoords, 0).r;
             dividend += sampleValue * depthWeight;

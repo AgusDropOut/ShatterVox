@@ -7,8 +7,12 @@ export const InitialGTAOComputeShaderWGSL = `
         inverseProjectionMatrix: mat4x4<f32>,
         projectionMatrix: mat4x4<f32>,
         viewMatrix: mat4x4<f32>,
+        radius: f32,
+        falloff: f32,
+        thickness: f32,
+        blurRadius: f32,
+        blurSharpness: f32,
     };
-
 
     @group(0) @binding(0) var texSamplerNearest: sampler;
     @group(0) @binding(1) var normalTex: texture_2d<f32>;
@@ -17,7 +21,6 @@ export const InitialGTAOComputeShaderWGSL = `
 
     @group(1) @binding(0) var<uniform> params: GTAOParams;
 
-    const RADIUS_WORLD: f32 = 1.5; 
     const MIN_RADIUS_PIXELS: f32 = 1.0; 
     const MAX_RADIUS_PIXELS: f32 = 128.0; 
     const NUM_SLICES: u32 = 2u;
@@ -41,7 +44,7 @@ export const InitialGTAOComputeShaderWGSL = `
         let pixelPositionView = getViewSpacePosition(global_id.xy, pixelDepth);
 
         let focalPixels = params.projectionMatrix[0][0] * params.screenResolution.x / 2.0;
-        let radiusPixels = clamp(RADIUS_WORLD * focalPixels / abs(pixelPositionView.z), MIN_RADIUS_PIXELS, MAX_RADIUS_PIXELS);
+        let radiusPixels = clamp(params.radius * focalPixels / abs(pixelPositionView.z), MIN_RADIUS_PIXELS, MAX_RADIUS_PIXELS);
 
         let deltaTheta = 3.14159265359 / f32(NUM_SLICES);
 
@@ -66,7 +69,7 @@ export const InitialGTAOComputeShaderWGSL = `
                     let viewPosSample1 = getViewSpacePosition(vec2<u32>(sampleUV1 * params.screenResolution), sampleDepth1);
                     let delta1 = viewPosSample1 - pixelPositionView;
                     let elevationAngle1 = dot(normalize(delta1), pixelNormalView);
-                    if(length(delta1) < RADIUS_WORLD && elevationAngle1 > maxHorizon1) {
+                    if(length(delta1) < params.radius && elevationAngle1 > maxHorizon1) {
                         maxHorizon1 = elevationAngle1;
                     }
                 }
@@ -78,7 +81,7 @@ export const InitialGTAOComputeShaderWGSL = `
                     let viewPosSample2 = getViewSpacePosition(vec2<u32>(sampleUV2 * params.screenResolution), sampleDepth2);
                     let delta2 = viewPosSample2 - pixelPositionView;
                     let elevationAngle2 = dot(normalize(delta2), pixelNormalView);
-                    if(length(delta2) < RADIUS_WORLD && elevationAngle2 > maxHorizon2) {
+                    if(length(delta2) < params.radius && elevationAngle2 > maxHorizon2) {
                         maxHorizon2 = elevationAngle2;
                     }
 
@@ -106,6 +109,4 @@ export const InitialGTAOComputeShaderWGSL = `
         let magicVector = vec2<f32>(0.06711056, 0.00583715);
         return fract(52.9829189 * fract(dot(seed, magicVector)));
     }
-
-  
 `;

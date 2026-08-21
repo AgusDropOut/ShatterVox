@@ -10,8 +10,7 @@ import { StructuralIntegrity } from "../physics/StructuralIntegrity";
 import { ExplosiveManager } from "../entity/manager/ExplosiveManager";
 import { EntityRepository } from "../entity/EntityRepository";
 import { BlockRegistry } from "../block/BlockRegistry";
-
-
+import { DebugGui } from "./DebugGui";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -20,7 +19,6 @@ export class Engine {
     private world!: World;
     private terrainPhysics!: TerrainPhysics;
     private structuralIntegrity!: StructuralIntegrity;
-    
     
     private player!: PlayerController;
     private isRunning: boolean = false;
@@ -43,13 +41,13 @@ export class Engine {
 
     private entityRepository: EntityRepository;
     private explosiveManager!: ExplosiveManager;
+    private debugGui!: DebugGui;
 
     public static projectionMatrix: mat4 = mat4.create();
     public static zNear: number = 0.1;
     public static zFar: number = 100.0;
     public static screenWidth: number = 0;
     public static screenHeight: number = 0;
-
 
     constructor(canvasId: string) {
         const canvasElement = document.getElementById(canvasId) as HTMLCanvasElement | null;
@@ -148,8 +146,6 @@ export class Engine {
             this.showBlurredSSGIDebug = false;
         });
 
-
-
         this.window = new Window(this.canvas);
         this.entityRepository = new EntityRepository();
 
@@ -157,8 +153,6 @@ export class Engine {
         mat4.perspectiveZO(Engine.projectionMatrix, Math.PI / 4, this.canvas.width / this.canvas.height, Engine.zNear, Engine.zFar);
         Engine.screenWidth = this.canvas.width;
         Engine.screenHeight = this.canvas.height;
-        
-        
     }
 
     public async start(): Promise<void> {
@@ -170,6 +164,8 @@ export class Engine {
             console.error("[Engine] Failed to initialize graphics engine.");
             return;
         }
+
+        this.debugGui = new DebugGui(this.renderer);
 
         this.world = new World(this.renderer.device, this.renderer.getModelLayout());
 
@@ -187,7 +183,6 @@ export class Engine {
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
 
-      
         await this.renderer.loadEntityAsset(
             "bomb", 
             "/assets/models/bomb.obj", 
@@ -212,7 +207,6 @@ export class Engine {
         
         this.update(deltaTime);
         this.render();
-        
 
         this.framesThisSecond++;
         if (time - this.lastFpsTime >= 1000) {
@@ -232,13 +226,9 @@ export class Engine {
         this.player.update(deltaTime);
         this.explosiveManager.update(deltaTime);
         this.world.updateDirtyMeshes();
-
-        
     }
 
     private render(): void {
-       
-     
         const view = this.player.camera.getViewMatrix(); 
         const invViewProj = mat4.create();
         const viewProj = mat4.create();
@@ -264,7 +254,6 @@ export class Engine {
 
         this.renderer.drawTAA(this.totalFrames);
 
-       
         if(this.showDepthDebug) {
             this.renderer.debugDrawTexture(this.renderer.depthView, true);
         }
@@ -294,14 +283,6 @@ export class Engine {
             this.renderer.debugDrawTexture(this.renderer.deferredView);
         }
 
-
-        
-        
-
         this.renderer.endFrame();
     }
-
-    
-
-    
 }

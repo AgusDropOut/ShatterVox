@@ -43,7 +43,7 @@ export const SSGIComputeShaderWGSL = `
         //let noise1 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords % 64), params.frameCounter);
         //let noise2 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords % 64) + vec2<f32>(47.0, 17.0), params.frameCounter);
 
-        let frameOffset = vec2<f32>(fract(f32(params.frameCounter) * 0.7548776), fract(f32(params.frameCounter) * 0.5698402));
+        let frameOffset = vec2<f32>(fract((f32(params.frameCounter) * interleavedGradientNoisePixel(vec2<f32>(0.0,0.0),params.frameCounter)) * 0.7548776), fract((f32(params.frameCounter) * interleavedGradientNoisePixel(vec2<f32>(0.0,0.0),params.frameCounter)) * 0.5698402));
         let pixelsJump = vec2<u32>(floor(frameOffset * 64.0));
 
         let bruteCoord = vec2<u32>(pixelCoords) + pixelsJump;

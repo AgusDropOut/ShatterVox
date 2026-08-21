@@ -242,7 +242,7 @@ export class WebGPURenderer {
 
         this.gtaoPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, Engine.zNear, Engine.zFar);
         this.ssgiPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, invViewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter, Engine.zNear, Engine.zFar);
-        this.taaPass.updateParams(this.canvas.width, this.canvas.height, 0.15); 
+        this.taaPass.updateParams(this.canvas.width, this.canvas.height); 
 
         this.commandEncoder = this.device.createCommandEncoder();
 
@@ -483,4 +483,7 @@ export class WebGPURenderer {
     public get blurredGTAOView() { return this.gtaoPass.blurredView; }
     public get noisySSGIView() { return this.ssgiPass.noisyView; }
     public get blurredSSGIView() { return this.ssgiPass.blurredView; }
+
+    public get ssgiConfig(){return this.ssgiPass.config}
+    public get gtaoConfig(){return this.gtaoPass.config}
 }

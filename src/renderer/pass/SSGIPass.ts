@@ -27,7 +27,8 @@ export class SSGIPass {
     private computeParamsBindGroup!: GPUBindGroup;
     private noiseBindGroup!: GPUBindGroup;
     
-    private blurXTexturesBindGroup!: GPUBindGroup;
+    private blurXTexturesBindGroupFirst!: GPUBindGroup;
+    private blurXTexturesBindGroupNext!: GPUBindGroup;
     private blurYTexturesBindGroup!: GPUBindGroup;
     private blurXParamsBindGroup!: GPUBindGroup;
     private blurYParamsBindGroup!: GPUBindGroup;
@@ -35,12 +36,13 @@ export class SSGIPass {
     private noise!: WebGPUTexture;
 
     public config = {
-        rayStepSize: 0.1,
-        maxSteps: 8,
+        rayStepSize: 0.35,
+        maxSteps: 10,
         thickness: 2.0,
-        normalSharpness: 256.0,
-        depthSharpness: 256.0,
-        blurRadius: 4.0
+        normalSharpness: 10.0, 
+        depthSharpness: 2.0,  
+        blurRadius: 3.0,    
+        blurIterations: 3    
     };
 
     constructor(device: GPUDevice) {
@@ -54,7 +56,7 @@ export class SSGIPass {
     }
 
     private async initTextures(){
-        this.noise = await WebGPUTexture.create(this.device, "/assets/LDR_RG01_58.png");
+        this.noise = await WebGPUTexture.create(this.device, "/assets/LDR_RGB1_6.png");
     }
 
     private initPipelines(): void {
@@ -101,6 +103,7 @@ export class SSGIPass {
                 normalSharpness: f32,
                 depthSharpness: f32,
                 blurRadius: f32,
+                stride: f32, 
                 screenResolution: vec2<f32>,
                 zNear: f32,
                 zFar: f32,
@@ -169,12 +172,22 @@ export class SSGIPass {
             ]
         });
 
-        this.blurXTexturesBindGroup = this.device.createBindGroup({
+        this.blurXTexturesBindGroupFirst = this.device.createBindGroup({
             layout: this.blurXPipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: depthView },
                 { binding: 1, resource: normalView },
                 { binding: 2, resource: this.noisyView },
+                { binding: 3, resource: this.intermediateView }
+            ]
+        });
+
+        this.blurXTexturesBindGroupNext = this.device.createBindGroup({
+            layout: this.blurXPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: depthView },
+                { binding: 1, resource: normalView },
+                { binding: 2, resource: this.blurredView },
                 { binding: 3, resource: this.intermediateView }
             ]
         });
@@ -214,10 +227,12 @@ export class SSGIPass {
         });
         this.device.queue.writeBuffer(this.ssgiParamsBuffer, 0, this.ssgiParamsView.arrayBuffer);
 
+        
         this.blurredParamsView.set({
             normalSharpness: this.config.normalSharpness,
             depthSharpness: this.config.depthSharpness,
             blurRadius: this.config.blurRadius,
+            stride: 1.0, 
             screenResolution: [width, height],
             zNear: zNear,
             zFar: zFar,
@@ -238,22 +253,30 @@ export class SSGIPass {
         computePass.dispatchWorkgroups(groupsX, groupsY, 1);
         computePass.end();
 
-        const blurPass = commandEncoder.beginComputePass();
-        
-        blurPass.setPipeline(this.blurXPipeline);
-        blurPass.setBindGroup(0, this.blurXTexturesBindGroup);
-        blurPass.setBindGroup(1, this.blurXParamsBindGroup);
-        blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+        if (this.config.blurIterations > 0) {
+            for(let i = 0; i < this.config.blurIterations; i++) {
+                const isFirstPass = (i === 0);
+                
+           
+                this.blurredParamsView.set({ stride: Math.pow(2, i) });
+                this.device.queue.writeBuffer(this.blurredParamsBuffer, 0, this.blurredParamsView.arrayBuffer);
 
-        blurPass.setPipeline(this.blurYPipeline);
-        blurPass.setBindGroup(0, this.blurYTexturesBindGroup);
-        blurPass.setBindGroup(1, this.blurYParamsBindGroup);
-        blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
-        
-        blurPass.end();
+                const blurPass = commandEncoder.beginComputePass();
+                blurPass.setPipeline(this.blurXPipeline);
+                blurPass.setBindGroup(0, isFirstPass ? this.blurXTexturesBindGroupFirst : this.blurXTexturesBindGroupNext);
+                blurPass.setBindGroup(1, this.blurXParamsBindGroup);
+                blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+
+                blurPass.setPipeline(this.blurYPipeline);
+                blurPass.setBindGroup(0, this.blurYTexturesBindGroup);
+                blurPass.setBindGroup(1, this.blurYParamsBindGroup);
+                blurPass.dispatchWorkgroups(groupsX, groupsY, 1);
+                blurPass.end();
+            }
+        }
     }
 
     public getResultView(): GPUTextureView {
-        return this.blurredView;
+        return this.config.blurIterations > 0 ? this.blurredView : this.noisyView;
     }
 }

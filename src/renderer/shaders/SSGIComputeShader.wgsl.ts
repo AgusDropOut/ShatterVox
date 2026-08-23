@@ -1,5 +1,4 @@
 export const SSGIComputeShaderWGSL = `
-
     struct SSGIParams {
         projectionMatrix: mat4x4<f32>,
         inverseProjectionMatrix: mat4x4<f32>,
@@ -21,9 +20,10 @@ export const SSGIComputeShaderWGSL = `
     @group(1) @binding(3) var ssgiOutput: texture_storage_2d<rgba16float, write>;
 
     @group(2) @binding(0) var<uniform> params: SSGIParams;
-
     
     @group(3) @binding(0) var noiseTex: texture_2d<f32>;
+
+    const PI: f32 = 3.14159265359;
 
     @compute @workgroup_size(8, 8, 1)
     fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -40,45 +40,40 @@ export const SSGIComputeShaderWGSL = `
         let pixelNormalWorld = textureLoad(normalTex, pixelCoords, 0).xyz;
         let pixelNormalView = normalize((params.viewMatrix * vec4<f32>(pixelNormalWorld, 0.0)).xyz);
 
-        //let noise1 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords % 64), params.frameCounter);
-        //let noise2 = interleavedGradientNoisePixel(vec2<f32>(pixelCoords % 64) + vec2<f32>(47.0, 17.0), params.frameCounter);
-
-        let frameOffset = vec2<f32>(fract((f32(params.frameCounter) * interleavedGradientNoisePixel(vec2<f32>(0.0,0.0),params.frameCounter)) * 0.7548776), fract((f32(params.frameCounter) * interleavedGradientNoisePixel(vec2<f32>(0.0,0.0),params.frameCounter)) * 0.5698402));
-        let pixelsJump = vec2<u32>(floor(frameOffset * 64.0));
-
+        
+        let r2Sequence = vec2<f32>(0.7548776662, 0.5698402909);
+        let frameOffset = fract(f32(params.frameCounter) * r2Sequence);
+        let pixelsJump = vec2<u32>(frameOffset * 256.0);
         let bruteCoord = vec2<u32>(pixelCoords) + pixelsJump;
 
-       
-        let noise1 = textureLoad(noiseTex, bruteCoord % 64, 0).r;
-        let noise2 = textureLoad(noiseTex, bruteCoord % 64, 0).g;
+        let noiseData = textureLoad(noiseTex, bruteCoord % 256u, 0).rgb;
+        let u1 = noiseData.r;
+        let u2 = noiseData.g;
+        let jitter = noiseData.b;
 
-        let tetha = acos(sqrt(1.0 - noise1));
-        let phi = 2.0 * 3.14159265358979323846 * noise2;
-        let sampleTangent= vec3<f32>(
+        let tetha = acos(sqrt(1.0 - u1));
+        let phi = 2.0 * PI * u2;
+        let sampleTangent = vec3<f32>(
             sin(tetha) * cos(phi),
             sin(tetha) * sin(phi),
             cos(tetha)
         );
         
         var randomVector = vec3<f32>(1.0, 0.0, 0.0);
-
         if(abs(dot(randomVector, pixelNormalView)) > 0.99) {
             randomVector = vec3<f32>(0.0, 1.0, 0.0);
         }
 
         let firstBiTangent = normalize(cross(pixelNormalView, randomVector));
         let secondBiTangent = normalize(cross(pixelNormalView, firstBiTangent));
-
-        let matrixTBN = mat3x3<f32>(
-            firstBiTangent,
-            secondBiTangent,
-            pixelNormalView
-        );
-
+        let matrixTBN = mat3x3<f32>(firstBiTangent, secondBiTangent, pixelNormalView);
         let sampleDirectionView = normalize(matrixTBN * sampleTangent);
 
         let rayOriginView = getViewSpacePosition(global_id.xy, pixelDepth) + (pixelNormalView * 0.05);
-        let endPointView = rayOriginView + sampleDirectionView * 10.0;
+        
+       
+        let rayLength = params.rayStepSize * f32(params.maxSteps);
+        let endPointView = rayOriginView + sampleDirectionView * rayLength;
 
         let homogeneousOrigin = params.projectionMatrix * vec4<f32>(rayOriginView, 1.0);
         let homogeneousEndPoint = params.projectionMatrix * vec4<f32>(endPointView, 1.0);
@@ -87,29 +82,20 @@ export const SSGIComputeShaderWGSL = `
         let ndcEndPoint = homogeneousEndPoint.xyz / homogeneousEndPoint.w;
 
         let uEndPoint = (ndcEndPoint.x * 0.5) + 0.5;
-        let vEndPoint = 1 - ((ndcEndPoint.y * 0.5) + 0.5);
-
+        let vEndPoint = 1.0 - ((ndcEndPoint.y * 0.5) + 0.5);
         let uOrigin = (ndcOrigin.x * 0.5) + 0.5;
-        let vOrigin = 1 - ((ndcOrigin.y * 0.5) + 0.5);
+        let vOrigin = 1.0 - ((ndcOrigin.y * 0.5) + 0.5);
 
         let uvOrigin = vec2<f32>(uOrigin, vOrigin);
         let uvEndPoint = vec2<f32>(uEndPoint, vEndPoint);
 
         let deltaUV = (uvEndPoint - uvOrigin) / f32(params.maxSteps);
 
-        // linear interpolation of depth values in view space to avoid non-linearities in perspective projection
-        let startViewZ = rayOriginView.z; 
-        let endViewZ = endPointView.z;
-        let startInvZ = 1.0 / startViewZ;
-        let endInvZ = 1.0 / endViewZ;
+        let startInvZ = 1.0 / rayOriginView.z;
+        let endInvZ = 1.0 / endPointView.z;
         let deltaInvZ = (endInvZ - startInvZ) / f32(params.maxSteps);
 
-        // dithering
-        let noise3 = textureLoad(noiseTex, bruteCoord % 64, 0).b;
-        let jitter = noise3;
-
-        for(var step: u32 = 1u; step < params.maxSteps; step = step + 1u) {
-
+        for(var step: u32 = 1u; step <= params.maxSteps; step++) {
             let stepOffset = f32(step) - jitter;
             let currentRayUV = uvOrigin + deltaUV * stepOffset;
             let currentRayInvZ = startInvZ + deltaInvZ * stepOffset;
@@ -119,29 +105,25 @@ export const SSGIComputeShaderWGSL = `
                 break; 
             }
 
-          
-
             let currentSampleDepth = textureSampleLevel(depthTex, texSamplerNearest, currentRayUV, 0);
-           
             let samplePixelCoords = vec2<u32>(currentRayUV * params.screenResolution);
             let currentViewSamplePos = getViewSpacePosition(samplePixelCoords, currentSampleDepth);
 
-            let sampleDepth = currentViewSamplePos.z;
-            let zDistance = abs(currentRayViewZ - sampleDepth);
+            let sampleDepthZ = currentViewSamplePos.z;
+            let zDistance = abs(currentRayViewZ - sampleDepthZ);
 
-            if(abs(currentRayViewZ) > abs(sampleDepth) && zDistance < params.thickness) {
-                let lightOnImpact = textureSampleLevel(litSceneTex, texSamplerLinear, currentRayUV, 0.0);
+            if(abs(currentRayViewZ) > abs(sampleDepthZ) && zDistance < params.thickness) {
+                let lightOnImpact = textureSampleLevel(litSceneTex, texSamplerLinear, currentRayUV, 0.0).rgb;
                 let normalOnImpact = textureSampleLevel(normalTex, texSamplerLinear, currentRayUV, 0.0).xyz;
                 let normalViewOnImpact = normalize((params.viewMatrix * vec4<f32>(normalOnImpact, 0.0)).xyz);
-                let attenuation = max(0.0, dot(sampleDirectionView, pixelNormalView)) * max(0.0, dot( -sampleDirectionView, normalViewOnImpact ));
-                textureStore(ssgiOutput, pixelCoords, vec4<f32>(lightOnImpact.rgb * attenuation, 0.0));
+                
+                let attenuation = max(0.0, dot(sampleDirectionView, pixelNormalView)) * max(0.0, dot(-sampleDirectionView, normalViewOnImpact));
+                textureStore(ssgiOutput, pixelCoords, vec4<f32>(lightOnImpact * attenuation, 0.0));
                 return;
             }
         }
 
-        textureStore(ssgiOutput, pixelCoords, vec4<f32>(0.0,0.0,0.0,1.0));
-
-        
+        textureStore(ssgiOutput, pixelCoords, vec4<f32>(0.0, 0.0, 0.0, 1.0));
     }
 
     fn getViewSpacePosition(pixelCoords: vec2<u32>, depth: f32) -> vec3<f32> {
@@ -150,16 +132,4 @@ export const SSGIComputeShaderWGSL = `
         let viewPosH = (params.inverseProjectionMatrix * vec4<f32>(ndcX, ndcY, depth, 1.0));
         return viewPosH.xyz / viewPosH.w;
     }
-
-    fn interleavedGradientNoisePixel(pixelCoords: vec2<f32>, frame: u32) -> f32 {
-        let frameOffset = f32(frame % 16u) * 5.588238;
-        let seed = pixelCoords + vec2<f32>(frameOffset, frameOffset);
-        let magicVector = vec2<f32>(0.06711056, 0.00583715);
-        return fract(52.9829189 * fract(dot(seed, magicVector)));
-    }
-
-    
-
-   
-  
 `;

@@ -28,6 +28,7 @@ export class DebugGui {
         folder.add(config, 'normalSharpness', 1.0, 512.0).name('Normal Sharpness');
         folder.add(config, 'depthSharpness', 1.0, 512.0).name('Depth Sharpness');
         folder.add(config, 'blurRadius', 1.0, 10.0, 1.0).name('Blur Radius');
+        folder.add(config, 'blurIterations', 1.0, 10.0, 1.0).name('Blur Iterations');
     }
 
     private setupGTAO(renderer: any): void {

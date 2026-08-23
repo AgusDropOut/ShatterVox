@@ -80,10 +80,12 @@ export class BlockRegistry {
         this.create(4).name("Leaves").texture(4).color(0.0, 0.6, 0.0).fragmentation(0.3).transparent().register();
         this.create(5).name("Amethyst").texture(5).color(0.8, 0.9, 1.0).light(1.5, 0.8, 0.9, 1.0).fragmentation(0.05).register();
         
-        this.create(6).name("Ruby").texture(6).color(1.0, 0.2, 0.2).light(7.5, 1.0, 0.1, 0.1).fragmentation(0.05).register();
+        this.create(6).name("Ruby").texture(6).color(3.0, 0.2, 0.2).light(1.5, 1.0, 0.1, 0.1).fragmentation(0.05).register();
         this.create(7).name("Emerald").texture(7).color(0.2, 1.0, 0.2).light(1.5, 0.1, 1.0, 0.1).fragmentation(0.05).register();
         this.create(8).name("Sapphire").texture(8).color(0.2, 0.4, 1.0).light(1.5, 0.1, 0.3, 1.0).fragmentation(0.05).register();
-        this.create(9).name("Glowstone").texture(9).color(1.0, 0.9, 0.4).light(1.5, 1.0, 0.8, 0.2).fragmentation(0.00).register();
+        this.create(9).name("Glowstone").texture(9).color(0.5, 0.9, 0.4).light(1.5, 1.0, 0.8, 0.2).fragmentation(0.00).register();
+        this.create(10).name("Redstone").texture(6).color(1.0, 0.0, 0.0).fragmentation(0.05).register();
+        this.create(11).name("quartz").texture(10).color(1.0, 1.0, 1.0).fragmentation(0.05).register();
     }
 
     public static create(id: number): BlockBuilder {

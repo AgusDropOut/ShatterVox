@@ -1,9 +1,9 @@
 export const SSGISpatialBlurComputeShaderWGSL = `
-
     struct blurredSSGIParams {
         normalSharpness: f32,
         depthSharpness: f32,
         blurRadius: f32,
+        stride: f32,
         screenResolution: vec2<f32>,
         zNear: f32,
         zFar: f32,
@@ -38,14 +38,18 @@ export const SSGISpatialBlurComputeShaderWGSL = `
         let pixelNormal = normalize(rawPixelNormal);
         let linearPixelDepth = linearizeDepth(pixelDepth, params.zNear, params.zFar);
 
-        var colorAccum = vec4<f32>(0.0, 0.0, 0.0, 0.0);
+        var colorAccum = vec4<f32>(0.0);
         var weightAccum = 0.0;
         
         let radius = i32(params.blurRadius);
-        let sigma = params.blurRadius / 2.0; 
+        let safeRadius = max(params.blurRadius, 0.001);
+        let sigma = safeRadius / 2.0; 
+        let twoSigmaSq = 2.0 * sigma * sigma;
 
         for(var i: i32 = -radius; i <= radius; i = i + 1) {
-            let sampleCoords = pixelCoords + direction * i;
+            
+            let sampleOffset = direction * (i * i32(params.stride));
+            let sampleCoords = pixelCoords + sampleOffset;
 
             if (sampleCoords.x < 0 || sampleCoords.y < 0 || sampleCoords.x >= i32(params.screenResolution.x) || sampleCoords.y >= i32(params.screenResolution.y)) {
                 continue;
@@ -60,25 +64,24 @@ export const SSGISpatialBlurComputeShaderWGSL = `
             let rawSampleNormal = textureLoad(normalTex, sampleCoords, 0).xyz;
             let sampleNormal = normalize(rawSampleNormal);
 
-            let distance = f32(i);
-            let distanceSquared = distance * distance;
-            let distanceWeight = exp(-(distanceSquared) / (2.0 * sigma * sigma));
+            
+            let normalDot = dot(pixelNormal, sampleNormal);
+            let normalsWeight = pow(max(0.0, normalDot), params.normalSharpness);
+
+            let distance = f32(i); 
+            let distanceWeight = exp(-(distance * distance) / twoSigmaSq);
 
             let deltaDepth = abs(linearPixelDepth - linearizeDepth(sampleDepth, params.zNear, params.zFar));
-            let depthWeight = max(0.0, 1.0 - (deltaDepth * params.depthSharpness));
-
-            let normalsWeight = pow(max(0.0, dot(pixelNormal, sampleNormal)), params.normalSharpness);
+            let depthWeight = exp(-deltaDepth * params.depthSharpness);
 
             let finalWeight = depthWeight * distanceWeight * normalsWeight;
 
-            colorAccum = colorAccum + (sampleColor * finalWeight);
-            weightAccum = weightAccum + finalWeight;
+            colorAccum += (sampleColor * finalWeight);
+            weightAccum += finalWeight;
         }
 
         weightAccum = max(0.0001, weightAccum);
-        let finalColor = colorAccum / weightAccum;
-
-        textureStore(outputTex, pixelCoords, finalColor);
+        textureStore(outputTex, pixelCoords, colorAccum / weightAccum);
     }
 
     @compute @workgroup_size(16, 16, 1)

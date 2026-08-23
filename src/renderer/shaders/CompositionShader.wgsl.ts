@@ -32,10 +32,8 @@ export const compositionShaderWGSL = `
         let albedo = textureSample(albedoTex, texSamplerLinear, in.uv).rgb;
         let indirectLight = textureSample(blurredSSGITex, texSamplerLinear, in.uv).rgb;
 
-        let finalColor = directLight + ((indirectLight * 5.0) * albedo );
+        let finalColor = directLight + ((indirectLight * 2.0) * albedo );
 
-       
-      
         return vec4<f32>(finalColor, 1.0);
     }
 `;

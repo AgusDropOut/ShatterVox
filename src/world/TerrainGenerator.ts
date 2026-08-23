@@ -1,5 +1,5 @@
-import { World } from "./World";
 import { Chunk } from "./Chunk";
+import { World } from "./World";
 
 export type LightMode = 'RANDOM' | 'SINGLE_COLOR' | 'CLUSTERED';
 
@@ -23,12 +23,15 @@ export class TerrainGenerator {
 
    
     public static readonly ID_STONE = 1;
+     public static readonly ID_GRASS = 2;
     public static readonly ID_WOOD = 3;
     public static readonly ID_AMETHYST = 5;
     public static readonly ID_RUBY = 6;
     public static readonly ID_EMERALD = 7;
     public static readonly ID_SAPPHIRE = 8;
     public static readonly ID_GLOWSTONE = 9;
+    public static readonly ID_REDSTONE = 10;
+    public static readonly ID_QUARTZ = 11;
 
     public singleLightColorId: number = TerrainGenerator.ID_AMETHYST; 
 
@@ -306,6 +309,119 @@ export class TerrainGenerator {
             this.world.setBlock(centerX + 1, y, darkZ, TerrainGenerator.ID_STONE);
             this.world.setBlock(centerX, y, darkZ + 1, TerrainGenerator.ID_STONE);
             this.world.setBlock(centerX + 1, y, darkZ + 1, TerrainGenerator.ID_STONE);
+        }
+    }
+
+    public generateBoxSSGITestMap(): void {
+        const CHUNKS_X = 4;
+        const CHUNKS_Y = 2; 
+        const CHUNKS_Z = 4;
+
+        for (let cx = 0; cx < CHUNKS_X; cx++) {
+            for (let cy = 0; cy < CHUNKS_Y; cy++) {
+                for (let cz = 0; cz < CHUNKS_Z; cz++) {
+                    const chunk = new Chunk(this.device, this.modelLayout, cx, cy, cz);
+                    this.world.chunks.set(`${cx},${cy},${cz}`, chunk);
+                }
+            }
+        }
+
+        const WORLD_WIDTH = CHUNKS_X * Chunk.WIDTH;
+        const WORLD_HEIGHT = CHUNKS_Y * Chunk.HEIGHT;
+        const WORLD_DEPTH = CHUNKS_Z * Chunk.DEPTH;
+
+        for (let x = 0; x < WORLD_WIDTH; x++) {
+            for (let z = 0; z < WORLD_DEPTH; z++) {
+                this.world.setBlock(x, 0, z, TerrainGenerator.ID_STONE);
+                this.world.setBlock(x, 1, z, TerrainGenerator.ID_STONE);
+            }
+        }
+
+        const roomMinX = 16;
+        const roomMaxX = 48;
+        const roomMinY = 1;
+        const roomMaxY = 22;
+        const roomMinZ = 16;
+        const roomMaxZ = 48;
+
+        for (let x = roomMinX; x <= roomMaxX; x++) {
+            for (let y = roomMinY; y <= roomMaxY; y++) {
+                for (let z = roomMinZ; z <= roomMaxZ; z++) {
+                    const isFloor = (y === roomMinY);
+                    const isCeiling = (y === roomMaxY);
+                    const isLeftWall = (x === roomMinX);
+                    const isRightWall = (x === roomMaxX);
+                    const isBackWall = (z === roomMaxZ);
+                    const isFrontWall = (z === roomMinZ);
+
+                    if (x > roomMinX && x < roomMaxX && y > roomMinY && y < roomMaxY && z > roomMinZ && z < roomMaxZ) {
+                        this.world.setBlock(x, y, z, 0);
+                        continue;
+                    }
+
+                    if (isFloor) {
+                        this.world.setBlock(x, y, z, TerrainGenerator.ID_QUARTZ);
+                    } else if (isCeiling) {
+                        const midX = Math.floor((roomMinX + roomMaxX) / 2);
+                        const midZ = Math.floor((roomMinZ + roomMaxZ) / 2);
+                        const isLight = (x == midX) && (z == midZ);
+                        this.world.setBlock(x, y, z, isLight ? TerrainGenerator.ID_EMERALD : TerrainGenerator.ID_QUARTZ);
+                    } else if (isLeftWall) {
+                        this.world.setBlock(x, y, z, TerrainGenerator.ID_REDSTONE);
+                    } else if (isRightWall) {
+                        this.world.setBlock(x, y, z, TerrainGenerator.ID_GRASS);
+                    } else if (isBackWall) {
+                        this.world.setBlock(x, y, z, TerrainGenerator.ID_QUARTZ);
+                    } else if (isFrontWall) {
+                        this.world.setBlock(x, y, z, 0);
+                    }
+                }
+            }
+        }
+
+        const boxMinX = 22;
+        const boxMaxX = 28;
+        const boxMinY = 2;
+        const boxMaxY = 8;
+        const boxMinZ = 26;
+        const boxMaxZ = 32;
+        for (let x = boxMinX; x <= boxMaxX; x++) {
+            for (let y = boxMinY; y <= boxMaxY; y++) {
+                for (let z = boxMinZ; z <= boxMaxZ; z++) {
+                    this.world.setBlock(x, y, z, TerrainGenerator.ID_QUARTZ);
+                }
+            }
+        }
+
+        const rectMinX = 34;
+        const rectMaxX = 40;
+        const rectMinY = 2;
+        const rectMaxY = 14;
+        const rectMinZ = 34;
+        const rectMaxZ = 40;
+        for (let x = rectMinX; x <= rectMaxX; x++) {
+            for (let y = rectMinY; y <= rectMaxY; y++) {
+                for (let z = rectMinZ; z <= rectMaxZ; z++) {
+                    this.world.setBlock(x, y, z, TerrainGenerator.ID_QUARTZ);
+                }
+            }
+        }
+
+        const sphereCenterX = 32;
+        const sphereCenterY = 5;
+        const sphereCenterZ = 22;
+        const sphereRadius = 3.5;
+        for (let x = Math.floor(sphereCenterX - sphereRadius); x <= Math.ceil(sphereCenterX + sphereRadius); x++) {
+            for (let y = Math.floor(sphereCenterY - sphereRadius); y <= Math.ceil(sphereCenterY + sphereRadius); y++) {
+                for (let z = Math.floor(sphereCenterZ - sphereRadius); z <= Math.ceil(sphereCenterZ + sphereRadius); z++) {
+                    const dx = x - sphereCenterX;
+                    const dy = y - sphereCenterY;
+                    const dz = z - sphereCenterZ;
+                    if (dx * dx + dy * dy + dz * dz <= sphereRadius * sphereRadius) {
+                        this.world.setBlock(x, y, z, TerrainGenerator.ID_STONE);
+                    }
+                }
+            }
         }
     }
 }

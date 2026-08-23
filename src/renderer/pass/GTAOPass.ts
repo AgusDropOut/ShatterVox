@@ -28,11 +28,11 @@ export class GTAOPass {
     private blurYParamsBindGroup!: GPUBindGroup;
 
     public config = {
-        radius: 1.0,
+        radius: 1.9,
         falloff: 0.1,
         thickness: 0.5,
-        blurRadius: 4.0,
-        blurSharpness: 500.0
+        blurRadius: 3.0,
+        blurSharpness: 215.0
     };
 
     constructor(device: GPUDevice) {

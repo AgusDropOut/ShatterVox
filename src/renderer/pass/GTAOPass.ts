@@ -28,11 +28,15 @@ export class GTAOPass {
     private blurYParamsBindGroup!: GPUBindGroup;
 
     public config = {
-        radius: 1.9,
+        radius: 0.55,
         falloff: 0.1,
-        thickness: 0.5,
-        blurRadius: 3.0,
-        blurSharpness: 215.0
+        thickness: 0.01,
+        blurRadius: 1.0,
+        blurSharpness: 90.0,
+        minRadiusPixels: 1.0,
+        maxRadiusPixels: 50.0,
+        numSlices: 2,
+        maxSteps: 2
     };
 
     constructor(device: GPUDevice) {
@@ -74,6 +78,10 @@ export class GTAOPass {
                 thickness: f32,
                 blurRadius: f32,
                 blurSharpness: f32,
+                minRadiusPixels: f32,
+                maxRadiusPixels: f32,
+                numSlices: u32,
+                maxSteps: u32,
             };
         `);
         this.paramsView = makeStructuredView(defs.structs.GTAOParams);
@@ -166,6 +174,10 @@ export class GTAOPass {
             thickness: this.config.thickness,
             blurRadius: this.config.blurRadius,
             blurSharpness: this.config.blurSharpness,
+            minRadiusPixels: this.config.minRadiusPixels,
+            maxRadiusPixels: this.config.maxRadiusPixels,
+            numSlices: this.config.numSlices,
+            maxSteps: this.config.maxSteps,
         });
         this.device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsView.arrayBuffer);
     }

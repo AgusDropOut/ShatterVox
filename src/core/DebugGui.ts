@@ -39,6 +39,10 @@ export class DebugGui {
         folder.add(config, 'thickness', 0.01, 2.0).name('Thickness');
         folder.add(config, 'blurRadius', 1.0, 10.0, 1.0).name('Blur Radius');
         folder.add(config, 'blurSharpness', 1.0, 1000.0).name('Blur Sharpness');
+        folder.add(config, 'minRadiusPixels', 1.0, 20.0).name('Min Radius Px');
+        folder.add(config, 'maxRadiusPixels', 10.0, 512.0).name('Max Radius Px');
+        folder.add(config, 'numSlices', 1, 8, 1).name('Num Slices');
+        folder.add(config, 'maxSteps', 1, 16, 1).name('Max Steps');
     }
 
     private setupTAA(renderer: any): void {

@@ -365,7 +365,7 @@ export class TerrainGenerator {
                         const midX = Math.floor((roomMinX + roomMaxX) / 2);
                         const midZ = Math.floor((roomMinZ + roomMaxZ) / 2);
                         const isLight = (x == midX) && (z == midZ);
-                        this.world.setBlock(x, y, z, isLight ? TerrainGenerator.ID_EMERALD : TerrainGenerator.ID_QUARTZ);
+                        this.world.setBlock(x, y, z, isLight ? TerrainGenerator.ID_SAPPHIRE : TerrainGenerator.ID_QUARTZ);
                     } else if (isLeftWall) {
                         this.world.setBlock(x, y, z, TerrainGenerator.ID_REDSTONE);
                     } else if (isRightWall) {

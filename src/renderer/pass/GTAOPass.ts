@@ -139,7 +139,8 @@ export class GTAOPass {
             entries: [
                 { binding: 0, resource: depthView },
                 { binding: 1, resource: this.noisyView },
-                { binding: 2, resource: this.intermediateView }
+                { binding: 2, resource: this.intermediateView },
+                { binding: 3, resource: normalView }
             ]
         });
 
@@ -148,7 +149,8 @@ export class GTAOPass {
             entries: [
                 { binding: 0, resource: depthView },
                 { binding: 1, resource: this.intermediateView },
-                { binding: 2, resource: this.blurredView }
+                { binding: 2, resource: this.blurredView },
+                { binding: 3, resource: normalView }
             ]
         });
 

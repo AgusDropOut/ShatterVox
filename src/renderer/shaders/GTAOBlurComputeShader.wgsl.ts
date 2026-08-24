@@ -16,6 +16,7 @@ export const GTAOBlurComputeShaderWGSL = `
     @group(0) @binding(0) var depthTex: texture_depth_2d;
     @group(0) @binding(1) var inputTex: texture_2d<f32>;
     @group(0) @binding(2) var outputTex: texture_storage_2d<rgba8unorm, write>;
+    @group(0) @binding(3) var normalTex: texture_2d<f32>;
 
     @group(1) @binding(0) var<uniform> params: GTAOParams;
 
@@ -42,6 +43,11 @@ export const GTAOBlurComputeShaderWGSL = `
         }
 
         let radiusInt = i32(params.blurRadius);
+        let safeRadius = max(params.blurRadius, 0.001);
+        let sigma = safeRadius / 2.0;
+        let twoSigmaSq = 2.0 * sigma * sigma;
+
+        let pixelNormal = textureLoad(normalTex, pixelCoords, 0);
 
         for (var i: i32 = -radiusInt; i <= radiusInt; i++) {
             let sampleCoords = pixelCoords + direction * i;
@@ -51,18 +57,23 @@ export const GTAOBlurComputeShaderWGSL = `
             }
 
             let sampleDepth = textureLoad(depthTex, sampleCoords, 0);
+            let sampleNormal = textureLoad(normalTex, sampleCoords, 0);
 
-            if (sampleDepth >= 1.0) {
+            if (sampleDepth >= 1.0 || dot(pixelNormal,sampleNormal) < 0.99) {
                 continue;
             }
+            
+            let distanceWeight = exp(-( f32(i * i) / twoSigmaSq ) );
            
             let linearSampleDepth = linearizeDepth(sampleDepth, params.zNear, params.zFar);
             let depthDifference = abs(linearSampleDepth - linearCenterDepth);
             let depthWeight = max(0.0, 1.0 - (depthDifference * params.blurSharpness));
 
             let sampleValue = textureLoad(inputTex, sampleCoords, 0).r;
-            dividend += sampleValue * depthWeight;
-            divisor += depthWeight;
+
+            let finalWeight = depthWeight * distanceWeight;
+            dividend += sampleValue * finalWeight;
+            divisor += finalWeight;
         }
 
         divisor = max(divisor, 0.0001);

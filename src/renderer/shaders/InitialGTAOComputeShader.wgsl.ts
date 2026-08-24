@@ -69,8 +69,12 @@ export const InitialGTAOComputeShaderWGSL = `
                     let viewPosSample1 = getViewSpacePosition(vec2<u32>(sampleUV1 * params.screenResolution), sampleDepth1);
                     let delta1 = viewPosSample1 - pixelPositionView;
                     let elevationAngle1 = dot(normalize(delta1), pixelNormalView);
-                    if(length(delta1) < params.radius && elevationAngle1 > maxHorizon1 && deltaDepth1 < params.thickness) {
-                        maxHorizon1 = elevationAngle1;
+                    let falloffWeight = max(0.0, 1.0 - (length(delta1) / params.radius));
+                    let weightedElevation = elevationAngle1 * falloffWeight;
+
+                    if(length(delta1) < params.radius && weightedElevation > maxHorizon1 && deltaDepth1 < params.thickness) {
+
+                        maxHorizon1 = weightedElevation;
                     }
                 }
 
@@ -81,8 +85,11 @@ export const InitialGTAOComputeShaderWGSL = `
                     let viewPosSample2 = getViewSpacePosition(vec2<u32>(sampleUV2 * params.screenResolution), sampleDepth2);
                     let delta2 = viewPosSample2 - pixelPositionView;
                     let elevationAngle2 = dot(normalize(delta2), pixelNormalView);
-                    if(length(delta2) < params.radius && elevationAngle2 > maxHorizon2 && deltaDepth2 < params.thickness) {
-                        maxHorizon2 = elevationAngle2;
+                    let falloffWeight = max(0.0, 1.0 - (length(delta2) / params.radius));
+                    let weightedElevation = elevationAngle2 * falloffWeight;
+
+                    if(length(delta2) < params.radius && weightedElevation > maxHorizon2 && deltaDepth2 < params.thickness) {
+                        maxHorizon2 = weightedElevation;
                     }
                 }
             }

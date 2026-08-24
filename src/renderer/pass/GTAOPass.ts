@@ -31,7 +31,7 @@ export class GTAOPass {
         radius: 0.55,
         falloff: 0.1,
         thickness: 0.01,
-        blurRadius: 1.0,
+        blurRadius: 2.0,
         blurSharpness: 90.0,
         minRadiusPixels: 1.0,
         maxRadiusPixels: 50.0,

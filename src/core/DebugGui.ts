@@ -43,6 +43,7 @@ export class DebugGui {
         folder.add(config, 'maxRadiusPixels', 10.0, 512.0).name('Max Radius Px');
         folder.add(config, 'numSlices', 1, 8, 1).name('Num Slices');
         folder.add(config, 'maxSteps', 1, 16, 1).name('Max Steps');
+        folder.add(config, 'biasRadians', 0.0, 1.0).name('Bias Radians');
     }
 
     private setupTAA(renderer: any): void {

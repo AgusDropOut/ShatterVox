@@ -15,6 +15,7 @@ export const InitialGTAOComputeShaderWGSL = `
         maxRadiusPixels: f32,
         numSlices: u32,
         maxSteps: u32,
+        biasRadians: f32,
     };
 
     @group(0) @binding(0) var texSamplerNearest: sampler;
@@ -68,7 +69,8 @@ export const InitialGTAOComputeShaderWGSL = `
                 if(sampleDepth1 < 1.0) {
                     let viewPosSample1 = getViewSpacePosition(vec2<u32>(sampleUV1 * params.screenResolution), sampleDepth1);
                     let delta1 = viewPosSample1 - pixelPositionView;
-                    let elevationAngle1 = dot(normalize(delta1), pixelNormalView);
+                    var elevationAngle1 = dot(normalize(delta1), pixelNormalView);
+                    elevationAngle1 = elevationAngle1 - params.biasRadians;
                     let falloffWeight = max(0.0, 1.0 - (length(delta1) / params.radius));
                     let weightedElevation = elevationAngle1 * falloffWeight;
 
@@ -84,7 +86,8 @@ export const InitialGTAOComputeShaderWGSL = `
                 if(sampleDepth2 < 1.0) {
                     let viewPosSample2 = getViewSpacePosition(vec2<u32>(sampleUV2 * params.screenResolution), sampleDepth2);
                     let delta2 = viewPosSample2 - pixelPositionView;
-                    let elevationAngle2 = dot(normalize(delta2), pixelNormalView);
+                    var elevationAngle2 = dot(normalize(delta2), pixelNormalView);
+                    elevationAngle2 = elevationAngle2 - params.biasRadians;
                     let falloffWeight = max(0.0, 1.0 - (length(delta2) / params.radius));
                     let weightedElevation = elevationAngle2 * falloffWeight;
 

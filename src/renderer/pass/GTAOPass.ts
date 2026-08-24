@@ -36,7 +36,8 @@ export class GTAOPass {
         minRadiusPixels: 1.0,
         maxRadiusPixels: 50.0,
         numSlices: 2,
-        maxSteps: 2
+        maxSteps: 2,
+        biasRadians: 0.05,
     };
 
     constructor(device: GPUDevice) {
@@ -82,6 +83,7 @@ export class GTAOPass {
                 maxRadiusPixels: f32,
                 numSlices: u32,
                 maxSteps: u32,
+                biasRadians: f32,
             };
         `);
         this.paramsView = makeStructuredView(defs.structs.GTAOParams);
@@ -178,6 +180,7 @@ export class GTAOPass {
             maxRadiusPixels: this.config.maxRadiusPixels,
             numSlices: this.config.numSlices,
             maxSteps: this.config.maxSteps,
+            biasRadians: this.config.biasRadians,
         });
         this.device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsView.arrayBuffer);
     }

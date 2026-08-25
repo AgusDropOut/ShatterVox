@@ -240,8 +240,8 @@ export class Engine {
             this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
         }
         
-        this.renderer.drawWorld(this.world);
-        this.renderer.drawEntities(this.entityRepository, this.physicsFacade);
+        this.renderer.drawGeometry(this.world, this.entityRepository,this.physicsFacade);
+
 
         this.renderer.computeGTAO();
 

@@ -8,22 +8,12 @@ export class TerrainGenerator {
     private device: GPUDevice;
     private modelLayout: GPUBindGroupLayout;
     
-  
     public debugChunkBorders: boolean = false; 
-    
-    
     public lightMode: LightMode = 'RANDOM';
-    
-  
-    
-    
-    
     public clusterScale: number = 0.05;
-   
 
-   
     public static readonly ID_STONE = 1;
-     public static readonly ID_GRASS = 2;
+    public static readonly ID_GRASS = 2;
     public static readonly ID_WOOD = 3;
     public static readonly ID_AMETHYST = 5;
     public static readonly ID_RUBY = 6;
@@ -49,22 +39,18 @@ export class TerrainGenerator {
         this.modelLayout = modelLayout;
     }
 
-    
     private getLightBlockId(x: number, y: number, z: number): number {
         if (this.lightMode === 'SINGLE_COLOR') {
             return this.singleLightColorId;
         }
 
         if (this.lightMode === 'CLUSTERED') {
-          
             const noise = Math.sin(x * this.clusterScale) + 
                           Math.cos(y * this.clusterScale) + 
                           Math.sin(z * this.clusterScale);
             
-          
             const normalized = (noise + 3) / 6; 
             
-           
             let index = Math.floor(normalized * this.LIGHT_BLOCKS.length);
             index = Math.max(0, Math.min(this.LIGHT_BLOCKS.length - 1, index));
             
@@ -79,7 +65,6 @@ export class TerrainGenerator {
         const CHUNKS_Y = 4; 
         const CHUNKS_Z = 8;
 
-     
         for (let cx = 0; cx < CHUNKS_X; cx++) {
             for (let cy = 0; cy < CHUNKS_Y; cy++) {
                 for (let cz = 0; cz < CHUNKS_Z; cz++) {
@@ -93,7 +78,9 @@ export class TerrainGenerator {
         const WORLD_HEIGHT = CHUNKS_Y * Chunk.HEIGHT;
         const WORLD_DEPTH = CHUNKS_Z * Chunk.DEPTH;
 
-   
+        let lightCount = 0;
+        const MAX_LIGHTS = 2000;
+
         for (let x = 0; x < WORLD_WIDTH; x++) {
             for (let y = 0; y < WORLD_HEIGHT; y++) {
                 for (let z = 0; z < WORLD_DEPTH; z++) {
@@ -125,17 +112,18 @@ export class TerrainGenerator {
 
                     if (isStone) {
                         if (distSq > radius * radius && distSq < (radius + 2.5) * (radius + 2.5) && y > 5) {
-                            if (Math.random() < 0.03) {
+                            if (Math.random() < 0.005 && lightCount < MAX_LIGHTS) {
                                 this.world.setBlock(x, y, z, this.getLightBlockId(x, y, z));
+                                lightCount++;
                                 continue;
                             }
                         }
                         this.world.setBlock(x, y, z, TerrainGenerator.ID_STONE);
                     } else {
                         if (y <= 5 && Math.abs(dx) < 6 + noise * 0.5) {
-                        
-                            if (Math.random() < 0.07) {
+                            if (Math.random() < 0.01 && lightCount < MAX_LIGHTS) {
                                 this.world.setBlock(x, y, z, this.getLightBlockId(x, y, z));
+                                lightCount++;
                             } else if (y < 3) {
                                 this.world.setBlock(x, y, z, TerrainGenerator.ID_STONE); 
                             }
@@ -145,7 +133,6 @@ export class TerrainGenerator {
             }
         }
 
-      
         const pathY = 8;
         for (let z = 4; z < WORLD_DEPTH - 4; z++) {
             const pathX = Math.floor((WORLD_WIDTH / 2) + Math.sin(z * 0.05) * 16);
@@ -164,16 +151,23 @@ export class TerrainGenerator {
                         this.world.setBlock(pathX + 3, pathY + py, z, TerrainGenerator.ID_STONE);
                     }
 
-                 
-                    this.world.setBlock(pathX - 3, pathY + 4, z, this.getLightBlockId(pathX - 3, pathY + 4, z));
-                    this.world.setBlock(pathX + 3, pathY + 4, z, this.getLightBlockId(pathX + 3, pathY + 4, z));
-                    this.world.setBlock(pathX, pathY - 1, z, this.getLightBlockId(pathX, pathY - 1, z));
+                    if (lightCount < MAX_LIGHTS) {
+                        this.world.setBlock(pathX - 3, pathY + 4, z, this.getLightBlockId(pathX - 3, pathY + 4, z));
+                        lightCount++;
+                    }
+                    if (lightCount < MAX_LIGHTS) {
+                        this.world.setBlock(pathX + 3, pathY + 4, z, this.getLightBlockId(pathX + 3, pathY + 4, z));
+                        lightCount++;
+                    }
+                    if (lightCount < MAX_LIGHTS) {
+                        this.world.setBlock(pathX, pathY - 1, z, this.getLightBlockId(pathX, pathY - 1, z));
+                        lightCount++;
+                    }
                 }
             }
         }
 
-        
-        const numSpikes = 600; 
+        const numSpikes = 200; 
         for (let i = 0; i < numSpikes; i++) {
             const x = Math.floor(Math.random() * WORLD_WIDTH);
             const z = Math.floor(Math.random() * WORLD_DEPTH);
@@ -186,13 +180,16 @@ export class TerrainGenerator {
                 const lightId = this.getLightBlockId(x, y, z);
                 
                 for (let j = 0; j < len; j++) {
-                    const blockId = (j >= len - 2) ? lightId : TerrainGenerator.ID_STONE;
+                    let blockId = TerrainGenerator.ID_STONE;
+                    if (j >= len - 2 && lightCount < MAX_LIGHTS) {
+                        blockId = lightId;
+                        if (j === len - 1) lightCount++; 
+                    }
                     this.world.setBlock(x, y - j, z, blockId);
                 }
             }
         }
 
-        
         for (let i = 0; i < numSpikes; i++) {
             const x = Math.floor(Math.random() * WORLD_WIDTH);
             const z = Math.floor(Math.random() * WORLD_DEPTH);
@@ -205,14 +202,17 @@ export class TerrainGenerator {
                 const lightId = this.getLightBlockId(x, y, z);
                 
                 for (let j = 0; j < len; j++) {
-                    const blockId = (j >= len - 2) ? lightId : TerrainGenerator.ID_STONE;
+                    let blockId = TerrainGenerator.ID_STONE;
+                    if (j >= len - 2 && lightCount < MAX_LIGHTS) {
+                        blockId = lightId;
+                        if (j === len - 1) lightCount++; 
+                    }
                     this.world.setBlock(x, y + j, z, blockId);
                 }
             }
         }
 
-        
-        for (let i = 0; i < 80; i++) {
+        for (let i = 0; i < 40; i++) { 
             const cx = 2 + Math.floor(Math.random() * (WORLD_WIDTH - 6));
             const cz = 2 + Math.floor(Math.random() * (WORLD_DEPTH - 6));
             
@@ -228,13 +228,13 @@ export class TerrainGenerator {
                     }
                 }
                 
-                if (Math.random() > 0.6) {
+                if (Math.random() > 0.6 && lightCount < MAX_LIGHTS) {
                     this.world.setBlock(cx + 2, cy, cz + 1, this.getLightBlockId(cx + 2, cy, cz + 1));
+                    lightCount++;
                 }
             }
         }
 
-       
         if (this.debugChunkBorders) {
             const BORDER_MATERIAL = TerrainGenerator.ID_WOOD; 
             for (let x = 0; x < WORLD_WIDTH; x++) {
@@ -243,6 +243,28 @@ export class TerrainGenerator {
                     const isBorderZ = (z % Chunk.DEPTH === 0);
                     if (isBorderX || isBorderZ) {
                         this.world.setBlock(x, 1, z, BORDER_MATERIAL);
+                    }
+                }
+            }
+        }
+        
+        for (let x = 1; x < WORLD_WIDTH - 1; x++) {
+            for (let y = 1; y < WORLD_HEIGHT - 1; y++) {
+                for (let z = 1; z < WORLD_DEPTH - 1; z++) {
+                    const blockId = this.world.getBlock(x, y, z);
+                    
+                    if (this.LIGHT_BLOCKS.includes(blockId)) {
+                        const isExposed = 
+                            this.world.getBlock(x + 1, y, z) === 0 ||
+                            this.world.getBlock(x - 1, y, z) === 0 ||
+                            this.world.getBlock(x, y + 1, z) === 0 ||
+                            this.world.getBlock(x, y - 1, z) === 0 ||
+                            this.world.getBlock(x, y, z + 1) === 0 ||
+                            this.world.getBlock(x, y, z - 1) === 0;
+
+                        if (!isExposed) {
+                            this.world.setBlock(x, y, z, TerrainGenerator.ID_STONE);
+                        }
                     }
                 }
             }

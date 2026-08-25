@@ -1,26 +1,17 @@
 import { World } from "../world/World";
 import { EntityRepository } from "../entity/EntityRepository";
 import { PhysicsFacade } from "../physics/PhysicsFacade";
-import { AssetManager } from "../renderer/AssetManager";
-import { WebGPUUniformBuffer } from "../renderer/WebGPUUniformBuffer";
-import { chunkShaderWGSL } from "./shaders/ChunkShader.wgsl";
 import { WebGPUPipelineFactory } from "./WebGPUPipelineFactory";
 import { WebGPUTexture } from "./WebGPUTexture";
-import { entityShaderWGSL } from "./shaders/EntityShader.wgsl";
 import { physicsDebugShaderWGSL } from "./shaders/PhysicsDebugShader.wgsl";
-import { Debri } from "../world/Debri";
-import { DebriBatchManager } from "./DebriBatchManager";
-import { SmallDebriBatchManager } from "./SmallDebriBatchManager";
 import { mat4 } from "gl-matrix";
-import { debriShaderWGSL } from "./shaders/DebriShader.wgsl";
-import { globalEventBus } from "../core/EventBus";
 import { debugColorQuadShaderWGSL, debugDepthQuadShaderWGSL } from "./shaders/DebugQuadShader";
 import { deferredShader } from "./shaders/DeferredShader.wgsl";
 import { LightManager } from "./LightManager";
-import { smallDebriShaderWGSL } from "./shaders/SmallDebriShader.wgsl";
 import { ClusteredShading } from "./ClusteredShading";
 import { Engine } from "../core/Engine";
 
+import { GeometryPass } from "./pass/GeometryPass";
 import { GTAOPass } from "./pass/GTAOPass";
 import { SSGIPass } from "./pass/SSGIPass";
 import { CompositionPass } from "./pass/CompositionPass";
@@ -32,10 +23,6 @@ export class WebGPURenderer {
     public context!: GPUCanvasContext;
     public presentationFormat!: GPUTextureFormat;
 
-    private chunkPipeline!: GPURenderPipeline;
-    public entityPipeline!: GPURenderPipeline;
-    private debriPipeline!: GPURenderPipeline;
-    private smallDebriPipeline!: GPURenderPipeline;
     private debugPipeline!: GPURenderPipeline;
     private deferredPipeline!: GPURenderPipeline;
     private debugColorPipeline: GPURenderPipeline | null = null;
@@ -54,27 +41,17 @@ export class WebGPURenderer {
     public deferredView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
-    private viewProjBuffer!: GPUBuffer;
     private viewBuffer!: GPUBuffer;
     private projectionBuffer!: GPUBuffer;
     private cameraBufferPlus!: GPUBuffer;
-    private cameraData = new Float32Array(32); 
 
-    private cameraBindGroup!: GPUBindGroup;
-    public entityCameraBindGroup!: GPUBindGroup;
-    private debriCameraBindGroup!: GPUBindGroup;
-    private smallDebriCameraBindGroup!: GPUBindGroup;
     private debugCameraBindGroup!: GPUBindGroup;
     private deferredCameraBindGroup!: GPUBindGroup;
     private gBufferBindGroup!: GPUBindGroup;
     private clusteredShadingBindGroup!: GPUBindGroup;
 
     private commandEncoder: GPUCommandEncoder | null = null;
-    private renderPass: GPURenderPassEncoder | null = null;
 
-    private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup, lastMatrix: Float32Array }> = new Map();
-    private debriBatchManager!: DebriBatchManager;
-    private smallDebriBatchManager!: SmallDebriBatchManager;
     private clusteredShading!: ClusteredShading;
     private lightManager!: LightManager;
 
@@ -83,6 +60,7 @@ export class WebGPURenderer {
     private debugPosBufferSize: number = 0;
     private debugColBufferSize: number = 0;
 
+    private geometryPass!: GeometryPass;
     private gtaoPass!: GTAOPass;
     private ssgiPass!: SSGIPass;
     private compositionPass!: CompositionPass;
@@ -111,10 +89,9 @@ export class WebGPURenderer {
 
         this.initDebugPipelines();
 
-        this.chunkPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'CHUNK', chunkShaderWGSL, this.presentationFormat, true);
-        this.entityPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'ENTITY', entityShaderWGSL, this.presentationFormat, true);
-        this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat, true);
-        this.smallDebriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'SMALL_DEBRI', smallDebriShaderWGSL, this.presentationFormat, true);
+        this.geometryPass = new GeometryPass(this.device, this.presentationFormat);
+        this.geometryPass.init(this.atlas);
+
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
         this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, "rgba16float", false, false);
 
@@ -122,24 +99,16 @@ export class WebGPURenderer {
         this.ssgiPass = new SSGIPass(this.device);
         await this.ssgiPass.init();
         
-        
         this.compositionPass = new CompositionPass(this.device, "rgba16float"); 
         this.taaPass = new TAAPass(this.device, this.presentationFormat);
 
-        this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
-        this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
         this.lightManager = new LightManager(this.device, this.deferredPipeline.getBindGroupLayout(2));
 
-        this.viewProjBuffer = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST }); 
         this.projectionBuffer = this.device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.viewBuffer = this.device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.cameraBufferPlus = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
-        this.cameraBindGroup = this.device.createBindGroup({ layout: this.chunkPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }, { binding: 1, resource: this.atlas.sampler }, { binding: 2, resource: this.atlas.view }] });
-        this.debriCameraBindGroup = this.device.createBindGroup({ layout: this.debriPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }, { binding: 1, resource: this.atlas.sampler }, { binding: 2, resource: this.atlas.view }] });
-        this.smallDebriCameraBindGroup = this.device.createBindGroup({ layout: this.smallDebriPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }, { binding: 1, resource: this.atlas.sampler }, { binding: 2, resource: this.atlas.view }] });
-        this.entityCameraBindGroup = this.device.createBindGroup({ layout: this.entityPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }] });
-        this.debugCameraBindGroup = this.device.createBindGroup({ layout: this.debugPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }] });
+        this.debugCameraBindGroup = this.device.createBindGroup({ layout: this.debugPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.cameraBufferPlus } }] });
         this.deferredCameraBindGroup = this.device.createBindGroup({ layout: this.deferredPipeline.getBindGroupLayout(1), entries: [{ binding: 0, resource: { buffer: this.cameraBufferPlus } }] });
 
         this.resize(this.canvas.width, this.canvas.height);
@@ -161,7 +130,7 @@ export class WebGPURenderer {
     }
 
     public getModelLayout(): GPUBindGroupLayout {
-        return this.chunkPipeline.getBindGroupLayout(1);
+        return this.geometryPass.getModelLayout();
     }
 
     public resize(width: number, height: number): void {
@@ -220,12 +189,8 @@ export class WebGPURenderer {
         });
     }
 
-    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): GPURenderPassEncoder {
-        
-        const currentViewProj = this.cameraData.subarray(0, 16);
-        this.cameraData.set(currentViewProj, 16); 
-        this.cameraData.set(viewProjMatrix, 0);   
-        this.device.queue.writeBuffer(this.viewProjBuffer, 0, this.cameraData);
+    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): void {
+        this.geometryPass.updateCamera(viewProjMatrix);
 
         const combinedCameraData = new Float32Array(32);
         combinedCameraData.set(viewProjMatrix, 0);       
@@ -249,127 +214,27 @@ export class WebGPURenderer {
         if (this.clusteredShading) {
             this.clusteredShading.assignLightsToClusters(this.commandEncoder);
         }
-
-        this.renderPass = this.commandEncoder.beginRenderPass({
-            colorAttachments: [
-                { view: this.albedoView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }, loadOp: 'clear', storeOp: 'store' },
-                { view: this.normalView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }, loadOp: 'clear', storeOp: 'store' },
-                { view: this.taaPass.motionVectorView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }, loadOp: 'clear', storeOp: 'store' } 
-            ],
-            depthStencilAttachment: { view: this.depthView, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' }
-        });
-
-        return this.renderPass;
     }
 
-    public drawWorld(world: World): void {
-        if (!this.renderPass) return;
-
-        this.renderPass.setPipeline(this.chunkPipeline);
-        this.renderPass.setBindGroup(0, this.cameraBindGroup);
-        for (const chunk of world.chunks.values()) {
-            chunk.draw(this.renderPass);
-        }
-
-        for (let i = world.debri.length - 1; i >= 0; i--) {
-            const debri = world.debri[i];
-            debri.lifeTime += 16.67;
-            if (debri.lifeTime > Debri.MAX_LIFETIME) {
-                world.removeDebri(debri);
-                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id});
-                debri.deleteGraphics();
-            }
-        }
-
-        if (world.debri.length === 0) return;
-
-        this.renderPass.setPipeline(this.debriPipeline);
-        this.renderPass.setBindGroup(0, this.debriCameraBindGroup);
-        this.debriBatchManager.updateAndUploadModelMatrixes(world.debri);
-        this.renderPass.setBindGroup(1, this.debriBatchManager.getBindGroup());
-
-        for (let i = 0; i < world.debri.length; i++) {
-            const debri = world.debri[i];
-            if(!debri.isSingleBlockMesh()) debri.draw(this.renderPass, i); 
-        }
-
-        this.renderPass.setPipeline(this.smallDebriPipeline);
-        this.renderPass.setBindGroup(0, this.smallDebriCameraBindGroup);
-        const count = this.smallDebriBatchManager.updateAndUploadModelMatrixesandUvs(world.debri);
-        this.renderPass.setBindGroup(1, this.smallDebriBatchManager.getBindGroup());
-        this.renderPass.setVertexBuffer(0, this.smallDebriBatchManager.getVertexBuffer().buffer);
-        this.renderPass.setVertexBuffer(1, this.smallDebriBatchManager.getNormalBuffer().buffer);
-        this.renderPass.draw(36, count, 0, 0);
-    }
-
-    public drawEntities(entityRepository: EntityRepository, physicsFacade: PhysicsFacade): void {
-        if (!this.renderPass) return;
-
-        this.renderPass.setPipeline(this.entityPipeline);
-        this.renderPass.setBindGroup(0, this.entityCameraBindGroup);
-
-        for (const [entityId, renderComp] of entityRepository.renders.entries()) {
-            const physComp = entityRepository.physics.get(entityId);
-            if (!physComp) {
-                this.entityBuffers.delete(entityId);
-                continue;
-            }
-
-            const transform = physicsFacade.transforms.get(physComp.bodyId);
-            if (!transform) continue;
-
-            const asset = AssetManager.getAsset(renderComp.modelId);
-            if (!asset || !asset.mesh || asset.mesh.vertexCount === 0 || !asset.materialBindGroup) continue;
-
-            const modelMatrix = mat4.create();
-            mat4.translate(modelMatrix, modelMatrix, transform.position);
-            const rotationMat = mat4.create();
-            mat4.fromQuat(rotationMat, transform.rotation);
-            mat4.multiply(modelMatrix, modelMatrix, rotationMat);
-            mat4.translate(modelMatrix, modelMatrix, [0, -0.125, 0]);
-            mat4.scale(modelMatrix, modelMatrix, renderComp.scale);
-
-            let instanceData = this.entityBuffers.get(entityId);
-            const dataArray = new Float32Array(32);
-
-            if (!instanceData) {
-                dataArray.set(modelMatrix as Float32Array, 0);
-                dataArray.set(modelMatrix as Float32Array, 16); 
-
-                const buffer = new WebGPUUniformBuffer(this.device, dataArray);
-                const bindGroup = this.device.createBindGroup({
-                    layout: this.entityPipeline.getBindGroupLayout(2),
-                    entries: [{ binding: 0, resource: { buffer: buffer.buffer } }]
-                });
-                instanceData = { buffer, bindGroup, lastMatrix: new Float32Array(modelMatrix) };
-                this.entityBuffers.set(entityId, instanceData);
-            } else {
-                dataArray.set(modelMatrix as Float32Array, 0);
-                dataArray.set(instanceData.lastMatrix, 16);
-                
-                instanceData.buffer.update(dataArray);
-                instanceData.lastMatrix.set(modelMatrix as Float32Array);
-            }
-
-            this.renderPass.setBindGroup(1, asset.materialBindGroup);
-            this.renderPass.setBindGroup(2, instanceData.bindGroup);
-            asset.mesh.draw(this.renderPass);
-        }
+    public drawGeometry(world: World, entityRepository: EntityRepository, physicsFacade: PhysicsFacade): void {
+        if (!this.commandEncoder) return;
+        this.geometryPass.draw(
+            this.commandEncoder,
+            this.albedoView,
+            this.normalView,
+            this.taaPass.motionVectorView,
+            this.depthView,
+            world,
+            entityRepository,
+            physicsFacade
+        );
     }
 
     public computeGTAO(): void {
-        if (this.renderPass) {
-            this.renderPass.end();
-            this.renderPass = null;
-        }
         if (this.commandEncoder) this.gtaoPass.compute(this.commandEncoder, this.canvas.width, this.canvas.height);
     }
 
     public drawDeferred(physicsFacade: PhysicsFacade): void {
-        if (this.renderPass) {
-            this.renderPass.end();
-            this.renderPass = null;
-        }
         if (!this.commandEncoder) return;
 
         this.lightManager.updateDynamicLights(physicsFacade);
@@ -443,17 +308,14 @@ export class WebGPURenderer {
     }
 
     public endFrame(): void {
-        if (this.renderPass) this.renderPass.end();
         if (this.commandEncoder) {
             this.device.queue.submit([this.commandEncoder.finish()]);
         }
-        this.renderPass = null;
         this.commandEncoder = null;
     }
 
     public async loadEntityAsset(id: string, objUrl: string, textureUrl: string): Promise<void> {
-        const materialLayout = this.entityPipeline.getBindGroupLayout(1);
-        await AssetManager.loadAsset(id, objUrl, textureUrl, this.device, materialLayout);
+        await this.geometryPass.loadEntityAsset(id, objUrl, textureUrl);
     }
 
     public debugDrawTexture(textureView: GPUTextureView, isDepth: boolean = false): void {

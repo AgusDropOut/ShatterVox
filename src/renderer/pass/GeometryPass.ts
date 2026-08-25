@@ -14,6 +14,7 @@ import { Debri } from "../../world/Debri";
 import { EntityRepository } from "../../entity/EntityRepository";
 import { PhysicsFacade } from "../../physics/PhysicsFacade";
 import { globalEventBus } from "../../core/EventBus";
+import { Engine } from "../../core/Engine"
 
 export class GeometryPass {
     private device: GPUDevice;
@@ -67,11 +68,32 @@ export class GeometryPass {
         await AssetManager.loadAsset(id, objUrl, textureUrl, this.device, materialLayout);
     }
 
-    public updateCamera(viewProjMatrix: Float32Array): void {
+    public updateCamera(viewMatrix: mat4, projectionMatrix: mat4, frameCounter: number): void {
+        let jaltonX = (this.halton(frameCounter, 2) - 0.5) / Engine.screenWidth;
+        let jaltonY = (this.halton(frameCounter, 3) - 0.5) / Engine.screenHeight;
+        const jitteredProjectionMatrix = mat4.clone(projectionMatrix);
+        jitteredProjectionMatrix[8] = jaltonX;
+        jitteredProjectionMatrix[9] = jaltonY;
         const currentViewProj = this.cameraData.subarray(0, 16);
+        const newViewProj = mat4.create();
+        mat4.multiply(newViewProj, jitteredProjectionMatrix, viewMatrix);
         this.cameraData.set(currentViewProj, 16); 
-        this.cameraData.set(viewProjMatrix, 0);   
+        this.cameraData.set(newViewProj, 0);   
         this.device.queue.writeBuffer(this.viewProjBuffer, 0, this.cameraData);
+    }
+
+    private halton(index: number, base: number): number {
+        let f = 1;
+        let r = 0;
+        let current = index;
+        
+        while (current > 0) {
+            f = f / base;
+            r = r + f * (current % base);
+            current = Math.floor(current / base);
+        }
+        
+        return r;
     }
 
     public draw(

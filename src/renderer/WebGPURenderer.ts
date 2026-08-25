@@ -190,7 +190,7 @@ export class WebGPURenderer {
     }
 
     public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): void {
-        this.geometryPass.updateCamera(viewProjMatrix);
+        this.geometryPass.updateCamera(viewMatrix as mat4, Engine.projectionMatrix, frameCounter);
 
         const combinedCameraData = new Float32Array(32);
         combinedCameraData.set(viewProjMatrix, 0);       

@@ -7,8 +7,10 @@ import { mat4 } from "gl-matrix";
 import { BlockRegistry } from "../block/BlockRegistry";
 import { globalEventBus } from "../core/EventBus";
 import { Engine } from "../core/Engine";
+import type { Cullable } from "../types/Cullable";
+import {vec3} from "gl-matrix"
 
-export class Chunk implements Mesheable, Renderable {
+export class Chunk implements Mesheable, Renderable, Cullable {
     public static readonly WIDTH = 32;
     public static readonly HEIGHT = 32;
     public static readonly DEPTH = 32;
@@ -37,6 +39,24 @@ export class Chunk implements Mesheable, Renderable {
             layout: layout,
             entries: [{ binding: 0, resource: { buffer: this.modelBuffer.buffer } }]
         });
+    }
+    getRadius(): number {
+        // this could be calculated once but nevermind
+        const width = Chunk.WIDTH * Engine.voxelSize;
+        const height = Chunk.HEIGHT * Engine.voxelSize;
+        const depth = Chunk.DEPTH * Engine.voxelSize;
+
+        return Math.sqrt(width * width + height * height + depth * depth) / 2;
+    }
+    getCenter(): vec3 {
+        let centerX = (this.chunkX * Chunk.WIDTH * Engine.voxelSize) + ((Chunk.WIDTH / 2) * Engine.voxelSize);
+        let centerY = (this.chunkY * Chunk.HEIGHT * Engine.voxelSize) + ((Chunk.HEIGHT / 2) * Engine.voxelSize);
+        let centerZ = (this.chunkZ * Chunk.DEPTH * Engine.voxelSize) + ((Chunk.DEPTH / 2) * Engine.voxelSize);
+        let center = vec3.create();
+        center[0] = centerX;
+        center[1] = centerY;
+        center[2] = centerZ;
+        return center;
     }
 
     public getBlock(x: number, y: number, z: number): number {

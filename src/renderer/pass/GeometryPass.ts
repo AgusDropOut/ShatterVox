@@ -15,6 +15,7 @@ import { EntityRepository } from "../../entity/EntityRepository";
 import { PhysicsFacade } from "../../physics/PhysicsFacade";
 import { globalEventBus } from "../../core/EventBus";
 import { Engine } from "../../core/Engine"
+import { FrustumCull } from "../FrustumCull";
 
 export class GeometryPass {
     private device: GPUDevice;
@@ -37,9 +38,12 @@ export class GeometryPass {
     private debriBatchManager!: DebriBatchManager;
     private smallDebriBatchManager!: SmallDebriBatchManager;
 
+    private frustumCulling!: FrustumCull;
+
     constructor(device: GPUDevice, presentationFormat: GPUTextureFormat) {
         this.device = device;
         this.presentationFormat = presentationFormat;
+        
     }
 
     public init(atlas: WebGPUTexture): void {
@@ -50,6 +54,8 @@ export class GeometryPass {
 
         this.smallDebriBatchManager = new SmallDebriBatchManager(this.device, this.smallDebriPipeline.getBindGroupLayout(1));
         this.debriBatchManager = new DebriBatchManager(this.device, this.debriPipeline.getBindGroupLayout(1));
+
+        this.frustumCulling = new FrustumCull();
 
         this.viewProjBuffer = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
@@ -72,6 +78,10 @@ export class GeometryPass {
         let jaltonX = (this.halton(frameCounter, 2) - 0.5) / Engine.screenWidth;
         let jaltonY = (this.halton(frameCounter, 3) - 0.5) / Engine.screenHeight;
         const jitteredProjectionMatrix = mat4.clone(projectionMatrix);
+        
+        const stableViewProjMattrix = mat4.create();
+        mat4.multiply(stableViewProjMattrix, projectionMatrix, viewMatrix);
+        this.frustumCulling.updateViewProjMatrix(stableViewProjMattrix);
         jitteredProjectionMatrix[8] = jaltonX;
         jitteredProjectionMatrix[9] = jaltonY;
         const currentViewProj = this.cameraData.subarray(0, 16);
@@ -125,6 +135,7 @@ export class GeometryPass {
         renderPass.setPipeline(this.chunkPipeline);
         renderPass.setBindGroup(0, this.cameraBindGroup);
         for (const chunk of world.chunks.values()) {
+            if(this.frustumCulling.isFrustumCulled(chunk.getCenter(), chunk.getRadius())) continue;
             chunk.draw(renderPass);
         }
 

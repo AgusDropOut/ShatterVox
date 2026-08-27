@@ -6,12 +6,10 @@ import { WebGPUTexture } from "./WebGPUTexture";
 import { physicsDebugShaderWGSL } from "./shaders/PhysicsDebugShader.wgsl";
 import { mat4 } from "gl-matrix";
 import { debugColorQuadShaderWGSL, debugDepthQuadShaderWGSL } from "./shaders/DebugQuadShader";
-import { deferredShader } from "./shaders/DeferredShader.wgsl";
-import { LightManager } from "./LightManager";
-import { ClusteredShading } from "./ClusteredShading";
 import { Engine } from "../core/Engine";
 
 import { GeometryPass } from "./pass/GeometryPass";
+import { DeferredPass } from "./pass/DeferredPass";
 import { GTAOPass } from "./pass/GTAOPass";
 import { SSGIPass } from "./pass/SSGIPass";
 import { CompositionPass } from "./pass/CompositionPass";
@@ -24,7 +22,6 @@ export class WebGPURenderer {
     public presentationFormat!: GPUTextureFormat;
 
     private debugPipeline!: GPURenderPipeline;
-    private deferredPipeline!: GPURenderPipeline;
     private debugColorPipeline: GPURenderPipeline | null = null;
     private debugDepthPipeline: GPURenderPipeline | null = null;
 
@@ -34,11 +31,10 @@ export class WebGPURenderer {
     private depthTexture!: GPUTexture;
     private albedoTexture!: GPUTexture;
     private normalTexture!: GPUTexture;
-    private deferredTexture!: GPUTexture;
+    
     public depthView!: GPUTextureView;
     public albedoView!: GPUTextureView;
     public normalView!: GPUTextureView;
-    public deferredView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
     private viewBuffer!: GPUBuffer;
@@ -46,14 +42,7 @@ export class WebGPURenderer {
     private cameraBufferPlus!: GPUBuffer;
 
     private debugCameraBindGroup!: GPUBindGroup;
-    private deferredCameraBindGroup!: GPUBindGroup;
-    private gBufferBindGroup!: GPUBindGroup;
-    private clusteredShadingBindGroup!: GPUBindGroup;
-
     private commandEncoder: GPUCommandEncoder | null = null;
-
-    private clusteredShading!: ClusteredShading;
-    private lightManager!: LightManager;
 
     private debugPosBuffer: GPUBuffer | null = null;
     private debugColBuffer: GPUBuffer | null = null;
@@ -61,6 +50,7 @@ export class WebGPURenderer {
     private debugColBufferSize: number = 0;
 
     private geometryPass!: GeometryPass;
+    private deferredPass!: DeferredPass;
     private gtaoPass!: GTAOPass;
     private ssgiPass!: SSGIPass;
     private compositionPass!: CompositionPass;
@@ -91,10 +81,8 @@ export class WebGPURenderer {
 
         this.geometryPass = new GeometryPass(this.device, this.presentationFormat);
         this.geometryPass.init(this.atlas);
-
-        this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
-        this.deferredPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, "rgba16float", false, false);
-
+        
+        this.deferredPass = new DeferredPass(this.device);
         this.gtaoPass = new GTAOPass(this.device);
         this.ssgiPass = new SSGIPass(this.device);
         await this.ssgiPass.init();
@@ -102,14 +90,13 @@ export class WebGPURenderer {
         this.compositionPass = new CompositionPass(this.device, "rgba16float"); 
         this.taaPass = new TAAPass(this.device, this.presentationFormat);
 
-        this.lightManager = new LightManager(this.device, this.deferredPipeline.getBindGroupLayout(2));
+        this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, true);
 
         this.projectionBuffer = this.device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.viewBuffer = this.device.createBuffer({ size: 64, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
         this.cameraBufferPlus = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
         this.debugCameraBindGroup = this.device.createBindGroup({ layout: this.debugPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.cameraBufferPlus } }] });
-        this.deferredCameraBindGroup = this.device.createBindGroup({ layout: this.deferredPipeline.getBindGroupLayout(1), entries: [{ binding: 0, resource: { buffer: this.cameraBufferPlus } }] });
 
         this.resize(this.canvas.width, this.canvas.height);
 
@@ -141,7 +128,6 @@ export class WebGPURenderer {
         if (this.depthTexture) this.depthTexture.destroy();
         if (this.albedoTexture) this.albedoTexture.destroy();
         if (this.normalTexture) this.normalTexture.destroy();
-        if (this.deferredTexture) this.deferredTexture.destroy();
 
         this.albedoTexture = this.device.createTexture({ size: [width, height], format: "rgba8unorm", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
         this.albedoView = this.albedoTexture.createView();
@@ -152,41 +138,13 @@ export class WebGPURenderer {
         this.depthTexture = this.device.createTexture({ size: [width, height], format: "depth32float", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
         this.depthView = this.depthTexture.createView();
 
-        this.deferredTexture = this.device.createTexture({ size: [width, height], format: "rgba16float", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
-        this.deferredView = this.deferredTexture.createView();
-
         if(!this.linearSampler || !this.nearestSampler) throw new Error("Samplers not initialized");
 
         this.gtaoPass.resize(width, height, this.depthView, this.normalView, this.nearestSampler);
-        this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredView, this.linearSampler, this.nearestSampler);
-        this.compositionPass.resize(width, height, this.deferredView, this.albedoView, this.ssgiPass.getResultView(), this.linearSampler);
+        this.deferredPass.resize(width, height, this.albedoView, this.normalView, this.depthView, this.gtaoPass.getResultView(), this.linearSampler, this.nearestSampler, this.viewBuffer, this.cameraBufferPlus);
+        this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredPass.getResultView(), this.linearSampler, this.nearestSampler);
+        this.compositionPass.resize(width, height, this.deferredPass.getResultView(), this.albedoView, this.ssgiPass.getResultView(), this.linearSampler);
         this.taaPass.resize(width, height, this.compositionPass.getResultView(), this.linearSampler);
-
-        this.gBufferBindGroup = this.device.createBindGroup({
-            layout: this.deferredPipeline.getBindGroupLayout(0),
-            entries: [
-                { binding: 0, resource: this.linearSampler },
-                { binding: 1, resource: this.nearestSampler },
-                { binding: 2, resource: this.albedoView },
-                { binding: 3, resource: this.normalView },
-                { binding: 4, resource: this.depthView },
-                { binding: 5, resource: this.gtaoPass.getResultView() }
-            ]
-        });
-
-        if (!this.clusteredShading) {
-            this.clusteredShading = new ClusteredShading(this.device, this.lightManager, this.viewBuffer);
-        }
-        this.clusteredShading.updateParamsBuffer();
-        this.clusteredShading.createClusters();
-
-        this.clusteredShadingBindGroup = this.device.createBindGroup({
-            layout: this.deferredPipeline.getBindGroupLayout(3),
-            entries: [
-                { binding: 0, resource: { buffer: this.clusteredShading.getClusterBuffer() } },
-                { binding: 1, resource: { buffer: this.clusteredShading.getParamsBuffer() } }
-            ]
-        });
     }
 
     public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): void {
@@ -211,9 +169,7 @@ export class WebGPURenderer {
 
         this.commandEncoder = this.device.createCommandEncoder();
 
-        if (this.clusteredShading) {
-            this.clusteredShading.assignLightsToClusters(this.commandEncoder);
-        }
+        this.deferredPass.computeClusters(this.commandEncoder);
     }
 
     public drawGeometry(world: World, entityRepository: EntityRepository, physicsFacade: PhysicsFacade): void {
@@ -236,26 +192,7 @@ export class WebGPURenderer {
 
     public drawDeferred(physicsFacade: PhysicsFacade): void {
         if (!this.commandEncoder) return;
-
-        this.lightManager.updateDynamicLights(physicsFacade);
-        this.lightManager.updateLightBuffer();
-        
-        const deferredRenderPass = this.commandEncoder.beginRenderPass({
-            colorAttachments: [{
-                view: this.deferredView,
-                clearValue: { r: 0.0, g: 0.8, b: 0.8, a: 1.0 },
-                loadOp: 'clear',
-                storeOp: 'store',
-            }]
-        });
-        
-        deferredRenderPass.setPipeline(this.deferredPipeline);
-        deferredRenderPass.setBindGroup(0, this.gBufferBindGroup);
-        deferredRenderPass.setBindGroup(1, this.deferredCameraBindGroup);
-        deferredRenderPass.setBindGroup(2, this.lightManager.getBindGroup());
-        deferredRenderPass.setBindGroup(3, this.clusteredShadingBindGroup);
-        deferredRenderPass.draw(6, 1, 0, 0);
-        deferredRenderPass.end();
+        this.deferredPass.draw(this.commandEncoder, physicsFacade);
     }
 
     public computeSSGI(): void {
@@ -341,6 +278,7 @@ export class WebGPURenderer {
         debugPass.end();
     }
     
+    public get deferredView() { return this.deferredPass.getResultView(); }
     public get noisyGTAOView() { return this.gtaoPass.noisyView; }
     public get blurredGTAOView() { return this.gtaoPass.blurredView; }
     public get noisySSGIView() { return this.ssgiPass.noisyView; }

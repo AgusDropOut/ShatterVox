@@ -187,11 +187,11 @@ export class GTAOPass {
         this.device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsView.arrayBuffer);
     }
 
-    public compute(commandEncoder: GPUCommandEncoder, width: number, height: number): void {
+    public compute(commandEncoder: GPUCommandEncoder, width: number, height: number, timestampWrites?: any): void {
         const groupsX = Math.ceil(width / 8);
         const groupsY = Math.ceil(height / 8);
 
-        const computePass = commandEncoder.beginComputePass();
+        const computePass =  commandEncoder.beginComputePass({timestampWrites});
         computePass.setPipeline(this.computePipeline);
         computePass.setBindGroup(0, this.computeBindGroup);
         computePass.setBindGroup(1, this.computeMatrixesBindGroup);

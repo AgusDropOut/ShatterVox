@@ -84,7 +84,7 @@ export class DeferredPass {
         }
     }
 
-    public draw(commandEncoder: GPUCommandEncoder, physicsFacade: PhysicsFacade): void {
+    public draw(commandEncoder: GPUCommandEncoder, physicsFacade: PhysicsFacade, timestampWrites?: any): void {
         this.lightManager.updateDynamicLights(physicsFacade);
         this.lightManager.updateLightBuffer();
         
@@ -94,7 +94,8 @@ export class DeferredPass {
                 clearValue: { r: 0.0, g: 0.8, b: 0.8, a: 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store',
-            }]
+            }],
+            timestampWrites
         });
         
         deferredRenderPass.setPipeline(this.pipeline);

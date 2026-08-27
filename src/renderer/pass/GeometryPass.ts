@@ -114,7 +114,8 @@ export class GeometryPass {
         depthView: GPUTextureView,
         world: World,
         entityRepository: EntityRepository,
-        physicsFacade: PhysicsFacade
+        physicsFacade: PhysicsFacade, 
+        timestampWrites?: any
     ): void {
         const renderPass = commandEncoder.beginRenderPass({
             colorAttachments: [
@@ -122,7 +123,8 @@ export class GeometryPass {
                 { view: normalView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }, loadOp: 'clear', storeOp: 'store' },
                 { view: motionVectorView, clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 }, loadOp: 'clear', storeOp: 'store' } 
             ],
-            depthStencilAttachment: { view: depthView, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' }
+            depthStencilAttachment: { view: depthView, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' },
+            timestampWrites
         });
 
         this.drawWorld(renderPass, world);

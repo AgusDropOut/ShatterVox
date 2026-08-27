@@ -38,14 +38,15 @@ export class CompositionPass {
         });
     }
 
-    public draw(commandEncoder: GPUCommandEncoder): void {
+    public draw(commandEncoder: GPUCommandEncoder, timestampWrites?: any): void {
         const pass = commandEncoder.beginRenderPass({
             colorAttachments: [{
                 view: this.compositeView,
                 clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
                 loadOp: 'clear',
                 storeOp: 'store',
-            }]
+            }],
+            timestampWrites
         });
         
         pass.setPipeline(this.pipeline);

@@ -14,6 +14,7 @@ import { GTAOPass } from "./pass/GTAOPass";
 import { SSGIPass } from "./pass/SSGIPass";
 import { CompositionPass } from "./pass/CompositionPass";
 import { TAAPass } from "./pass/TAAPass";
+import { GPUTimer } from "./GPUTimer";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -56,6 +57,19 @@ export class WebGPURenderer {
     private compositionPass!: CompositionPass;
     private taaPass!: TAAPass;
 
+    private timer!: GPUTimer;
+    private isTimerSupported: boolean = false;
+
+    public gpuTimings = {
+        Geometry: '0.00',
+        GTAO: '0.00',
+        Deferred: '0.00',
+        SSGI: '0.00',
+        Composition: '0.00',
+        TAA: '0.00',
+        Total: '0.00'
+    };
+
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
     }
@@ -64,8 +78,15 @@ export class WebGPURenderer {
         if (!navigator.gpu) return false;
         const adapter = await navigator.gpu.requestAdapter();
         if (!adapter) return false;
+        
+        const requiredFeatures: GPUFeatureName[] = [];
+        this.isTimerSupported = adapter.features.has('timestamp-query');
+        if (this.isTimerSupported) {
+            requiredFeatures.push('timestamp-query');
+        }
 
-        this.device = await adapter.requestDevice();
+        this.device = await adapter.requestDevice({ requiredFeatures });
+
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
         this.presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -97,6 +118,10 @@ export class WebGPURenderer {
         this.cameraBufferPlus = this.device.createBuffer({ size: 128, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
         this.debugCameraBindGroup = this.device.createBindGroup({ layout: this.debugPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.cameraBufferPlus } }] });
+
+        if (this.isTimerSupported) {
+            this.timer = new GPUTimer(this.device, ['Geometry', 'GTAO', 'Deferred', 'SSGI', 'Composition', 'TAA']);
+        }
 
         this.resize(this.canvas.width, this.canvas.height);
 
@@ -182,32 +207,37 @@ export class WebGPURenderer {
             this.depthView,
             world,
             entityRepository,
-            physicsFacade
+            physicsFacade,
+            this.isTimerSupported ? this.timer.getTimestampWrites('Geometry') : undefined
         );
     }
 
     public computeGTAO(): void {
-        if (this.commandEncoder) this.gtaoPass.compute(this.commandEncoder, this.canvas.width, this.canvas.height);
+        if (this.commandEncoder) {
+            this.gtaoPass.compute(this.commandEncoder, this.canvas.width, this.canvas.height, this.isTimerSupported ? this.timer.getTimestampWrites('GTAO') : undefined);
+        }
     }
 
     public drawDeferred(physicsFacade: PhysicsFacade): void {
         if (!this.commandEncoder) return;
-        this.deferredPass.draw(this.commandEncoder, physicsFacade);
+        this.deferredPass.draw(this.commandEncoder, physicsFacade, this.isTimerSupported ? this.timer.getTimestampWrites('Deferred') : undefined);
     }
 
     public computeSSGI(): void {
-        if (this.commandEncoder) this.ssgiPass.compute(this.commandEncoder, this.canvas.width, this.canvas.height);
+        if (this.commandEncoder) {
+            this.ssgiPass.compute(this.commandEncoder, this.canvas.width, this.canvas.height, this.isTimerSupported ? this.timer.getTimestampWrites('SSGI') : undefined);
+        }
     }
 
     public drawComposition(): void {
         if (!this.commandEncoder) return;
-        this.compositionPass.draw(this.commandEncoder);
+        this.compositionPass.draw(this.commandEncoder, this.isTimerSupported ? this.timer.getTimestampWrites('Composition') : undefined);
     }
 
     public drawTAA(frameCounter: number): void {
         if (!this.commandEncoder) return;
         const screenTextureView = this.context.getCurrentTexture().createView();
-        this.taaPass.draw(this.commandEncoder, screenTextureView, frameCounter);
+        this.taaPass.draw(this.commandEncoder, screenTextureView, frameCounter, this.isTimerSupported ? this.timer.getTimestampWrites('TAA') : undefined);
     }
 
     public drawPhysicsDebug(vertices: Float32Array | null, colors: Float32Array | null): void {
@@ -246,9 +276,27 @@ export class WebGPURenderer {
 
     public endFrame(): void {
         if (this.commandEncoder) {
+            if (this.isTimerSupported) {
+                this.timer.resolve(this.commandEncoder);
+            }
             this.device.queue.submit([this.commandEncoder.finish()]);
         }
         this.commandEncoder = null;
+
+        if (this.isTimerSupported) {
+            this.timer.readResults().then(results => {
+                if (results) {
+                    let total = 0;
+                    for (const [key, value] of results.entries()) {
+                        if (key in this.gpuTimings) {
+                            this.gpuTimings[key as keyof typeof this.gpuTimings] = value.toFixed(2);
+                            total += value;
+                        }
+                    }
+                    this.gpuTimings.Total = total.toFixed(2);
+                }
+            });
+        }
     }
 
     public async loadEntityAsset(id: string, objUrl: string, textureUrl: string): Promise<void> {

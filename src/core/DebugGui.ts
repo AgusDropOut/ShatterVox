@@ -13,7 +13,7 @@ export class DebugGui {
                 this.gui._hidden ? this.gui.show() : this.gui.hide();
             }
         });
-
+        this.setupProfiler(renderer);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
         this.setupTAA(renderer);
@@ -52,5 +52,16 @@ export class DebugGui {
         folder.add(config, 'alpha', 0.01, 1.0).name('Alpha');
         folder.add(config, 'vectorSearchRadius', 0, 5, 1).name('Vector Search Radius');
         folder.add(config, 'colorClampRadius', 0, 5, 1).name('Color Clamp Radius');
+    }
+
+    private setupProfiler(renderer: WebGPURenderer): void {
+        const folder = this.gui.addFolder('GPU Profiler (ms)');
+        folder.add(renderer.gpuTimings, 'Total').listen().disable();
+        folder.add(renderer.gpuTimings, 'Geometry').listen().disable();
+        folder.add(renderer.gpuTimings, 'GTAO').listen().disable();
+        folder.add(renderer.gpuTimings, 'Deferred').listen().disable();
+        folder.add(renderer.gpuTimings, 'SSGI').listen().disable();
+        folder.add(renderer.gpuTimings, 'Composition').listen().disable();
+        folder.add(renderer.gpuTimings, 'TAA').listen().disable();
     }
 }

@@ -119,7 +119,7 @@ export class TAAPass {
         this.device.queue.writeBuffer(this.taaParamsBuffer, 0, this.taaParamsView.arrayBuffer);
     }
 
-    public draw(commandEncoder: GPUCommandEncoder, screenTextureView: GPUTextureView, frameCounter: number): void {
+    public draw(commandEncoder: GPUCommandEncoder, screenTextureView: GPUTextureView, frameCounter: number, timestampWrites?: any): void {
         const isEvenFrame = frameCounter % 2 === 0;
 
         const pass = commandEncoder.beginRenderPass({
@@ -136,7 +136,8 @@ export class TAAPass {
                     loadOp: 'clear',
                     storeOp: 'store',
                 }
-            ]
+            ], 
+            timestampWrites
         });
 
         pass.setPipeline(this.pipeline);

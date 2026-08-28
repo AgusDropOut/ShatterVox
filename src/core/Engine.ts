@@ -25,15 +25,11 @@ export class Engine {
     private lastTime: number = 0;
     private physicsFacade: PhysicsFacade;
     public static readonly voxelSize: number = 0.12;
+
+  
     private showPhysicsDebug: boolean = false;
-    private showDepthDebug: boolean = false;
-    private showNormalsDebug: boolean = false;
-    private showAlbedoDebug: boolean = false;
-    private showGTAODebug: boolean = false;
-    private showBlurGTAODebug: boolean = false;
-    private showNoisySSGIDebug: boolean = false;
-    private showBlurredSSGIDebug: boolean = false;
-    private showDeferredDebug: boolean = false;
+    private currentDebugView: string = 'None';
+
     private fpsElement: HTMLElement | null;
     private framesThisSecond: number = 0;
     private totalFrames: number = 0;
@@ -72,78 +68,12 @@ export class Engine {
             this.renderer.resize(data.width, data.height);
         });
 
-        globalEventBus.on("TOGGLE_PHYSICS_DEBUG", () => {
-            this.showPhysicsDebug = !this.showPhysicsDebug;
+        globalEventBus.on("TOGGLE_PHYSICS_DEBUG", (data) => {
+            this.showPhysicsDebug = data.enabled !== undefined ? data.enabled : !this.showPhysicsDebug;
         });
 
-        globalEventBus.on("DEBUG_DEPTH", () => {
-            this.showDepthDebug = !this.showDepthDebug; 
-            this.showAlbedoDebug = false;
-            this.showNormalsDebug = false;
-            this.showGTAODebug = false;
-            this.showBlurGTAODebug = false;
-        });
-
-        globalEventBus.on("DEBUG_NORMALS", () => {
-            this.showNormalsDebug = !this.showNormalsDebug; 
-            this.showAlbedoDebug = false;
-            this.showDepthDebug = false;
-            this.showGTAODebug = false;
-            this.showBlurGTAODebug = false;
-        });
-
-        globalEventBus.on("DEBUG_ALBEDO", () => {
-            this.showAlbedoDebug = !this.showAlbedoDebug; 
-            this.showDepthDebug = false;
-            this.showNormalsDebug = false;
-            this.showGTAODebug = false;
-            this.showBlurGTAODebug = false;
-        });
-
-        globalEventBus.on("DEBUG_GTAO", () => {
-            this.showGTAODebug = !this.showGTAODebug;
-            this.showAlbedoDebug = false;
-            this.showDepthDebug = false;
-            this.showNormalsDebug = false;
-            this.showBlurGTAODebug = false;
-        });
-
-        globalEventBus.on("DEBUG_BLUR_GTAO", () => {
-            this.showBlurGTAODebug = !this.showBlurGTAODebug;
-            this.showAlbedoDebug = false;
-            this.showDepthDebug = false;
-            this.showNormalsDebug = false;
-            this.showGTAODebug = false;
-        });
-
-        globalEventBus.on("DEBUG_NOISY_SSGI", () => {
-            this.showNoisySSGIDebug = !this.showNoisySSGIDebug;
-            this.showAlbedoDebug = false;
-            this.showDepthDebug = false;
-            this.showNormalsDebug = false;
-            this.showGTAODebug = false;
-            this.showBlurGTAODebug = false;
-        });
-
-        globalEventBus.on("DEBUG_BLUR_SSGI", () => {
-            this.showBlurredSSGIDebug = !this.showBlurredSSGIDebug;
-            this.showAlbedoDebug = false;
-            this.showDepthDebug = false;
-            this.showNormalsDebug = false;
-            this.showGTAODebug = false;
-            this.showBlurGTAODebug = false;
-            this.showNoisySSGIDebug = false;
-        });
-
-         globalEventBus.on("DEBUG_DEFERRED", () => {
-            this.showDeferredDebug = !this.showDeferredDebug;
-            this.showAlbedoDebug = false;
-            this.showDepthDebug = false;
-            this.showNormalsDebug = false;
-            this.showGTAODebug = false;
-            this.showBlurGTAODebug = false;
-            this.showNoisySSGIDebug = false;
-            this.showBlurredSSGIDebug = false;
+        globalEventBus.on("CHANGE_DEBUG_VIEW", (data) => {
+            this.currentDebugView = data.view;
         });
 
         this.window = new Window(this.canvas);
@@ -236,50 +166,46 @@ export class Engine {
         mat4.invert(invViewProj, viewProj);
 
         this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array, this.totalFrames);
-        if(this.showPhysicsDebug) {
-            this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
-        }
         
-        this.renderer.drawGeometry(this.world, this.entityRepository,this.physicsFacade);
-
-
+        
+        
+        this.renderer.drawGeometry(this.world, this.entityRepository, this.physicsFacade);
         this.renderer.computeGTAO();
-
         this.renderer.drawDeferred(this.physicsFacade);
-
         this.renderer.computeSSGI();
-
         this.renderer.drawComposition();
-
         this.renderer.drawTAA(this.totalFrames);
 
-        if(this.showDepthDebug) {
-            this.renderer.debugDrawTexture(this.renderer.depthView, true);
-        }
-        if(this.showNormalsDebug) {
-            this.renderer.debugDrawTexture(this.renderer.normalView);
-        }
-        if(this.showAlbedoDebug) {
-            this.renderer.debugDrawTexture(this.renderer.albedoView);
-        }
-        if(this.showGTAODebug) {
-            this.renderer.debugDrawTexture(this.renderer.noisyGTAOView);
+      
+        switch (this.currentDebugView) {
+            case 'Depth':
+                this.renderer.debugDrawTexture(this.renderer.depthView, true);
+                break;
+            case 'Normals':
+                this.renderer.debugDrawTexture(this.renderer.normalView);
+                break;
+            case 'Albedo':
+                this.renderer.debugDrawTexture(this.renderer.albedoView);
+                break;
+            case 'Deferred':
+                this.renderer.debugDrawTexture(this.renderer.deferredView);
+                break;
+            case 'GTAO (Noisy)':
+                this.renderer.debugDrawTexture(this.renderer.noisyGTAOView);
+                break;
+            case 'GTAO (Blurred)':
+                this.renderer.debugDrawTexture(this.renderer.blurredGTAOView);
+                break;
+            case 'SSGI (Noisy)':
+                this.renderer.debugDrawTexture(this.renderer.noisySSGIView);
+                break;
+            case 'SSGI (Blurred)':
+                this.renderer.debugDrawTexture(this.renderer.blurredSSGIView);
+                break;
         }
 
-        if(this.showBlurGTAODebug) {
-            this.renderer.debugDrawTexture(this.renderer.blurredGTAOView);
-        }
-
-        if(this.showNoisySSGIDebug) {
-            this.renderer.debugDrawTexture(this.renderer.noisySSGIView);
-        }
-
-        if(this.showBlurredSSGIDebug) {
-            this.renderer.debugDrawTexture(this.renderer.blurredSSGIView);
-        }
-
-        if(this.showDeferredDebug) {
-            this.renderer.debugDrawTexture(this.renderer.deferredView);
+        if (this.showPhysicsDebug) {
+            this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
         }
 
         this.renderer.endFrame();

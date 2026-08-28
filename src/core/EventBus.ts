@@ -1,26 +1,16 @@
 import type { PhysicsCommand } from "../physics/PhysicsProtocol";
 
-
-
 export interface GameEvents {
     "BLOCK_MINED_STATIC": { x: number, y: number, z: number, radius?: number };
     "BLOCK_MINED_DYNAMIC": { debriId: number, localX: number, localY: number, localZ: number, radius?: number };
     "WINDOW_RESIZE": { width: number, height: number };
-    "TOGGLE_PHYSICS_DEBUG": {}; 
+    "TOGGLE_PHYSICS_DEBUG": { enabled?: boolean }; 
     "PHYSICS_COMMAND": PhysicsCommand;
     "SYNC_TRANSFORMS": { buffer: Float32Array };
     "SPAWN_BOMB": { x: number, y: number, z: number, vx: number, vy: number, vz: number, rot: {x:number, y:number, z:number, w:number} };
-    "DEBUG_DEPTH": {};
-    "DEBUG_NORMALS": {};
-    "DEBUG_ALBEDO": {};
-    "DEBUG_GTAO": {};
-    "DEBUG_BLUR_GTAO": {};
-    "DEBUG_NOISY_SSGI": {};
-    "DEBUG_BLUR_SSGI": {};
-    "DEBUG_DEFERRED": {};
+    "CHANGE_DEBUG_VIEW": { view: string };
     "LIGHT_ADD": { position: { x: number, y: number, z: number }, color: { r: number, g: number, b: number }, radius: number, debriId?: number, localPos?: { x: number, y: number, z: number } };
     "LIGHT_REMOVE": { position?: { x: number, y: number, z: number }, debriId?: number };
-    
 }
 
 class EventBus {

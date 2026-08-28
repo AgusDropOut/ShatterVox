@@ -1,8 +1,15 @@
 import GUI from 'lil-gui';
 import { WebGPURenderer } from '../renderer/WebGPURenderer';
+import { globalEventBus } from './EventBus';
 
 export class DebugGui {
     private gui: GUI;
+    
+   
+    public state = {
+        activeView: 'None',
+        physicsDebug: false
+    };
 
     constructor(renderer: WebGPURenderer) {
         this.gui = new GUI({ title: 'Engine Debug Settings' });
@@ -13,10 +20,48 @@ export class DebugGui {
                 this.gui._hidden ? this.gui.show() : this.gui.hide();
             }
         });
+
+        this.setupViews();
         this.setupProfiler(renderer);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
         this.setupTAA(renderer);
+    }
+
+    private setupViews(): void {
+        const folder = this.gui.addFolder('Render Views');
+        const viewOptions = [
+            'None', 'Depth', 'Normals', 'Albedo', 'Deferred', 
+            'GTAO (Noisy)', 'GTAO (Blurred)', 'SSGI (Noisy)', 'SSGI (Blurred)'
+        ];
+
+        folder.add(this.state, 'activeView', viewOptions).name('G-Buffer').onChange((value: string) => {
+            globalEventBus.emit("CHANGE_DEBUG_VIEW", { view: value });
+        });
+
+        folder.add(this.state, 'physicsDebug').name('Physics Lines').listen().onChange((value: boolean) => {
+            globalEventBus.emit("TOGGLE_PHYSICS_DEBUG", { enabled: value });
+        });
+
+   
+        globalEventBus.on("TOGGLE_PHYSICS_DEBUG", (data) => {
+            if (data.enabled === undefined) {
+                this.state.physicsDebug = !this.state.physicsDebug;
+            } else {
+                this.state.physicsDebug = data.enabled;
+            }
+        });
+    }
+
+    private setupProfiler(renderer: WebGPURenderer): void {
+        const folder = this.gui.addFolder('GPU Profiler (ms)');
+        folder.add(renderer.gpuTimings, 'Total').listen().disable();
+        folder.add(renderer.gpuTimings, 'Geometry').listen().disable();
+        folder.add(renderer.gpuTimings, 'GTAO').listen().disable();
+        folder.add(renderer.gpuTimings, 'Deferred').listen().disable();
+        folder.add(renderer.gpuTimings, 'SSGI').listen().disable();
+        folder.add(renderer.gpuTimings, 'Composition').listen().disable();
+        folder.add(renderer.gpuTimings, 'TAA').listen().disable();
     }
 
     private setupSSGI(renderer: any): void {
@@ -52,16 +97,5 @@ export class DebugGui {
         folder.add(config, 'alpha', 0.01, 1.0).name('Alpha');
         folder.add(config, 'vectorSearchRadius', 0, 5, 1).name('Vector Search Radius');
         folder.add(config, 'colorClampRadius', 0, 5, 1).name('Color Clamp Radius');
-    }
-
-    private setupProfiler(renderer: WebGPURenderer): void {
-        const folder = this.gui.addFolder('GPU Profiler (ms)');
-        folder.add(renderer.gpuTimings, 'Total').listen().disable();
-        folder.add(renderer.gpuTimings, 'Geometry').listen().disable();
-        folder.add(renderer.gpuTimings, 'GTAO').listen().disable();
-        folder.add(renderer.gpuTimings, 'Deferred').listen().disable();
-        folder.add(renderer.gpuTimings, 'SSGI').listen().disable();
-        folder.add(renderer.gpuTimings, 'Composition').listen().disable();
-        folder.add(renderer.gpuTimings, 'TAA').listen().disable();
     }
 }

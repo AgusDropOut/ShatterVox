@@ -26,36 +26,5 @@ export class Window {
         if (e.code === "KeyP") {
             globalEventBus.emit("TOGGLE_PHYSICS_DEBUG", {});
         }
-
-        if(e.code === "Digit1") {
-            globalEventBus.emit("DEBUG_DEPTH", {});
-        }
-
-        if(e.code === "Digit2") {
-            globalEventBus.emit("DEBUG_NORMALS", {});
-        }
-
-        if(e.code === "Digit3") {
-            globalEventBus.emit("DEBUG_ALBEDO", {});
-        }
-        if(e.code === "Digit4") {
-            globalEventBus.emit("DEBUG_GTAO", {});
-        }
-        if(e.code === "Digit5") {
-            globalEventBus.emit("DEBUG_BLUR_GTAO", {});
-        }
-
-        if(e.code === "Digit6") {
-            globalEventBus.emit("DEBUG_NOISY_SSGI", {});
-        }
-
-        if(e.code === "Digit7") {
-            globalEventBus.emit("DEBUG_BLUR_SSGI", {});
-        }
-
-        if(e.code === "Digit8") {
-            globalEventBus.emit("DEBUG_DEFERRED", {});
-        }
-
     }
 }

@@ -22,6 +22,8 @@ export class InitCommand implements CommandHandler<Extract<PhysicsCommand, { typ
         
         context.isInitialized = true;
         context.blockDefs = command.blockDefs;
+        context.rapierEventQueue = new RAPIER.EventQueue(true);
+      
         console.log("[InitCommand] Physics world initialize ");
         (self as any).postMessage({ type: 'INIT_DONE' });
     }

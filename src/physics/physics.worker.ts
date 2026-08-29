@@ -16,6 +16,8 @@ import { ApplyImpulseCommand } from "./commands/ApplyImpulseCommand";
 import { CreateDynamicBoxCommand } from "./commands/CreateDynamicBoxCommand";
 import { ApplyRadialImpulseCommand } from "./commands/ApplyRadialImpulseCommand";
 import { RemoveTerrainBoxCommand } from "./commands/RemoveTerrainBoxCommand";
+import { PhysicsSimulationLoop } from "./PhysicsSimulationLoop";
+
 
 const context = new PhysicsContext();
 const registry = new CommandRegistry();
@@ -36,6 +38,9 @@ registry.register('CREATE_DYNAMIC_BOX', new CreateDynamicBoxCommand());
 registry.register('APPLY_RADIAL_IMPULSE', new ApplyRadialImpulseCommand());
 registry.register('REMOVE_TERRAIN_BOX', new RemoveTerrainBoxCommand());
 
+const simulationLoop = new PhysicsSimulationLoop(context);
+simulationLoop.start();
+
 self.onmessage = async (e: MessageEvent<PhysicsCommand>) => {
     const cmd = e.data;
     const handler = registry.get(cmd.type);
@@ -43,36 +48,3 @@ self.onmessage = async (e: MessageEvent<PhysicsCommand>) => {
         await handler.execute(cmd, context);
     }
 };
-
-setInterval(() => {
-    if (!context.isInitialized || !context.world) return;
-    context.world.step();
-    if (context.dynamicBodies.size === 0) return; 
-
-    const buffer = new Float32Array(context.dynamicBodies.size * 8);
-    let offset = 0;
-
-    for (const [id, body] of context.dynamicBodies.entries()) {
-        const pos = body.translation();
-        const rot = body.rotation();
-        buffer[offset++] = id;
-        buffer[offset++] = pos.x; buffer[offset++] = pos.y; buffer[offset++] = pos.z;
-        buffer[offset++] = rot.x; buffer[offset++] = rot.y; buffer[offset++] = rot.z; buffer[offset++] = rot.w;
-    }
-
-    
-    (self as any).postMessage({ type: 'SYNC_TRANSFORMS', buffer }, [buffer.buffer]);
-
-    const debug = context.world.debugRender();
-    
-   
-    const vertices = new Float32Array(debug.vertices);
-    const colors = new Float32Array(debug.colors);
-    
-   
-    (self as any).postMessage(
-        { type: 'SYNC_DEBUG', vertices, colors }, 
-        [vertices.buffer, colors.buffer]
-    );
-    
-}, 1000 / 60);

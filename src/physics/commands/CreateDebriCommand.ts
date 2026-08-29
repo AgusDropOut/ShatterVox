@@ -17,23 +17,22 @@ export class CreateDebriCommand implements CommandHandler<Extract<PhysicsCommand
         const rbDesc = RAPIER.RigidBodyDesc.dynamic().setTranslation(worldCx, worldCy, worldCz);
         const rigidBody = context.world.createRigidBody(rbDesc);
 
-  
         for (const [x, y, z, blockId] of command.blocks) {
             const localX = (x - command.cx) * voxelSize;
             const localY = (y - command.cy) * voxelSize;
             const localZ = (z - command.cz) * voxelSize;
             
-          
             const physDef = context.blockDefs[blockId] || { density: 1, friction: 0.5, restitution: 0 };
 
-           
             const colliderDesc = RAPIER.ColliderDesc.cuboid(half, half, half)
                 .setTranslation(localX, localY, localZ)
                 .setDensity(physDef.density)
                 .setFriction(physDef.friction)
-                .setRestitution(physDef.restitution);
+                .setRestitution(physDef.restitution)
+                .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
                 
-            context.world.createCollider(colliderDesc, rigidBody);
+            const collider = context.world.createCollider(colliderDesc, rigidBody);
+            context.colliderMaterials.set(collider.handle, blockId);
         }
 
         context.dynamicBodies.set(command.id, rigidBody);

@@ -12,8 +12,8 @@ export interface BlockDef {
     lightEmissive?: boolean;
     lightRadius?: number;
     lightColor?: [number, number, number];
+    soundId?: string;
 }
-
 
 export class BlockBuilder {
     private def: Partial<BlockDef> & { id: number };
@@ -32,6 +32,7 @@ export class BlockBuilder {
             lightEmissive: false,
             lightColor: [1.0, 1.0, 1.0],
             lightRadius: 0.0,
+            soundId: "stone_collision"
         };
     }
 
@@ -40,6 +41,7 @@ export class BlockBuilder {
     public color(r: number, g: number, b: number): this { this.def.color = [r, g, b]; return this; }
     public transparent(isTransparent: boolean = true): this { this.def.isTransparent = isTransparent; return this; }
     public fragmentation(chance: number): this { this.def.fragmentationChance = chance; return this; }
+    public sound(soundId: string): this { this.def.soundId = soundId; return this; }
     public light(radius: number, r: number, g: number, b: number): this {
         this.def.lightRadius = radius;
         this.def.lightColor = [r, g, b];
@@ -47,8 +49,6 @@ export class BlockBuilder {
         return this;
     }
     
-
-  
     public physics(density: number, friction: number, restitution: number, fragmentationChance: number = 0.0): this {
         this.def.density = density;
         this.def.friction = friction;
@@ -74,38 +74,43 @@ export class BlockRegistry {
 
     public static init(): void {
         this.create(0).name("Air").texture(0).color(0.0, 0.0, 0.0).transparent().register();
-        this.create(1).name("Stone").texture(1).color(0.2, 0.2, 0.2).fragmentation(0.12).register();
-        this.create(2).name("Grass").texture(2).color(0.0, 1.0, 0.0).fragmentation(0.08).register();
-        this.create(3).name("Wood").texture(3).color(0.6, 0.4, 0.2).fragmentation(0.05).register();
-        this.create(4).name("Leaves").texture(4).color(0.0, 0.6, 0.0).fragmentation(0.3).transparent().register();
-        this.create(5).name("Amethyst").texture(5).color(0.8, 0.9, 1.0).light(1.5, 0.8, 0.9, 1.0).fragmentation(0.05).register();
+        this.create(1).name("Stone").texture(1).color(0.2, 0.2, 0.2).fragmentation(0.12).sound("stone_collision").register();
+        this.create(2).name("Grass").texture(2).color(0.0, 1.0, 0.0).fragmentation(0.08).sound("grass_collision").register();
+        this.create(3).name("Wood").texture(3).color(0.6, 0.4, 0.2).fragmentation(0.05).sound("wood_collision").register();
+        this.create(4).name("Leaves").texture(4).color(0.0, 0.6, 0.0).fragmentation(0.3).transparent().sound("leaves_collision").register();
         
-        this.create(6).name("Ruby").texture(6).color(3.0, 0.2, 0.2).light(1.5, 1.0, 0.1, 0.1).fragmentation(0.05).register();
-        this.create(7).name("Emerald").texture(7).color(0.2, 1.0, 0.2).light(1.5, 0.1, 1.0, 0.1).fragmentation(0.05).register();
-        this.create(8).name("Sapphire").texture(8).color(0.2, 0.4, 1.0).light(2.5, 0.1, 0.3, 1.0).fragmentation(0.05).register();
-        this.create(9).name("Glowstone").texture(9).color(0.5, 0.9, 0.4).light(1.5, 1.0, 0.8, 0.2).fragmentation(0.00).register();
-        this.create(10).name("Redstone").texture(6).color(1.0, 0.0, 0.0).fragmentation(0.05).register();
-        this.create(11).name("quartz").texture(10).color(1.0, 1.0, 1.0).fragmentation(0.05).register();
+        this.create(5).name("Amethyst").texture(5).color(0.8, 0.9, 1.0).light(1.5, 0.8, 0.9, 1.0).fragmentation(0.12).sound("glass_collision").register();
+        this.create(6).name("Ruby").texture(6).color(3.0, 0.2, 0.2).light(1.5, 1.0, 0.1, 0.1).fragmentation(0.12).sound("glass_collision").register();
+        this.create(7).name("Emerald").texture(7).color(0.2, 1.0, 0.2).light(1.5, 0.1, 1.0, 0.1).fragmentation(0.12).sound("glass_collision").register();
+        this.create(8).name("Sapphire").texture(8).color(0.2, 0.4, 1.0).light(2.5, 0.1, 0.3, 1.0).fragmentation(0.12).sound("glass_collision").register();
+        this.create(9).name("Glowstone").texture(9).color(0.5, 0.9, 0.4).light(1.5, 1.0, 0.8, 0.2).fragmentation(0.12).sound("glass_collision").register();
+        this.create(11).name("Quartz").texture(10).color(1.0, 1.0, 1.0).fragmentation(0.05).sound("glass_collision").register();
+        
+        this.create(10).name("Redstone").texture(6).color(1.0, 0.0, 0.0).fragmentation(0.05).sound("stone_collision").register();
     }
 
     public static create(id: number): BlockBuilder {
         return new BlockBuilder(id);
     }
 
-  
     public static register(def: BlockDef): void {
         this.blocks.set(def.id, def);
     }
 
-   
     public static get(id: number): BlockDef {
         return this.blocks.get(id) || this.blocks.get(1)!; 
     }
 
-    public static exportPhysicsConfig(): Record<number, { density: number, friction: number, restitution: number, fragmentationChance: number }> {
+    public static exportPhysicsConfig(): Record<number, { density: number, friction: number, restitution: number, fragmentationChance: number, soundId?: string }> {
         const config: Record<number, any> = {};
         for (const [id, def] of this.blocks.entries()) {
-            config[id] = { density: def.density, friction: def.friction, restitution: def.restitution, fragmentationChance: def.fragmentationChance };
+            config[id] = { 
+                density: def.density, 
+                friction: def.friction, 
+                restitution: def.restitution, 
+                fragmentationChance: def.fragmentationChance,
+                soundId: def.soundId
+            };
         }
         return config;
     }

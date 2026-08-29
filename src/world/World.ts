@@ -18,7 +18,7 @@ export class World {
         this.terrainPhysics = terrainPhysics;
 
         const generator = new TerrainGenerator(this, device, modelLayout);
-        generator.generateTestMap();
+        generator.generateAudioTestMap();
         
         this.updateAllMeshes();
     }

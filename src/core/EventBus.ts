@@ -1,4 +1,5 @@
 import type { PhysicsCommand } from "../physics/PhysicsProtocol";
+import {vec3} from "gl-matrix"
 
 export interface GameEvents {
     "BLOCK_MINED_STATIC": { x: number, y: number, z: number, radius?: number };
@@ -11,6 +12,7 @@ export interface GameEvents {
     "CHANGE_DEBUG_VIEW": { view: string };
     "LIGHT_ADD": { position: { x: number, y: number, z: number }, color: { r: number, g: number, b: number }, radius: number, debriId?: number, localPos?: { x: number, y: number, z: number } };
     "LIGHT_REMOVE": { position?: { x: number, y: number, z: number }, debriId?: number };
+    "PLAY_SPATIAL_SOUND": { id: string, position: vec3, volume?: number, pitch?: number };
 }
 
 class EventBus {

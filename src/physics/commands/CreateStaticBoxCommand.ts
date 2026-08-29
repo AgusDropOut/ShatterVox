@@ -11,12 +11,16 @@ export class CreateStaticBoxCommand implements CommandHandler<Extract<PhysicsCom
             context.terrainRigidBody = context.world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, 0, 0));
         }
         
+        const materialId = (command as any).materialId ?? 0;
+
         const colliderDesc = RAPIER.ColliderDesc.cuboid(command.halfW, command.halfH, command.halfD)
-            .setTranslation(command.x, command.y, command.z);
+            .setTranslation(command.x, command.y, command.z)
+            .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
             
         const collider = context.world.createCollider(colliderDesc, context.terrainRigidBody);
+        
+        context.colliderMaterials.set(collider.handle, materialId);
 
-      
         if (!context.terrainCollidersMap) {
             context.terrainCollidersMap = new Map<number, RAPIER.Collider>();
         }

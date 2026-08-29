@@ -6,6 +6,12 @@ export class RemoveBodyCommand implements CommandHandler<Extract<PhysicsCommand,
     public execute(command: Extract<PhysicsCommand, { type: 'REMOVE_BODY' }>, context: PhysicsContext): void {
         const body = context.dynamicBodies.get(command.id);
         if (body && context.world) {
+            const numColliders = body.numColliders();
+            for (let i = 0; i < numColliders; i++) {
+                const collider = body.collider(i);
+                context.colliderMaterials.delete(collider.handle);
+            }
+            
             context.world.removeRigidBody(body);
             context.dynamicBodies.delete(command.id);
         } else {

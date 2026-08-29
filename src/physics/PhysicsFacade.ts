@@ -1,4 +1,3 @@
-// src/physics/PhysicsFacade.ts
 import { vec3, quat } from "gl-matrix";
 import { globalEventBus } from "../core/EventBus";
 import type { PhysicsCommand, WorkerToMainMsg } from "./PhysicsProtocol";
@@ -79,6 +78,13 @@ export class PhysicsFacade {
                 });
                 this.pendingRaycasts.delete(msg.reqId);
             }
+        } else if (msg.type === 'PLAY_SPATIAL_SOUND') {
+            globalEventBus.emit("PLAY_SPATIAL_SOUND", { 
+                id: msg.id, 
+                position: msg.position, 
+                volume: msg.volume, 
+                pitch: msg.pitch 
+            });
         }
     }
 

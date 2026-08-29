@@ -22,9 +22,12 @@ export class AddTerrainCollidersCommand implements CommandHandler<Extract<Physic
             const z = pos[i+2];
             
             const colliderDesc = RAPIER.ColliderDesc.cuboid(half, half, half)
-                .setTranslation(x * voxelSize + half, y * voxelSize + half, z * voxelSize + half);
+                .setTranslation(x * voxelSize + half, y * voxelSize + half, z * voxelSize + half)
+                .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
             
             const collider = context.world.createCollider(colliderDesc, context.terrainRigidBody);
+            
+            context.colliderMaterials.set(collider.handle, 0); 
             context.terrainColliders.set(`${x},${y},${z}`, collider);
         }
     }

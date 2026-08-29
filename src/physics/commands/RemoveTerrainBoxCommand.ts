@@ -8,6 +8,7 @@ export class RemoveTerrainBoxCommand implements CommandHandler<Extract<PhysicsCo
         
         const collider = context.terrainCollidersMap.get(command.id);
         if (collider) {
+            context.colliderMaterials.delete(collider.handle);
             context.world.removeCollider(collider, false);
             context.terrainCollidersMap.delete(command.id);
         } else {

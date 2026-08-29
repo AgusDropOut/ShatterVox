@@ -11,6 +11,7 @@ import { ExplosiveManager } from "../entity/manager/ExplosiveManager";
 import { EntityRepository } from "../entity/EntityRepository";
 import { BlockRegistry } from "../block/BlockRegistry";
 import { DebugGui } from "./DebugGui";
+import { SoundManager } from "../audio/SoundManager";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -25,6 +26,7 @@ export class Engine {
     private lastTime: number = 0;
     private physicsFacade: PhysicsFacade;
     public static readonly voxelSize: number = 0.12;
+    private soundManager: SoundManager;
 
   
     private showPhysicsDebug: boolean = false;
@@ -52,6 +54,7 @@ export class Engine {
         
         this.renderer = new WebGPURenderer(this.canvas);
         this.fpsElement = document.getElementById("fps-counter");
+        this.soundManager = new SoundManager();
         
         this.physicsFacade = new PhysicsFacade();
         globalEventBus.emit("PHYSICS_COMMAND", { 
@@ -109,8 +112,13 @@ export class Engine {
         this.terrainPhysics = new TerrainPhysics();
         this.terrainPhysics.buildColliders(this.world);
         this.world.terrainPhysics = this.terrainPhysics;
+        this.soundManager.loadSound("stone_collision", "/assets/sounds/stone_collision.ogg");
+        this.soundManager.loadSound("wood_collision", "/assets/sounds/wood_collision.ogg");
+        this.soundManager.loadSound("glass_collision", "/assets/sounds/glass_collision.ogg");
+        this.soundManager.loadSound("grass_collision", "/assets/sounds/grass_collision.ogg");
+        this.soundManager.loadSound("leaves_collision", "/assets/sounds/leaves_collision.ogg");
 
-        this.player = new PlayerController(this.canvas, this.world, this.physicsFacade);
+        this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
 
         await this.renderer.loadEntityAsset(
@@ -152,6 +160,8 @@ export class Engine {
         if (!this.physicsFacade || this.physicsFacade.transforms.size === 0) {
             return;
         }
+
+       
 
         this.player.update(deltaTime);
         this.explosiveManager.update(deltaTime);

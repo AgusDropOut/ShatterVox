@@ -1,7 +1,7 @@
 import { vec3 } from "gl-matrix";
 
 export type PhysicsCommand = 
-    | { type: 'INIT', gravity: { x: number, y: number, z: number }, blockDefs: Record<number, { density: number, friction: number, restitution: number }> }
+    | { type: 'INIT', gravity: { x: number, y: number, z: number }, blockDefs: Record<number, { density: number, friction: number, restitution: number, soundId?: string }> }
     | { type: 'CREATE_STATIC_BOX', id: number, halfW: number, halfH: number, halfD: number, x: number, y: number, z: number }
     | { type: 'CREATE_PLAYER', id: number, x: number, y: number, z: number, radius: number, halfHeight: number }
     | { type: 'SET_PLAYER_VELOCITY', id: number, x: number, z: number, jump: boolean }
@@ -21,4 +21,5 @@ export type WorkerToMainMsg =
     | { type: 'INIT_DONE' }
     | { type: 'SYNC_TRANSFORMS', buffer: Float32Array }
     | { type: 'SYNC_DEBUG', vertices: Float32Array, colors: Float32Array }
+    | { type: 'PLAY_SPATIAL_SOUND', id: string, position: vec3, volume?: number, pitch?: number }
     | { type: 'RAYCAST_RESULT', reqId: number, hit: boolean, distance: number, hitId?: number, localX?: number, localY?: number, localZ?: number };

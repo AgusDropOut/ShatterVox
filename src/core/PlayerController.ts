@@ -5,6 +5,7 @@ import { globalEventBus } from "./EventBus";
 import { vec3, quat } from "gl-matrix";
 import type { PhysicsFacade } from "../physics/PhysicsFacade";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
+import type { SoundManager } from "../audio/SoundManager";
 
 
 export class PlayerController {
@@ -17,8 +18,9 @@ export class PlayerController {
     private canThrowBomb: boolean = true;
 
     private targetPosition: vec3;
+    private soundManager: SoundManager;
 
-    constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade) {
+    constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade, soundManager: SoundManager) {
         this.world = world;
         this.physicsFacade = physicsFacade;
         this.camera = new Camera(vec3.fromValues(5, 0, 5));
@@ -35,8 +37,10 @@ export class PlayerController {
         });
 
         this.targetPosition = vec3.fromValues(5, 0.8, 5);
+        this.soundManager = soundManager;
 
         canvas.addEventListener("mousedown", (e) => {
+            this.soundManager.unlock();
             if (this.input.isLocked && e.button === 0) {
                 this.handleLeftClick();
             }
@@ -57,6 +61,9 @@ export class PlayerController {
         if (mouse.x !== 0 || mouse.y !== 0) {
             this.camera.processMouseMovement(mouse.x, mouse.y);
         }
+        
+        
+        this.soundManager.updateListener(this.camera.position, this.camera.front, this.camera.up);
 
         const velocity = vec3.create();
         const front = vec3.fromValues(this.camera.front[0], 0, this.camera.front[2]);

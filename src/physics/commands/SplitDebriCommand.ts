@@ -41,15 +41,18 @@ export class SplitDebriCommand implements CommandHandler<Extract<PhysicsCommand,
                     Math.abs(pos.y - targetPy) < 0.001 && 
                     Math.abs(pos.z - targetPz) < 0.001) {
                     
+                    context.colliderMaterials.delete(collider.handle);
                     context.world.removeCollider(collider, true);
                     break;
                 }
             }
 
             const colliderDesc = RAPIER.ColliderDesc.cuboid(half, half, half)
-                .setTranslation(targetPx, targetPy, targetPz);
+                .setTranslation(targetPx, targetPy, targetPz)
+                .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
             
-            context.world.createCollider(colliderDesc, newBody);
+            const newCollider = context.world.createCollider(colliderDesc, newBody);
+            context.colliderMaterials.set(newCollider.handle, 0); 
         }
 
         context.dynamicBodies.set(command.newDebriId, newBody);

@@ -1,13 +1,38 @@
 import { vec3 } from "gl-matrix";
 import { globalEventBus } from "../core/EventBus";
+import { ModernSpatialAdapter } from "./ModernSpatialAdapter";
+import { LegacySpatialAdapter } from "./LegacySpatialAdapter";
+import type { SpatialAudioAdapter } from "../types/SpatialAudioAdapter";
 
 export class SoundManager {
     private context: AudioContext;
     private buffers: Map<string, AudioBuffer> = new Map();
     private unlocked: boolean = false;
+    private adapter: SpatialAudioAdapter;
+
+    private masterDry: GainNode;
+    private masterWet: GainNode;
+    private convolver: ConvolverNode;
 
     constructor() {
         this.context = new window.AudioContext();
+        
+        if (this.context.listener.positionX) {
+            this.adapter = new ModernSpatialAdapter();
+        } else {
+            this.adapter = new LegacySpatialAdapter();
+        }
+
+        this.masterDry = this.context.createGain();
+        this.masterDry.connect(this.context.destination);
+
+        this.masterWet = this.context.createGain();
+        this.masterWet.gain.value = 0.0;
+        this.masterWet.connect(this.context.destination);
+
+        this.convolver = this.context.createConvolver();
+        this.convolver.connect(this.masterWet);
+
         globalEventBus.on("PLAY_SPATIAL_SOUND", (data: { id: string, position: vec3, volume?: number, pitch?: number }) => {
             this.playSpatialSound(data.id, data.position, data.volume ?? 1.0, data.pitch ?? 1.0);
         });
@@ -27,25 +52,20 @@ export class SoundManager {
         this.buffers.set(id, audioBuffer);
     }
 
+    public async loadImpulseResponse(url: string): Promise<void> {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        this.convolver.buffer = await this.context.decodeAudioData(arrayBuffer);
+    }
+
+    public setEnclosureFactor(enclosure: number): void {
+        if (!this.unlocked) return;
+        this.masterWet.gain.setTargetAtTime(enclosure, this.context.currentTime, 0.1);
+        this.masterDry.gain.setTargetAtTime(1.0 - (enclosure * 0.5), this.context.currentTime, 0.1);
+    }
+
     public updateListener(position: vec3, forward: vec3, up: vec3): void {
-        const listener = this.context.listener;
-        
-        if (listener.positionX) {
-            listener.positionX.value = position[0];
-            listener.positionY.value = position[1];
-            listener.positionZ.value = position[2];
-            
-            listener.forwardX.value = forward[0];
-            listener.forwardY.value = forward[1];
-            listener.forwardZ.value = forward[2];
-            
-            listener.upX.value = up[0];
-            listener.upY.value = up[1];
-            listener.upZ.value = up[2];
-        } else {
-            listener.setPosition(position[0], position[1], position[2]);
-            listener.setOrientation(forward[0], forward[1], forward[2], up[0], up[1], up[2]);
-        }
+        this.adapter.updateListener(this.context.listener, position, forward, up);
     }
 
     public playSpatialSound(id: string, position: vec3, volume: number = 1.0, pitch: number = 1.0): void {
@@ -67,17 +87,13 @@ export class SoundManager {
         panner.maxDistance = 50.0;
         panner.rolloffFactor = 1.0;
 
-        if (panner.positionX) {
-            panner.positionX.value = position[0];
-            panner.positionY.value = position[1];
-            panner.positionZ.value = position[2];
-        } else {
-            panner.setPosition(position[0], position[1], position[2]);
-        }
+        this.adapter.updatePanner(panner, position);
 
         source.connect(gainNode);
         gainNode.connect(panner);
-        panner.connect(this.context.destination);
+        
+        panner.connect(this.masterDry);
+        panner.connect(this.convolver);
 
         source.start(0);
     }

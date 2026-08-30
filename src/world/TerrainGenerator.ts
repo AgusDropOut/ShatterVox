@@ -465,7 +465,6 @@ export class TerrainGenerator {
         const WORLD_WIDTH = CHUNKS_X * Chunk.WIDTH;
         const WORLD_DEPTH = CHUNKS_Z * Chunk.DEPTH;
 
-       
         for (let x = 0; x < WORLD_WIDTH; x++) {
             for (let z = 0; z < WORLD_DEPTH; z++) {
                 this.world.setBlock(x, 0, z, TerrainGenerator.ID_QUARTZ);
@@ -473,27 +472,22 @@ export class TerrainGenerator {
             }
         }
 
-        
         const woodHeight = 12;
         for(let x = 8; x < 24; x++) {
             for(let z = 8; z < 24; z++) {
                 this.world.setBlock(x, woodHeight, z, TerrainGenerator.ID_WOOD);
-                
-              
                 if (x === 8 || x === 23 || z === 8 || z === 23) {
                     this.world.setBlock(x, woodHeight + 1, z, 4); 
                 }
             }
         }
         
-       
         for(let i = 0; i < 10; i++) {
             for(let w = 0; w < 4; w++) {
                 this.world.setBlock(10 + w, 2 + i, 2 + i, TerrainGenerator.ID_WOOD);
             }
         }
 
-       
         const towerHeight = 22;
         for(let y = 2; y < towerHeight; y++) {
             for(let x = 36; x < 44; x++) {
@@ -505,14 +499,12 @@ export class TerrainGenerator {
             }
         }
         
-       
         for(let x = 36; x <= 43; x++) {
             for(let z = 36; z <= 43; z++) {
                 this.world.setBlock(x, towerHeight, z, TerrainGenerator.ID_AMETHYST);
             }
         }
 
-       
         for(let x = 8; x < 24; x++) {
             for(let z = 36; z < 52; z++) {
                 for(let y = 2; y < 8; y++) {
@@ -526,14 +518,12 @@ export class TerrainGenerator {
             }
         }
 
-    
         for(let x = 24; x < 36; x++) {
             for(let z = 24; z < 28; z++) {
                 this.world.setBlock(x, 16, z, TerrainGenerator.ID_STONE);
             }
         }
 
-       
         for(let x = 24; x < 36; x++) {
             for(let y = 2; y < 8; y++) {
                 this.world.setBlock(x, y, 32, TerrainGenerator.ID_REDSTONE);

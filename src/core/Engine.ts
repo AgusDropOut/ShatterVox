@@ -117,6 +117,7 @@ export class Engine {
         this.soundManager.loadSound("glass_collision", "/assets/sounds/glass_collision.ogg");
         this.soundManager.loadSound("grass_collision", "/assets/sounds/grass_collision.ogg");
         this.soundManager.loadSound("leaves_collision", "/assets/sounds/leaves_collision.ogg");
+        this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg"),
 
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);

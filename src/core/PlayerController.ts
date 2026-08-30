@@ -7,7 +7,6 @@ import type { PhysicsFacade } from "../physics/PhysicsFacade";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 import type { SoundManager } from "../audio/SoundManager";
 
-
 export class PlayerController {
     public readonly camera: Camera;
     public readonly input: Input;
@@ -19,6 +18,9 @@ export class PlayerController {
 
     private targetPosition: vec3;
     private soundManager: SoundManager;
+
+    private acousticTimer: number = 0;
+    private readonly ACOUSTIC_INTERVAL: number = 0.25;
 
     constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade, soundManager: SoundManager) {
         this.world = world;
@@ -62,8 +64,13 @@ export class PlayerController {
             this.camera.processMouseMovement(mouse.x, mouse.y);
         }
         
-        
         this.soundManager.updateListener(this.camera.position, this.camera.front, this.camera.up);
+
+        this.acousticTimer += deltaTime;
+        if (this.acousticTimer >= this.ACOUSTIC_INTERVAL) {
+            this.evaluateAcousticEnvironment();
+            this.acousticTimer = 0;
+        }
 
         const velocity = vec3.create();
         const front = vec3.fromValues(this.camera.front[0], 0, this.camera.front[2]);
@@ -87,7 +94,7 @@ export class PlayerController {
             jump: isJumping
         });
 
-       if (this.input.isKeyPressed("KeyB") && this.canThrowBomb) {
+        if (this.input.isKeyPressed("KeyB") && this.canThrowBomb) {
             this.canThrowBomb = false;
             setTimeout(() => this.canThrowBomb = true, 500); 
 
@@ -98,9 +105,7 @@ export class PlayerController {
             vec3.scale(throwVel, this.camera.front, 15.0);
             throwVel[1] += 5.0; 
 
-      
             const rotation = quat.create();
-
             quat.rotationTo(rotation, [0, 0, -1], this.camera.front);
 
             globalEventBus.emit("SPAWN_BOMB", {
@@ -109,6 +114,31 @@ export class PlayerController {
                 rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] }
             });
         }
+    }
+
+    private evaluateAcousticEnvironment(): void {
+        const rayDirections: vec3[] = [
+            [0, 1, 0],
+            [0, -1, 0],
+            [1, 0, 0],
+            [-1, 0, 0],
+            [0, 0, 1],
+            [0, 0, -1]
+        ];
+
+        const MAX_RAY_DISTANCE = 32.0;
+        let totalDistance = 0;
+
+        for (const dir of rayDirections) {
+            const hit = VoxelRaycaster.raycastGrid(this.camera.position, dir, MAX_RAY_DISTANCE, this.world);
+            totalDistance += hit.hit ? hit.distance : MAX_RAY_DISTANCE;
+        }
+
+        const averageDistance = totalDistance / 6.0;
+        let enclosure = 1.0 - (averageDistance / MAX_RAY_DISTANCE);
+        enclosure = Math.max(0.0, Math.min(1.0, enclosure));
+
+        this.soundManager.setEnclosureFactor(enclosure);
     }
 
     private async handleLeftClick(): Promise<void> {

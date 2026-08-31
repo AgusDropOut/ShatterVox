@@ -4,7 +4,7 @@ export const ParticleShaderWGSL = `
 
     struct Particle {
         positionAndLife: vec4<f32>,
-        velocity: vec4<f32>,
+        velocityAndSize: vec4<f32>,
         color: vec4<f32>,
     };
 
@@ -49,7 +49,7 @@ export const ParticleShaderWGSL = `
         var out: VertexOutput;
         let particleIndex = i32(instanceIndex);
         let particle = particleBuffer[particleIndex];
-        let clipPos = params.viewProjMatrix * vec4<f32>(pos + particle.positionAndLife.xyz, 1.0);
+        let clipPos = params.viewProjMatrix * vec4<f32>((pos * particle.velocityAndSize.w) + particle.positionAndLife.xyz, 1.0);
         let prevClipPos = params.prevViewProjMatrix * vec4<f32>(particle.positionAndLife.xyz, 1.0);
         out.position = clipPos;
         out.currentClipPos = clipPos;

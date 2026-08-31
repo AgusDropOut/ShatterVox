@@ -8,6 +8,7 @@ export interface Particle {
         velocity: vec3
         color: vec4
         lifetime: number
+        size: number
 } 
 
 export class ParticleManager {
@@ -35,7 +36,8 @@ export class ParticleManager {
                 position: vec3.clone(data.position),
                 velocity: vec3.clone(data.velocity),
                 color: vec4.clone(data.color),
-                lifetime: data.lifetime
+                lifetime: data.lifetime,
+                size: data.size
             };
             this.addParticle(particle);
         });
@@ -54,7 +56,7 @@ export class ParticleManager {
         const particleData = new Float32Array(this.currentFrameNewParticles * this.floatsPerParticle);
         for (let i = 0; i < this.currentFrameNewParticles; i++) {
             const particle = this.particles[this.lastFrameParticleIndex + i];
-            console.log(`Flushing particle at index ${this.lastFrameParticleIndex + i}: position=${particle.position}, velocity=${particle.velocity}, color=${particle.color}, lifetime=${particle.lifetime}`);
+          
             particleData[i * this.floatsPerParticle + 0] = particle.position[0];
             particleData[i * this.floatsPerParticle + 1] = particle.position[1];
             particleData[i * this.floatsPerParticle + 2] = particle.position[2];
@@ -62,7 +64,7 @@ export class ParticleManager {
             particleData[i * this.floatsPerParticle + 4] = particle.velocity[0];
             particleData[i * this.floatsPerParticle + 5] = particle.velocity[1];
             particleData[i * this.floatsPerParticle + 6] = particle.velocity[2];
-            particleData[i * this.floatsPerParticle + 7] = 0; //empty slot for alignment
+            particleData[i * this.floatsPerParticle + 7] = particle.size;
             particleData[i * this.floatsPerParticle + 8] = particle.color[0];
             particleData[i * this.floatsPerParticle + 9] = particle.color[1];
             particleData[i * this.floatsPerParticle + 10] = particle.color[2];
@@ -78,8 +80,11 @@ export class ParticleManager {
             this.particleBuffer.updateSubData(particleData, this.lastFrameParticleIndex * this.floatsPerParticle * 4);
         }
         this.lastFrameParticleIndex = (this.lastFrameParticleIndex + this.currentFrameNewParticles) % this.maxParticles;
+
         
         this.currentFrameNewParticles = 0;
+
+        
 
         
     }

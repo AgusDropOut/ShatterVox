@@ -165,12 +165,13 @@ export class Engine {
        
 
         this.player.update(deltaTime);
-        if(this.totalFrames % 10 === 0) {
+        if(this.totalFrames % 100 === 0) {
             globalEventBus.emit("SPAWN_PARTICLE", {
                 position: this.player.camera.position,
-                velocity: [0, 0, 0],
+                velocity: [0.006, 0.005, 0],
                 color: [1, 0, 0, 1],
-                lifetime: 500.0
+                lifetime: 1500.0, 
+                size: 0.3
             });
         }
         this.explosiveManager.update(deltaTime);

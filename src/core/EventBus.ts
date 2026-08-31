@@ -13,7 +13,7 @@ export interface GameEvents {
     "LIGHT_ADD": { position: { x: number, y: number, z: number }, color: { r: number, g: number, b: number }, radius: number, debriId?: number, localPos?: { x: number, y: number, z: number } };
     "LIGHT_REMOVE": { position?: { x: number, y: number, z: number }, debriId?: number };
     "PLAY_SPATIAL_SOUND": { id: string, position: vec3, volume?: number, pitch?: number };
-    "SPAWN_PARTICLE": { position: vec3, velocity: vec3, color: vec4, lifetime: number };
+    "SPAWN_PARTICLE": { position: vec3, velocity: vec3, color: vec4, lifetime: number, size: number };
 }
 
 class EventBus {

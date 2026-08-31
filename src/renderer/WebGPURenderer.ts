@@ -15,6 +15,8 @@ import { SSGIPass } from "./pass/SSGIPass";
 import { CompositionPass } from "./pass/CompositionPass";
 import { TAAPass } from "./pass/TAAPass";
 import { GPUTimer } from "./GPUTimer";
+import { ParticlePass } from "./pass/ParticlePass";
+import { ParticleManager } from "./ParticleManager";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -45,12 +47,15 @@ export class WebGPURenderer {
     private debugCameraBindGroup!: GPUBindGroup;
     private commandEncoder: GPUCommandEncoder | null = null;
 
+    private particleManager!: ParticleManager;
+
     private debugPosBuffer: GPUBuffer | null = null;
     private debugColBuffer: GPUBuffer | null = null;
     private debugPosBufferSize: number = 0;
     private debugColBufferSize: number = 0;
 
     private geometryPass!: GeometryPass;
+    private particlePass!: ParticlePass;
     private deferredPass!: DeferredPass;
     private gtaoPass!: GTAOPass;
     private ssgiPass!: SSGIPass;
@@ -102,6 +107,8 @@ export class WebGPURenderer {
 
         this.geometryPass = new GeometryPass(this.device, this.presentationFormat);
         this.geometryPass.init(this.atlas);
+        this.particleManager = new ParticleManager(this.device, 50);
+        this.particlePass = new ParticlePass(this.device, this.presentationFormat, this.particleManager);
         
         this.deferredPass = new DeferredPass(this.device);
         this.gtaoPass = new GTAOPass(this.device);
@@ -165,6 +172,7 @@ export class WebGPURenderer {
 
         if(!this.linearSampler || !this.nearestSampler) throw new Error("Samplers not initialized");
 
+        this.particlePass.resize( this.depthView, this.normalView);
         this.gtaoPass.resize(width, height, this.depthView, this.normalView, this.nearestSampler);
         this.deferredPass.resize(width, height, this.albedoView, this.normalView, this.depthView, this.gtaoPass.getResultView(), this.linearSampler, this.nearestSampler, this.viewBuffer, this.cameraBufferPlus);
         this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredPass.getResultView(), this.linearSampler, this.nearestSampler);
@@ -174,6 +182,7 @@ export class WebGPURenderer {
 
     public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): void {
         this.geometryPass.updateCamera(viewMatrix as mat4, Engine.projectionMatrix, frameCounter);
+       
 
         const combinedCameraData = new Float32Array(32);
         combinedCameraData.set(viewProjMatrix, 0);       
@@ -187,6 +196,9 @@ export class WebGPURenderer {
         mat4.invert(invProjMatrix, Engine.projectionMatrix);
         const invViewMatrix = mat4.create();
         mat4.invert(invViewMatrix, viewMatrix);
+
+        this.particleManager.flushParticles();
+        this.particlePass.updateParams(this.canvas.width, this.canvas.height, viewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter);
 
         this.gtaoPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, Engine.zNear, Engine.zFar);
         this.ssgiPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, invViewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter, Engine.zNear, Engine.zFar);
@@ -210,6 +222,17 @@ export class WebGPURenderer {
             physicsFacade,
             this.isTimerSupported ? this.timer.getTimestampWrites('Geometry') : undefined
         );
+    }
+
+    public computeParticles(): void {
+        if (this.commandEncoder) {
+            this.particlePass.computeParticles(this.commandEncoder, this.isTimerSupported ? this.timer.getTimestampWrites('Particles') : undefined);
+        }
+    }
+
+    public drawParticles(): void {
+        if (!this.commandEncoder) return;
+        this.particlePass.drawParticles(this.commandEncoder, this.albedoView, this.normalView, this.taaPass.motionVectorView, this.depthView, this.isTimerSupported ? this.timer.getTimestampWrites('Particles') : undefined);
     }
 
     public computeGTAO(): void {

@@ -165,6 +165,14 @@ export class Engine {
        
 
         this.player.update(deltaTime);
+        if(this.totalFrames % 10 === 0) {
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: this.player.camera.position,
+                velocity: [0, 0, 0],
+                color: [1, 0, 0, 1],
+                lifetime: 500.0
+            });
+        }
         this.explosiveManager.update(deltaTime);
         this.world.updateDirtyMeshes();
     }
@@ -181,6 +189,8 @@ export class Engine {
         
         
         this.renderer.drawGeometry(this.world, this.entityRepository, this.physicsFacade);
+        this.renderer.computeParticles();
+        this.renderer.drawParticles();
         this.renderer.computeGTAO();
         this.renderer.drawDeferred(this.physicsFacade);
         this.renderer.computeSSGI();

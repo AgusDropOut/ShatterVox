@@ -62,7 +62,7 @@ export const chunkShaderWGSL = `
         
         output.albedo = texColor;
         output.normal = vec4<f32>(normalize(in.normal), 1.0);
-        output.motion = calculateMotionVector(in.currentClipPos, in.previousClipPos); // NUEVO
+        output.motion = calculateMotionVector(in.currentClipPos, in.previousClipPos); 
     
         return output;
     }

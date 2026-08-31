@@ -16,7 +16,7 @@ export class PlayerController {
     private speed: number = 6.0;
     private canThrowBomb: boolean = true;
 
-    private targetPosition: vec3;
+    public targetPosition: vec3;
     private soundManager: SoundManager;
 
     private acousticTimer: number = 0;

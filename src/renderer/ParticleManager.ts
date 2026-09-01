@@ -46,7 +46,6 @@ export class ParticleManager {
     }
 
     public addParticle(particle: Particle): void {
-        console.log("Adding particle:", particle);
         if (this.currentParticleIndex >= this.maxParticles) {
             this.currentParticleIndex = 0;
         }

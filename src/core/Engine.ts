@@ -13,6 +13,7 @@ import { BlockRegistry } from "../block/BlockRegistry";
 import { DebugGui } from "./DebugGui";
 import { SoundManager } from "../audio/SoundManager";
 import { ParticleEffectsController } from "../particle/ParticleEffectController";
+import { BillBoardManager } from "../entity/manager/BillBoardManager";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -41,6 +42,7 @@ export class Engine {
 
     private entityRepository: EntityRepository;
     private explosiveManager!: ExplosiveManager;
+    private billboardManager!: BillBoardManager;
     private debugGui!: DebugGui;
 
     public static projectionMatrix: mat4 = mat4.create();
@@ -125,12 +127,19 @@ export class Engine {
 
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
+        this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
         
 
         await this.renderer.loadEntityAsset(
             "bomb", 
             "/assets/models/bomb.obj", 
             "/assets/textures/bomb.png"
+        );
+
+        await this.renderer.loadEntityAsset(
+            "billboard", 
+            "/assets/models/billboard.obj", 
+            "/assets/textures/billboard.png"
         );
 
         console.log("[Engine] Initialization complete. Starting main loop.");

@@ -15,6 +15,7 @@ export interface GameEvents {
     "LIGHT_REMOVE": { position?: { x: number, y: number, z: number }, debriId?: number };
     "PLAY_SPATIAL_SOUND": { id: string, position: vec3, volume?: number, pitch?: number };
     "SPAWN_PARTICLE": { position: vec3, velocity: vec3, color: vec4, lifetime: number, size: number, gravity?: boolean };
+    "SPAWN_BILLBOARD": { x: number, y: number, z: number, rot: any };
 }
 
 class EventBus {

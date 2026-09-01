@@ -2,7 +2,7 @@ import { vec3 } from "gl-matrix";
 
 export type PhysicsCommand = 
     | { type: 'INIT', gravity: { x: number, y: number, z: number }, blockDefs: Record<number, { density: number, friction: number, restitution: number, soundId?: string }> }
-    | { type: 'CREATE_STATIC_BOX', id: number, halfW: number, halfH: number, halfD: number, x: number, y: number, z: number }
+    | { type: 'CREATE_STATIC_BOX', id: number, halfW: number, halfH: number, halfD: number, x: number, y: number, z: number, rot?: {x:number, y:number, z:number, w:number} }
     | { type: 'CREATE_PLAYER', id: number, x: number, y: number, z: number, radius: number, halfHeight: number }
     | { type: 'SET_PLAYER_VELOCITY', id: number, x: number, z: number, jump: boolean }
     | { type: 'CREATE_DEBRI', id: number, cx: number, cy: number, cz: number, blocks: number[][] }

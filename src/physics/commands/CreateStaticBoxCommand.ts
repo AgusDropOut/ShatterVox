@@ -17,6 +17,11 @@ export class CreateStaticBoxCommand implements CommandHandler<Extract<PhysicsCom
             .setTranslation(command.x, command.y, command.z)
             .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
             
+     
+        if (command.rot) {
+            colliderDesc.setRotation(command.rot);
+        }
+            
         const collider = context.world.createCollider(colliderDesc, context.terrainRigidBody);
         
         context.colliderMaterials.set(collider.handle, materialId);

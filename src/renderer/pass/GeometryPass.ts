@@ -16,6 +16,7 @@ import { PhysicsFacade } from "../../physics/PhysicsFacade";
 import { globalEventBus } from "../../core/EventBus";
 import { Engine } from "../../core/Engine"
 import { FrustumCull } from "../FrustumCull";
+import type { vec3, quat } from "gl-matrix";
 
 export class GeometryPass {
     private device: GPUDevice;
@@ -177,24 +178,41 @@ export class GeometryPass {
         renderPass.setBindGroup(0, this.entityCameraBindGroup);
 
         for (const [entityId, renderComp] of entityRepository.renders.entries()) {
+            
+          
+            let pos: vec3 | undefined = renderComp.position;
+            let rot: quat | undefined = renderComp.rotation;
+
+       
             const physComp = entityRepository.physics.get(entityId);
-            if (!physComp) {
-                this.entityBuffers.delete(entityId);
+            if (physComp) {
+                const transform = physicsFacade.transforms.get(physComp.bodyId);
+                if (transform) {
+                    pos = transform.position;
+                    rot = transform.rotation;
+                }
+            }
+
+          
+            if (!pos || !rot) {
                 continue;
             }
 
-            const transform = physicsFacade.transforms.get(physComp.bodyId);
-            if (!transform) continue;
-
             const asset = AssetManager.getAsset(renderComp.modelId);
-            if (!asset || !asset.mesh || asset.mesh.vertexCount === 0 || !asset.materialBindGroup) continue;
+            if (!asset || !asset.mesh || asset.mesh.vertexCount === 0 || !asset.materialBindGroup) {
+                continue;
+            }
 
             const modelMatrix = mat4.create();
-            mat4.translate(modelMatrix, modelMatrix, transform.position);
+            mat4.translate(modelMatrix, modelMatrix, pos);
             const rotationMat = mat4.create();
-            mat4.fromQuat(rotationMat, transform.rotation);
+            mat4.fromQuat(rotationMat, rot);
             mat4.multiply(modelMatrix, modelMatrix, rotationMat);
-            mat4.translate(modelMatrix, modelMatrix, [0, -0.125, 0]);
+            
+            if (renderComp.visualOffset) {
+                mat4.translate(modelMatrix, modelMatrix, renderComp.visualOffset);
+            }
+            
             mat4.scale(modelMatrix, modelMatrix, renderComp.scale);
 
             let instanceData = this.entityBuffers.get(entityId);

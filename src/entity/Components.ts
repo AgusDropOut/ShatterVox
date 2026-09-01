@@ -1,5 +1,5 @@
 // src/entity/Components.ts
-import { vec3 } from "gl-matrix";
+import { vec3, quat } from "gl-matrix";
 
 
 export interface PhysicsComponent {
@@ -11,6 +11,9 @@ export interface RenderComponent {
     modelId: string; 
     color: [number, number, number];
     scale: vec3;
+    visualOffset?: vec3;
+    position?: vec3; 
+    rotation?: quat; 
 }
 
 export interface ExplosiveComponent {

@@ -41,7 +41,7 @@ export class ExplosiveManager {
 
       
         this.repository.physics.set(entityId, { bodyId });
-        this.repository.renders.set(entityId, { modelId: "bomb", scale: vec3.fromValues(0.4, 0.4, 0.4), color: [1,1,1] });
+        this.repository.renders.set(entityId, { modelId: "bomb", scale: vec3.fromValues(0.4, 0.4, 0.4), color: [1,1,1], visualOffset: vec3.fromValues(0, -0.125, 0) });
         this.repository.explosives.set(entityId, { timer: 3.0, radius: 30, fuseActive: true });
     }
 

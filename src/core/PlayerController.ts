@@ -42,10 +42,16 @@ export class PlayerController {
 
         canvas.addEventListener("mousedown", (e) => {
             this.soundManager.unlock();
-            if (this.input.isLocked && e.button === 0) {
-                this.handleLeftClick();
+            if (this.input.isLocked) {
+                if (e.button === 0) {
+                    this.handleLeftClick();
+                } else if (e.button === 2) {
+                    this.handleRightClick();
+                }
             }
         });
+
+        canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     }
 
     public update(deltaTime: number): void {
@@ -161,6 +167,33 @@ export class PlayerController {
                 localY: physicsHit.localY!,
                 localZ: physicsHit.localZ!,
                 radius: 3
+            });
+        }
+    }
+
+    private async handleRightClick(): Promise<void> {
+        const reach = 10.0;
+        console.log("Right click detected. Performing raycast for billboard placement.");
+        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
+
+        if (gridHit.hit) {
+            const spawnPos = vec3.create();
+            vec3.scaleAndAdd(spawnPos, this.camera.position, this.camera.front, gridHit.distance);
+            vec3.scaleAndAdd(spawnPos, spawnPos, this.camera.front, -0.1); 
+
+            const lookDir = vec3.create();
+            vec3.negate(lookDir, this.camera.front);
+            lookDir[1] = 0; 
+            vec3.normalize(lookDir, lookDir);
+
+            const rotation = quat.create();
+            quat.rotationTo(rotation, [0, 0, 1], lookDir);
+
+            globalEventBus.emit("SPAWN_BILLBOARD", {
+                x: spawnPos[0],
+                y: spawnPos[1],
+                z: spawnPos[2],
+                rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] }
             });
         }
     }

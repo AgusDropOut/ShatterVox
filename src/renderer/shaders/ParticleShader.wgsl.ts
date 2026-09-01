@@ -5,7 +5,7 @@ export const ParticleShaderWGSL = `
     struct Particle {
         positionAndLife: vec4<f32>,
         velocityAndSize: vec4<f32>,
-        color: vec4<f32>,
+        colorAndGravity: vec4<f32>,
     };
 
     struct Params {
@@ -55,7 +55,7 @@ export const ParticleShaderWGSL = `
         out.currentClipPos = clipPos;
         out.previousClipPos = prevClipPos;
         out.normal = normal;
-        out.color = particle.color;
+        out.color = vec4<f32>(particle.colorAndGravity.xyz, 1.0);
         return out;
     }
 

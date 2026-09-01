@@ -107,7 +107,7 @@ export class WebGPURenderer {
 
         this.geometryPass = new GeometryPass(this.device, this.presentationFormat);
         this.geometryPass.init(this.atlas);
-        this.particleManager = new ParticleManager(this.device, 50);
+        this.particleManager = new ParticleManager(this.device, 1000);
         this.particlePass = new ParticlePass(this.device, this.presentationFormat, this.particleManager);
         
         this.deferredPass = new DeferredPass(this.device);

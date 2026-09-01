@@ -38,7 +38,6 @@ export class PlayerController {
             halfHeight: 0.6
         });
 
-        this.targetPosition = vec3.fromValues(5, 0.8, 5);
         this.soundManager = soundManager;
 
         canvas.addEventListener("mousedown", (e) => {
@@ -153,7 +152,8 @@ export class PlayerController {
 
         if (hitGridFirst) {
             const [x, y, z] = gridHit.blockPos;
-            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z, radius: 3 });
+            const blockType = this.world.getBlock(x, y, z);
+            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z, radius: 3, blockType });
         } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
             globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
                 debriId: physicsHit.hitId,

@@ -69,7 +69,15 @@ export class ExplosiveManager {
                 const blockY = Math.round(transform.position[1] / Engine.voxelSize);
                 const blockZ = Math.round(transform.position[2] / Engine.voxelSize);
 
-                console.log(`Bomb detonated at Block: (${blockX}, ${blockY}, ${blockZ})`);
+                setTimeout(() => {
+                    globalEventBus.emit("BOMB_DETONATED", {
+                        x: transform.position[0],
+                        y: transform.position[1],
+                        z: transform.position[2],
+                        radius: exp.radius
+                    });
+                }, 100);
+
 
                 globalEventBus.emit("BLOCK_MINED_STATIC", {
                     x: blockX,
@@ -101,6 +109,14 @@ export class ExplosiveManager {
                 }
 
                 globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: phys.bodyId });
+
+
+                globalEventBus.emit("PLAY_SPATIAL_SOUND", {
+                    id: "nade_explosion",
+                    position: vec3.fromValues(transform.position[0], transform.position[1], transform.position[2]),
+                    volume: 1.0,
+                    pitch: 1.0
+                });
 
                 setTimeout(() => {
                     globalEventBus.emit("PHYSICS_COMMAND", {

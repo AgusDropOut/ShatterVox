@@ -12,6 +12,7 @@ import { EntityRepository } from "../entity/EntityRepository";
 import { BlockRegistry } from "../block/BlockRegistry";
 import { DebugGui } from "./DebugGui";
 import { SoundManager } from "../audio/SoundManager";
+import { ParticleEffectsController } from "../particle/ParticleEffectController";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -27,6 +28,7 @@ export class Engine {
     private physicsFacade: PhysicsFacade;
     public static readonly voxelSize: number = 0.12;
     private soundManager: SoundManager;
+    private particleController!: ParticleEffectsController;
 
   
     private showPhysicsDebug: boolean = false;
@@ -81,6 +83,7 @@ export class Engine {
 
         this.window = new Window(this.canvas);
         this.entityRepository = new EntityRepository();
+        ParticleEffectsController.initialize();
 
         Engine.projectionMatrix = mat4.create();
         mat4.perspectiveZO(Engine.projectionMatrix, Math.PI / 4, this.canvas.width / this.canvas.height, Engine.zNear, Engine.zFar);
@@ -117,10 +120,12 @@ export class Engine {
         this.soundManager.loadSound("glass_collision", "/assets/sounds/glass_collision.ogg");
         this.soundManager.loadSound("grass_collision", "/assets/sounds/grass_collision.ogg");
         this.soundManager.loadSound("leaves_collision", "/assets/sounds/leaves_collision.ogg");
+        this.soundManager.loadSound("nade_explosion", "/assets/sounds/nade_explosion.ogg");
         this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg"),
 
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
+        
 
         await this.renderer.loadEntityAsset(
             "bomb", 
@@ -165,15 +170,6 @@ export class Engine {
        
 
         this.player.update(deltaTime);
-        if(this.totalFrames % 100 === 0) {
-            globalEventBus.emit("SPAWN_PARTICLE", {
-                position: this.player.camera.position,
-                velocity: [0.006, 0.005, 0],
-                color: [1, 0, 0, 1],
-                lifetime: 1500.0, 
-                size: 0.3
-            });
-        }
         this.explosiveManager.update(deltaTime);
         this.world.updateDirtyMeshes();
     }

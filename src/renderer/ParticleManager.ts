@@ -9,6 +9,7 @@ export interface Particle {
         color: vec4
         lifetime: number
         size: number
+        gravity: boolean
 } 
 
 export class ParticleManager {
@@ -37,13 +38,15 @@ export class ParticleManager {
                 velocity: vec3.clone(data.velocity),
                 color: vec4.clone(data.color),
                 lifetime: data.lifetime,
-                size: data.size
+                size: data.size,
+                gravity: data.gravity ?? false
             };
             this.addParticle(particle);
         });
     }
 
     public addParticle(particle: Particle): void {
+        console.log("Adding particle:", particle);
         if (this.currentParticleIndex >= this.maxParticles) {
             this.currentParticleIndex = 0;
         }
@@ -53,9 +56,17 @@ export class ParticleManager {
     }
 
     public flushParticles(): void {
+        if (this.currentFrameNewParticles === 0) return;
+
+        if (this.currentFrameNewParticles > this.maxParticles) {
+            this.currentFrameNewParticles = this.maxParticles;
+        }
+
         const particleData = new Float32Array(this.currentFrameNewParticles * this.floatsPerParticle);
+        
         for (let i = 0; i < this.currentFrameNewParticles; i++) {
-            const particle = this.particles[this.lastFrameParticleIndex + i];
+            const readIndex = (this.lastFrameParticleIndex + i) % this.maxParticles;
+            const particle = this.particles[readIndex];
           
             particleData[i * this.floatsPerParticle + 0] = particle.position[0];
             particleData[i * this.floatsPerParticle + 1] = particle.position[1];
@@ -68,25 +79,29 @@ export class ParticleManager {
             particleData[i * this.floatsPerParticle + 8] = particle.color[0];
             particleData[i * this.floatsPerParticle + 9] = particle.color[1];
             particleData[i * this.floatsPerParticle + 10] = particle.color[2];
-            particleData[i * this.floatsPerParticle + 11] = 1.0;
-  
+            particleData[i * this.floatsPerParticle + 11] = particle.gravity ? 1.0 : 0.0;
         }
-        if(this.lastFrameParticleIndex + this.currentFrameNewParticles > this.maxParticles) {
+
+        if (this.lastFrameParticleIndex + this.currentFrameNewParticles > this.maxParticles) {
             const firstPartSize = this.maxParticles - this.lastFrameParticleIndex;
-            this.particleBuffer.updateSubData(particleData.subarray(0, firstPartSize * this.floatsPerParticle), this.lastFrameParticleIndex * this.floatsPerParticle * 4); 
+            this.particleBuffer.updateSubData(
+                particleData.subarray(0, firstPartSize * this.floatsPerParticle), 
+                this.lastFrameParticleIndex * this.floatsPerParticle * 4
+            ); 
             const secondPartSize = this.currentFrameNewParticles - firstPartSize;
-            this.particleBuffer.updateSubData(particleData.subarray(secondPartSize * this.floatsPerParticle), 0);
+            this.particleBuffer.updateSubData(
+                particleData.subarray(firstPartSize * this.floatsPerParticle), 
+                0
+            );
         } else {
-            this.particleBuffer.updateSubData(particleData, this.lastFrameParticleIndex * this.floatsPerParticle * 4);
+            this.particleBuffer.updateSubData(
+                particleData, 
+                this.lastFrameParticleIndex * this.floatsPerParticle * 4
+            );
         }
+        
         this.lastFrameParticleIndex = (this.lastFrameParticleIndex + this.currentFrameNewParticles) % this.maxParticles;
-
-        
         this.currentFrameNewParticles = 0;
-
-        
-
-        
     }
 
     public getParticleBuffer(): GPUBuffer {

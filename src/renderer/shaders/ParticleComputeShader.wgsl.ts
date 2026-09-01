@@ -2,7 +2,7 @@ export const ParticleComputeShaderWGSL = `
     struct Particle {
         positionAndLife: vec4<f32>,
         velocityAndSize: vec4<f32>,
-        color: vec4<f32>,
+        colorAndGravity: vec4<f32>,
     };
 
     struct Params {
@@ -28,6 +28,10 @@ export const ParticleComputeShaderWGSL = `
         }
 
         var particle = particleBuffer[global_id.x];
+        if (particle.colorAndGravity.w > 0.0) {
+            particle.velocityAndSize.y -= 0.0006; 
+        }
+
         particle.positionAndLife.x += particle.velocityAndSize.x;
         particle.positionAndLife.y += particle.velocityAndSize.y;
         particle.positionAndLife.z += particle.velocityAndSize.z;

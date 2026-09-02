@@ -15,6 +15,7 @@ import { SoundManager } from "../audio/SoundManager";
 import { ParticleEffectsController } from "../particle/ParticleEffectController";
 import { BillBoardManager } from "../entity/manager/BillBoardManager";
 import { BuildManager } from "./BuildManager";
+import { WorldSerializer } from "../world/WorldSerializer";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -104,9 +105,11 @@ export class Engine {
             return;
         }
 
-        this.debugGui = new DebugGui(this.renderer);
+       
 
         this.world = new World(this.renderer.device, this.renderer.getModelLayout());
+
+        this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository);
 
         this.structuralIntegrity = new StructuralIntegrity(
             this.renderer.device, 
@@ -132,6 +135,33 @@ export class Engine {
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
 
+        try {
+            const response = await fetch('/assets/portfolio.bin');
+            
+            const contentType = response.headers.get("content-type");
+            
+            if (response.ok && contentType && !contentType.includes("text/html")) {
+                const arrayBuffer = await response.arrayBuffer();
+                const loadSuccess = WorldSerializer.loadWorld(arrayBuffer, this.world, globalEventBus);
+                
+                if (loadSuccess) {
+                    this.world.updateAllMeshes();
+                    console.log("[Engine] Portfolio world loaded.");
+                } else {
+                    console.warn("[Engine] Corrupted or invalid .bin file. Falling back to test map.");
+                    this.world.generateTestMap();
+                }
+            } else {
+                console.log("[Engine] No saved world found. Falling back to test map.");
+                this.world.generateTestMap();
+            }
+        } catch (e) {
+            console.warn("Failed to fetch world, generating default.", e);
+            this.world.generateTestMap();
+        }
+        
+
+        
         await this.renderer.loadEntityAsset(
             "bomb", 
             "/assets/models/bomb.obj", 

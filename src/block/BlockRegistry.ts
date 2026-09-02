@@ -97,7 +97,7 @@ export class BlockRegistry {
         this.create(9).name("Glowstone").texture(9).color(0.5, 0.9, 0.4).light(1.5, 1.0, 0.8, 0.2).fragmentation(0.12).sound("glass_collision").register();
         this.create(10).name("Redstone").texture(6).color(1.0, 0.0, 0.0).fragmentation(0.05).sound("stone_collision").register();
         this.create(11).name("Quartz").texture(10).color(1.0, 1.0, 1.0).fragmentation(0.05).sound("glass_collision").register();
-        this.create(13).name("Slime").texture(11).color(0.3, 1.0, 0.3).light(1.0, 0.1, 0.8, 0.1).physics(0.8, 0.9, 1.4, 0.0).behavior(SlimeBehavior).sound("slime_squish").register();
+        this.create(13).name("Slime").texture(11).color(0.3, 1.0, 0.3).physics(0.8, 0.9, 1.4, 0.0).behavior(SlimeBehavior).sound("slime_squish").register();
     }
 
     public static create(id: number): BlockBuilder {

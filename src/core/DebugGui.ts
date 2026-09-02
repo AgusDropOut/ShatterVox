@@ -2,9 +2,14 @@ import GUI from 'lil-gui';
 import { WebGPURenderer } from '../renderer/WebGPURenderer';
 import { globalEventBus } from './EventBus';
 import { BlockRegistry } from '../block/BlockRegistry';
+import { WorldSerializer } from '../world/WorldSerializer';
+import type { World } from '../world/World';
+import type { EntityRepository } from '../entity/EntityRepository';
 
 export class DebugGui {
     private gui: GUI;
+
+    
     
     public state = {
         activeView: 'None',
@@ -13,7 +18,7 @@ export class DebugGui {
         selectedBlockId: 1
     };
 
-    constructor(renderer: WebGPURenderer) {
+    constructor(renderer: WebGPURenderer, world: World, entityRepo: EntityRepository) {
         this.gui = new GUI({ title: 'Engine Debug Settings' });
         this.gui.hide();
 
@@ -24,7 +29,7 @@ export class DebugGui {
         });
 
         this.setupViews();
-        this.setupBuildMode();
+        this.setupBuildMode(world, entityRepo);
         this.setupProfiler(renderer);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
@@ -55,7 +60,7 @@ export class DebugGui {
         });
     }
 
-    private setupBuildMode(): void {
+   private setupBuildMode(world: World, entityRepo: EntityRepository): void {
         const folder = this.gui.addFolder('Build Mode');
         const availableBlocks = BlockRegistry.getAvailableBlocks();
         availableBlocks['Billboard (Entity)'] = 999; 
@@ -72,6 +77,18 @@ export class DebugGui {
         folder.add({ tool: 'SINGLE' }, 'tool', toolOptions).name('Build Tool').onChange((value: string) => {
             globalEventBus.emit("SET_BUILD_TOOL", { tool: value });
         });
+
+        folder.add({ 
+            saveWorld: () => {
+                const blob = WorldSerializer.saveWorld(world, entityRepo);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'portfolio.bin';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }, 'saveWorld').name('Export World (.bin)');
     }
 
     private setupProfiler(renderer: WebGPURenderer): void {

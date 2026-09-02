@@ -1,9 +1,11 @@
 import { BlockRegistry } from "../block/BlockRegistry";
+import { globalEventBus } from "../core/EventBus";
 import type { TerrainPhysics } from "../physics/TerrainPhysics";
 import { Chunk } from "./Chunk";
 import { ChunkMesher } from "./ChunkMesher";
 import type { Debri } from "./Debri";
 import { TerrainGenerator } from "./TerrainGenerator";
+import { WorldSerializer } from "./WorldSerializer";
 
 export class World {
     public readonly chunks: Map<string, Chunk> = new Map();
@@ -15,16 +17,25 @@ export class World {
     private randomTickAccumulator: number = 0;
     private readonly RANDOM_TICK_INTERVAL: number = 0.001; 
     private readonly TICKS_PER_CHUNK: number = 35; 
+    private modelLayout: GPUBindGroupLayout;
 
     constructor(device: GPUDevice, modelLayout: GPUBindGroupLayout, terrainPhysics: TerrainPhysics | null = null) {
         this.mesher = new ChunkMesher();
         this.debri = [];
         this.device = device;
         this.terrainPhysics = terrainPhysics;
+        this.modelLayout = modelLayout;
 
-        const generator = new TerrainGenerator(this, device, modelLayout);
-        generator.generateTestMap();
+
         
+        
+        
+      
+    }
+
+    public generateTestMap(): void {
+        const generator = new TerrainGenerator(this, this.device, this.modelLayout);
+        generator.generateTestMap();
         this.updateAllMeshes();
     }
     
@@ -195,5 +206,19 @@ export class World {
                 }
             }
         }
+    }
+
+   public getChunks(): IterableIterator<Chunk> {
+        return this.chunks.values();
+    }
+
+    public clearChunks(): void {
+        this.chunks.clear();
+    }
+
+    public createChunk(cx: number, cy: number, cz: number): Chunk {
+        const chunk = new Chunk(this.device, this.modelLayout, cx, cy, cz);
+        this.chunks.set(`${cx},${cy},${cz}`, chunk);
+        return chunk;
     }
 }

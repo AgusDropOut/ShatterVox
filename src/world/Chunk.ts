@@ -40,6 +40,11 @@ export class Chunk implements Mesheable, Renderable, Cullable {
             entries: [{ binding: 0, resource: { buffer: this.modelBuffer.buffer } }]
         });
     }
+
+    public getRawBlocks(): Uint8Array {
+        return this.blocks;
+    }
+    
     getRadius(): number {
         // this could be calculated once but nevermind
         const width = Chunk.WIDTH * Engine.voxelSize;

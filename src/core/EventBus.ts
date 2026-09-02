@@ -18,6 +18,7 @@ export interface GameEvents {
     "SPAWN_BILLBOARD": { x: number, y: number, z: number, rot: any };
     "TOGGLE_BUILD_MODE": { enabled?: boolean }; 
     "SET_BUILD_BLOCK": { id: number };
+    "SET_BUILD_TOOL": { tool: string };
 }
 
 class EventBus {

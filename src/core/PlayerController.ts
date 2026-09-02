@@ -56,14 +56,17 @@ export class PlayerController {
                         if (this.buildManager.selectedBlockId === 999) {
                             this.handleBillboardPlacement();
                         } else {
-                            this.isDraggingBuild = true;
-                            this.handleBuildPlacement();
+                            if (this.buildManager.activeTool === 'SINGLE') {
+                                this.isDraggingBuild = true;
+                                this.handleBuildPlacement();
+                            } else if (this.buildManager.activeTool === 'BOX') {
+                                this.handleBoxToolClick();
+                            }
                         }
                     }
                 }
             }
         });
-
         window.addEventListener("mouseup", (e) => {
             if (e.button === 2) {
                 this.isDraggingBuild = false;
@@ -221,6 +224,19 @@ export class PlayerController {
         }
     }
 
+    private handleBoxToolClick(): void {
+        const reach = 100.0; 
+        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
+
+        if (gridHit.hit && gridHit.normal) {
+            const placeX = gridHit.blockPos[0] + gridHit.normal[0];
+            const placeY = gridHit.blockPos[1] + gridHit.normal[1];
+            const placeZ = gridHit.blockPos[2] + gridHit.normal[2];
+
+            this.buildManager.registerBoxPoint(placeX, placeY, placeZ);
+        }
+    }
+
     private handleBuildPlacement(): void {
         const reach = 10.0;
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
@@ -234,7 +250,7 @@ export class PlayerController {
             if (this.lastBuildPos === posKey) return;
             this.lastBuildPos = posKey;
 
-            this.buildManager.placeBlock(placeX, placeY, placeZ);
+            this.buildManager.placeSingle(placeX, placeY, placeZ);
         }
     }
 }

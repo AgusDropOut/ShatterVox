@@ -67,6 +67,11 @@ export class DebugGui {
         folder.add(this.state, 'selectedBlockId', availableBlocks).name('Block Type').onChange((value: number) => {
             globalEventBus.emit("SET_BUILD_BLOCK", { id: Number(value) });
         });
+
+        const toolOptions = { 'Single Block': 'SINGLE', 'Box / Wall (3-Click)': 'BOX' };
+        folder.add({ tool: 'SINGLE' }, 'tool', toolOptions).name('Build Tool').onChange((value: string) => {
+            globalEventBus.emit("SET_BUILD_TOOL", { tool: value });
+        });
     }
 
     private setupProfiler(renderer: WebGPURenderer): void {

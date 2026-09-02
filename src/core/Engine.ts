@@ -14,6 +14,7 @@ import { DebugGui } from "./DebugGui";
 import { SoundManager } from "../audio/SoundManager";
 import { ParticleEffectsController } from "../particle/ParticleEffectController";
 import { BillBoardManager } from "../entity/manager/BillBoardManager";
+import { BuildManager } from "./BuildManager";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -44,6 +45,8 @@ export class Engine {
     private explosiveManager!: ExplosiveManager;
     private billboardManager!: BillBoardManager;
     private debugGui!: DebugGui;
+
+    private buildManager!: BuildManager;
 
     public static projectionMatrix: mat4 = mat4.create();
     public static zNear: number = 0.1;
@@ -125,8 +128,8 @@ export class Engine {
         this.soundManager.loadSound("nade_explosion", "/assets/sounds/nade_explosion.ogg");
         this.soundManager.loadSound("slime_squish", "/assets/sounds/slime_squish.ogg");
         this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg"),
-
-        this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager);
+        this.buildManager = new BuildManager(this.world);
+        this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
         

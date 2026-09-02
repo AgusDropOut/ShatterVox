@@ -6,12 +6,14 @@ import { vec3, quat } from "gl-matrix";
 import type { PhysicsFacade } from "../physics/PhysicsFacade";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 import type { SoundManager } from "../audio/SoundManager";
+import type { BuildManager } from "../core/BuildManager";
 
 export class PlayerController {
     public readonly camera: Camera;
     public readonly input: Input;
     private readonly world: World;
     private readonly physicsFacade: PhysicsFacade;
+    private readonly buildManager: BuildManager;
     public readonly playerId: number;
     private speed: number = 6.0;
     private canThrowBomb: boolean = true;
@@ -22,9 +24,13 @@ export class PlayerController {
     private acousticTimer: number = 0;
     private readonly ACOUSTIC_INTERVAL: number = 0.25;
 
-    constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade, soundManager: SoundManager) {
+    private isDraggingBuild: boolean = false;
+    private lastBuildPos: string = "";
+
+    constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade, soundManager: SoundManager, buildManager: BuildManager) {
         this.world = world;
         this.physicsFacade = physicsFacade;
+        this.buildManager = buildManager;
         this.camera = new Camera(vec3.fromValues(5, 0, 5));
         this.targetPosition = vec3.fromValues(5, 0.8, 5);
         this.input = new Input(canvas);
@@ -46,8 +52,22 @@ export class PlayerController {
                 if (e.button === 0) {
                     this.handleLeftClick();
                 } else if (e.button === 2) {
-                    this.handleRightClick();
+                    if (this.buildManager.isActive) {
+                        if (this.buildManager.selectedBlockId === 999) {
+                            this.handleBillboardPlacement();
+                        } else {
+                            this.isDraggingBuild = true;
+                            this.handleBuildPlacement();
+                        }
+                    }
                 }
+            }
+        });
+
+        window.addEventListener("mouseup", (e) => {
+            if (e.button === 2) {
+                this.isDraggingBuild = false;
+                this.lastBuildPos = "";
             }
         });
 
@@ -119,6 +139,10 @@ export class PlayerController {
                 rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] }
             });
         }
+
+        if (this.isDraggingBuild && this.buildManager.isActive && this.buildManager.selectedBlockId !== 999) {
+            this.handleBuildPlacement();
+        }
     }
 
     private evaluateAcousticEnvironment(): void {
@@ -171,9 +195,8 @@ export class PlayerController {
         }
     }
 
-    private async handleRightClick(): Promise<void> {
+    private handleBillboardPlacement(): void {
         const reach = 10.0;
-        console.log("Right click detected. Performing raycast for billboard placement.");
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
 
         if (gridHit.hit) {
@@ -195,6 +218,23 @@ export class PlayerController {
                 z: spawnPos[2],
                 rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] }
             });
+        }
+    }
+
+    private handleBuildPlacement(): void {
+        const reach = 10.0;
+        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
+
+        if (gridHit.hit && gridHit.normal) {
+            const placeX = gridHit.blockPos[0] + gridHit.normal[0];
+            const placeY = gridHit.blockPos[1] + gridHit.normal[1];
+            const placeZ = gridHit.blockPos[2] + gridHit.normal[2];
+
+            const posKey = `${placeX},${placeY},${placeZ}`;
+            if (this.lastBuildPos === posKey) return;
+            this.lastBuildPos = posKey;
+
+            this.buildManager.placeBlock(placeX, placeY, placeZ);
         }
     }
 }

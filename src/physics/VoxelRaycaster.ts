@@ -10,14 +10,6 @@ export interface RaycastResult {
 }
 
 export class VoxelRaycaster {
-    
-    /**
-     * Executes a Fast Voxel Traversal (Amanatides & Woo DDA) to find the first solid block.
-     * @param origin Starting point of the ray (e.g., Camera position)
-     * @param direction Normalized direction vector (e.g., Camera front)
-     * @param maxDistance Maximum reach of the ray in world units
-     * @param world The world instance to query blocks from
-     */
     public static raycastGrid(origin: vec3, direction: vec3, maxDistance: number, world: World): RaycastResult {
         const gridOrigin = vec3.fromValues(
             origin[0] / Engine.voxelSize,
@@ -76,8 +68,4 @@ export class VoxelRaycaster {
 
         return { hit: false, blockPos: vec3.create(), normal: vec3.create(), distance: Infinity };
     }
-
-
-   
-
 }

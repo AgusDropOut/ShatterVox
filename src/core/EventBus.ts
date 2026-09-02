@@ -16,6 +16,8 @@ export interface GameEvents {
     "PLAY_SPATIAL_SOUND": { id: string, position: vec3, volume?: number, pitch?: number };
     "SPAWN_PARTICLE": { position: vec3, velocity: vec3, color: vec4, lifetime: number, size: number, gravity?: boolean };
     "SPAWN_BILLBOARD": { x: number, y: number, z: number, rot: any };
+    "TOGGLE_BUILD_MODE": { enabled?: boolean }; 
+    "SET_BUILD_BLOCK": { id: number };
 }
 
 class EventBus {

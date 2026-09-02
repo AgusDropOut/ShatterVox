@@ -1,14 +1,16 @@
 import GUI from 'lil-gui';
 import { WebGPURenderer } from '../renderer/WebGPURenderer';
 import { globalEventBus } from './EventBus';
+import { BlockRegistry } from '../block/BlockRegistry';
 
 export class DebugGui {
     private gui: GUI;
     
-   
     public state = {
         activeView: 'None',
-        physicsDebug: false
+        physicsDebug: false,
+        buildMode: false,
+        selectedBlockId: 1
     };
 
     constructor(renderer: WebGPURenderer) {
@@ -22,6 +24,7 @@ export class DebugGui {
         });
 
         this.setupViews();
+        this.setupBuildMode();
         this.setupProfiler(renderer);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
@@ -43,13 +46,26 @@ export class DebugGui {
             globalEventBus.emit("TOGGLE_PHYSICS_DEBUG", { enabled: value });
         });
 
-   
         globalEventBus.on("TOGGLE_PHYSICS_DEBUG", (data) => {
             if (data.enabled === undefined) {
                 this.state.physicsDebug = !this.state.physicsDebug;
             } else {
                 this.state.physicsDebug = data.enabled;
             }
+        });
+    }
+
+    private setupBuildMode(): void {
+        const folder = this.gui.addFolder('Build Mode');
+        const availableBlocks = BlockRegistry.getAvailableBlocks();
+        availableBlocks['Billboard (Entity)'] = 999; 
+
+        folder.add(this.state, 'buildMode').name('Enable Build Mode').onChange((value: boolean) => {
+            globalEventBus.emit("TOGGLE_BUILD_MODE", { enabled: value });
+        });
+
+        folder.add(this.state, 'selectedBlockId', availableBlocks).name('Block Type').onChange((value: number) => {
+            globalEventBus.emit("SET_BUILD_BLOCK", { id: Number(value) });
         });
     }
 

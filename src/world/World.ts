@@ -1,3 +1,4 @@
+import { BlockRegistry } from "../block/BlockRegistry";
 import type { TerrainPhysics } from "../physics/TerrainPhysics";
 import { Chunk } from "./Chunk";
 import { ChunkMesher } from "./ChunkMesher";
@@ -11,6 +12,10 @@ export class World {
     private readonly device: GPUDevice;
     public terrainPhysics: TerrainPhysics | null = null;
 
+    private randomTickAccumulator: number = 0;
+    private readonly RANDOM_TICK_INTERVAL: number = 0.001; 
+    private readonly TICKS_PER_CHUNK: number = 35; 
+
     constructor(device: GPUDevice, modelLayout: GPUBindGroupLayout, terrainPhysics: TerrainPhysics | null = null) {
         this.mesher = new ChunkMesher();
         this.debri = [];
@@ -18,7 +23,7 @@ export class World {
         this.terrainPhysics = terrainPhysics;
 
         const generator = new TerrainGenerator(this, device, modelLayout);
-        generator.generateBoxSSGITestMap();
+        generator.generateTestMap();
         
         this.updateAllMeshes();
     }
@@ -117,6 +122,17 @@ export class World {
         }
     }
 
+    public update(deltaTime: number): void {
+        this.randomTickAccumulator += deltaTime;
+
+        if (this.randomTickAccumulator >= this.RANDOM_TICK_INTERVAL) {
+            this.processRandomTicks();
+            this.randomTickAccumulator = 0;
+        }
+
+        this.updateDirtyMeshes();
+    }
+
     private updateChunkMesh(chunk: Chunk): void {
         let neighbors = {
             top: this.chunks.get(`${chunk.chunkX},${chunk.chunkY + 1},${chunk.chunkZ}`) || null,
@@ -152,6 +168,32 @@ export class World {
         const index = this.debri.indexOf(debri);
         if (index !== -1) {
             this.debri.splice(index, 1);
+        }
+    }
+
+   private processRandomTicks(): void {
+        for (const chunk of this.chunks.values()) {
+            for (let i = 0; i < this.TICKS_PER_CHUNK; i++) {
+
+                const lx = Math.floor(Math.random() * Chunk.WIDTH);
+                const ly = Math.floor(Math.random() * Chunk.HEIGHT);
+                const lz = Math.floor(Math.random() * Chunk.DEPTH);
+
+                const blockId = chunk.getBlock(lx, ly, lz);
+                if (blockId === 0) continue; 
+
+                const blockDef = BlockRegistry.get(blockId);
+                
+            
+                if (blockDef && blockDef.behavior && blockDef.behavior.onRandomTick) {
+                    const globalX = (chunk.chunkX * Chunk.WIDTH) + lx;
+                    const globalY = (chunk.chunkY * Chunk.HEIGHT) + ly;
+                    const globalZ = (chunk.chunkZ * Chunk.DEPTH) + lz;
+                    
+                 
+                    blockDef.behavior.onRandomTick(globalX, globalY, globalZ, this);
+                }
+            }
         }
     }
 }

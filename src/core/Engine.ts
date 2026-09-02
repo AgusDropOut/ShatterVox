@@ -123,6 +123,7 @@ export class Engine {
         this.soundManager.loadSound("grass_collision", "/assets/sounds/grass_collision.ogg");
         this.soundManager.loadSound("leaves_collision", "/assets/sounds/leaves_collision.ogg");
         this.soundManager.loadSound("nade_explosion", "/assets/sounds/nade_explosion.ogg");
+        this.soundManager.loadSound("slime_squish", "/assets/sounds/slime_squish.ogg");
         this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg"),
 
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager);
@@ -180,7 +181,7 @@ export class Engine {
 
         this.player.update(deltaTime);
         this.explosiveManager.update(deltaTime);
-        this.world.updateDirtyMeshes();
+        this.world.update(deltaTime);
     }
 
     private render(): void {

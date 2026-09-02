@@ -102,4 +102,53 @@ export class ParticleSpawner {
             });
         }
     }
+
+    public static spawnAura(position: vec3, color: vec4, count: number = 5): void {
+        for (let i = 0; i < count; i++) {
+
+            const jitteredPos = vec3.fromValues(
+                position[0] + this.getRandom(-0.08, 0.08),
+                position[1] + this.getRandom(0.0, 0.05),
+                position[2] + this.getRandom(-0.08, 0.08)
+            );
+
+          
+            const vel = vec3.fromValues(
+                this.getRandom(-0.005, 0.005), 
+                this.getRandom(0.002, 0.012),
+                this.getRandom(-0.005, 0.005)
+            );
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: jitteredPos,
+                velocity: vel,
+                color: vec4.clone(color),
+                lifetime: this.getRandom(240, 600), 
+                size: this.getRandom(0.04, 0.12),   
+                gravity: false 
+            });
+        }
+    }
+
+   
+    public static spawnDirectional(position: vec3, direction: vec3, color: vec4, speed: number, count: number = 3): void {
+        for (let i = 0; i < count; i++) {
+            const vel = vec3.create();
+            const currentSpeed = speed + this.getRandom(-speed * 0.2, speed * 0.2);
+            vec3.scale(vel, direction, currentSpeed);
+            
+            vel[0] += this.getRandom(-0.015, 0.015);
+            vel[1] += this.getRandom(-0.015, 0.015);
+            vel[2] += this.getRandom(-0.015, 0.015);
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: vec3.clone(position),
+                velocity: vel,
+                color: vec4.clone(color),
+                lifetime: this.getRandom(80, 150),
+                size: this.getRandom(0.06, 0.14),
+                gravity: false
+            });
+        }
+    }
 }

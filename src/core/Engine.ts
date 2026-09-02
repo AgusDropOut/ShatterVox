@@ -32,7 +32,6 @@ export class Engine {
     private soundManager: SoundManager;
     private particleController!: ParticleEffectsController;
 
-  
     private showPhysicsDebug: boolean = false;
     private currentDebugView: string = 'None';
 
@@ -44,9 +43,8 @@ export class Engine {
     private entityRepository: EntityRepository;
     private explosiveManager!: ExplosiveManager;
     private billboardManager!: BillBoardManager;
-    private debugGui!: DebugGui;
-
     private buildManager!: BuildManager;
+    private debugGui!: DebugGui;
 
     public static projectionMatrix: mat4 = mat4.create();
     public static zNear: number = 0.1;
@@ -127,12 +125,12 @@ export class Engine {
         this.soundManager.loadSound("leaves_collision", "/assets/sounds/leaves_collision.ogg");
         this.soundManager.loadSound("nade_explosion", "/assets/sounds/nade_explosion.ogg");
         this.soundManager.loadSound("slime_squish", "/assets/sounds/slime_squish.ogg");
-        this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg"),
+        this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg");
+
         this.buildManager = new BuildManager(this.world);
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
-        
 
         await this.renderer.loadEntityAsset(
             "bomb", 
@@ -180,11 +178,49 @@ export class Engine {
             return;
         }
 
-       
-
         this.player.update(deltaTime);
         this.explosiveManager.update(deltaTime);
         this.world.update(deltaTime);
+    }
+
+    private drawBuildHighlight(): void {
+        if (!this.buildManager.isActive || !this.player.currentPlacementTarget) return;
+
+        const bounds = this.buildManager.getHighlightBounds(this.player.currentPlacementTarget);
+        if (!bounds) return;
+
+        const s = Engine.voxelSize;
+        const minX = bounds.min[0] * s;
+        const minY = bounds.min[1] * s;
+        const minZ = bounds.min[2] * s;
+        
+        const maxX = (bounds.max[0] + 1) * s;
+        const maxY = (bounds.max[1] + 1) * s;
+        const maxZ = (bounds.max[2] + 1) * s;
+
+        const vertices = new Float32Array([
+            minX, minY, minZ,  maxX, minY, minZ,
+            maxX, minY, minZ,  maxX, minY, maxZ,
+            maxX, minY, maxZ,  minX, minY, maxZ,
+            minX, minY, maxZ,  minX, minY, minZ,
+            minX, maxY, minZ,  maxX, maxY, minZ,
+            maxX, maxY, minZ,  maxX, maxY, maxZ,
+            maxX, maxY, maxZ,  minX, maxY, maxZ,
+            minX, maxY, maxZ,  minX, maxY, minZ,
+            minX, minY, minZ,  minX, maxY, minZ,
+            maxX, minY, minZ,  maxX, maxY, minZ,
+            maxX, minY, maxZ,  maxX, maxY, maxZ,
+            minX, minY, maxZ,  minX, maxY, maxZ
+        ]);
+
+        const colors = new Float32Array(72);
+        for (let i = 0; i < 24; i++) {
+            colors[i * 3 + 0] = 0.0; 
+            colors[i * 3 + 1] = 1.0; 
+            colors[i * 3 + 2] = 0.5; 
+        }
+
+        this.renderer.drawPhysicsDebug(vertices, colors);
     }
 
     private render(): void {
@@ -196,8 +232,6 @@ export class Engine {
 
         this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array, this.totalFrames);
         
-        
-        
         this.renderer.drawGeometry(this.world, this.entityRepository, this.physicsFacade);
         this.renderer.computeParticles();
         this.renderer.drawParticles();
@@ -207,7 +241,6 @@ export class Engine {
         this.renderer.drawComposition();
         this.renderer.drawTAA(this.totalFrames);
 
-      
         switch (this.currentDebugView) {
             case 'Depth':
                 this.renderer.debugDrawTexture(this.renderer.depthView, true);
@@ -238,6 +271,8 @@ export class Engine {
         if (this.showPhysicsDebug) {
             this.renderer.drawPhysicsDebug(this.physicsFacade.debugVertices, this.physicsFacade.debugColors);
         }
+
+        this.drawBuildHighlight();
 
         this.renderer.endFrame();
     }

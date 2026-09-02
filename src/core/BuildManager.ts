@@ -1,4 +1,4 @@
-import { globalEventBus } from "../core/EventBus";
+import { globalEventBus } from "./EventBus";
 import type { World } from "../world/World";
 import { vec3 } from "gl-matrix";
 
@@ -71,7 +71,7 @@ export class BuildManager {
             volume: 0.8, pitch: 1.5 
         });
 
-        if (this.boxPoints.length === 3) {
+        if (this.boxPoints.length === 2) {
             this.executeBox();
             this.boxPoints = [];
         }
@@ -80,14 +80,13 @@ export class BuildManager {
     private executeBox(): void {
         const p1 = this.boxPoints[0];
         const p2 = this.boxPoints[1];
-        const p3 = this.boxPoints[2];
 
-        const minX = Math.min(p1[0], p2[0], p3[0]);
-        const maxX = Math.max(p1[0], p2[0], p3[0]);
-        const minY = Math.min(p1[1], p2[1], p3[1]);
-        const maxY = Math.max(p1[1], p2[1], p3[1]);
-        const minZ = Math.min(p1[2], p2[2], p3[2]);
-        const maxZ = Math.max(p1[2], p2[2], p3[2]);
+        const minX = Math.min(p1[0], p2[0]);
+        const maxX = Math.max(p1[0], p2[0]);
+        const minY = Math.min(p1[1], p2[1]);
+        const maxY = Math.max(p1[1], p2[1]);
+        const minZ = Math.min(p1[2], p2[2]);
+        const maxZ = Math.max(p1[2], p2[2]);
 
         const batch: BuildOperation[] = [];
 
@@ -133,5 +132,23 @@ export class BuildManager {
             position: [lastX * 0.12, lastY * 0.12, lastZ * 0.12], 
             volume: 0.5, pitch: 0.8
         });
+    }
+
+    public getHighlightBounds(target: vec3): { min: vec3, max: vec3 } | null {
+        if (!this.isActive || this.selectedBlockId === 999) return null;
+
+        if (this.activeTool === 'SINGLE' || this.boxPoints.length === 0) {
+            return { min: vec3.clone(target), max: vec3.clone(target) };
+        } 
+        
+        if (this.boxPoints.length === 1) {
+            const p1 = this.boxPoints[0];
+            return {
+                min: vec3.fromValues(Math.min(p1[0], target[0]), Math.min(p1[1], target[1]), Math.min(p1[2], target[2])),
+                max: vec3.fromValues(Math.max(p1[0], target[0]), Math.max(p1[1], target[1]), Math.max(p1[2], target[2]))
+            };
+        }
+        
+        return null;
     }
 }

@@ -6,7 +6,7 @@ import { vec3, quat } from "gl-matrix";
 import type { PhysicsFacade } from "../physics/PhysicsFacade";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 import type { SoundManager } from "../audio/SoundManager";
-import type { BuildManager } from "../core/BuildManager";
+import type { BuildManager } from "./BuildManager";
 
 export class PlayerController {
     public readonly camera: Camera;
@@ -19,8 +19,9 @@ export class PlayerController {
     private canThrowBomb: boolean = true;
 
     public targetPosition: vec3;
-    private soundManager: SoundManager;
+    public currentPlacementTarget: vec3 | null = null;
 
+    private soundManager: SoundManager;
     private acousticTimer: number = 0;
     private readonly ACOUSTIC_INTERVAL: number = 0.25;
 
@@ -67,6 +68,7 @@ export class PlayerController {
                 }
             }
         });
+
         window.addEventListener("mouseup", (e) => {
             if (e.button === 2) {
                 this.isDraggingBuild = false;
@@ -81,7 +83,6 @@ export class PlayerController {
         const transform = this.physicsFacade.transforms.get(this.playerId);
         if (transform) {
             vec3.set(this.targetPosition, transform.position[0], transform.position[1] + 0.8, transform.position[2]);
-            
             const lerpSpeed = 15.0; 
             const t = Math.min(lerpSpeed * deltaTime, 1.0);
             vec3.lerp(this.camera.position, this.camera.position, this.targetPosition, t);
@@ -98,6 +99,18 @@ export class PlayerController {
         if (this.acousticTimer >= this.ACOUSTIC_INTERVAL) {
             this.evaluateAcousticEnvironment();
             this.acousticTimer = 0;
+        }
+
+        const reach = 10.0;
+        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
+        if (gridHit.hit && gridHit.normal) {
+            this.currentPlacementTarget = vec3.fromValues(
+                gridHit.blockPos[0] + gridHit.normal[0],
+                gridHit.blockPos[1] + gridHit.normal[1],
+                gridHit.blockPos[2] + gridHit.normal[2]
+            );
+        } else {
+            this.currentPlacementTarget = null;
         }
 
         const velocity = vec3.create();
@@ -150,12 +163,7 @@ export class PlayerController {
 
     private evaluateAcousticEnvironment(): void {
         const rayDirections: vec3[] = [
-            [0, 1, 0],
-            [0, -1, 0],
-            [1, 0, 0],
-            [-1, 0, 0],
-            [0, 0, 1],
-            [0, 0, -1]
+            [0, 1, 0], [0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]
         ];
 
         const MAX_RAY_DISTANCE = 32.0;
@@ -225,32 +233,19 @@ export class PlayerController {
     }
 
     private handleBoxToolClick(): void {
-        const reach = 100.0; 
-        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
-
-        if (gridHit.hit && gridHit.normal) {
-            const placeX = gridHit.blockPos[0] + gridHit.normal[0];
-            const placeY = gridHit.blockPos[1] + gridHit.normal[1];
-            const placeZ = gridHit.blockPos[2] + gridHit.normal[2];
-
-            this.buildManager.registerBoxPoint(placeX, placeY, placeZ);
-        }
+        if (!this.currentPlacementTarget) return;
+        const [x, y, z] = this.currentPlacementTarget;
+        this.buildManager.registerBoxPoint(x, y, z);
     }
 
     private handleBuildPlacement(): void {
-        const reach = 10.0;
-        const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
+        if (!this.currentPlacementTarget) return;
+        const [x, y, z] = this.currentPlacementTarget;
 
-        if (gridHit.hit && gridHit.normal) {
-            const placeX = gridHit.blockPos[0] + gridHit.normal[0];
-            const placeY = gridHit.blockPos[1] + gridHit.normal[1];
-            const placeZ = gridHit.blockPos[2] + gridHit.normal[2];
+        const posKey = `${x},${y},${z}`;
+        if (this.lastBuildPos === posKey) return;
+        this.lastBuildPos = posKey;
 
-            const posKey = `${placeX},${placeY},${placeZ}`;
-            if (this.lastBuildPos === posKey) return;
-            this.lastBuildPos = posKey;
-
-            this.buildManager.placeSingle(placeX, placeY, placeZ);
-        }
+        this.buildManager.placeSingle(x, y, z);
     }
 }

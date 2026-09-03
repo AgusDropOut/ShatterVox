@@ -40,14 +40,13 @@ export const SSGIComputeShaderWGSL = `
         let pixelNormalWorld = textureLoad(normalTex, pixelCoords, 0).xyz;
         let pixelNormalView = normalize((params.viewMatrix * vec4<f32>(pixelNormalWorld, 0.0)).xyz);
 
-        
         let r2Sequence = vec2<f32>(0.7548776662, 0.5698402909);
         let frameOffset = fract(f32(params.frameCounter) * r2Sequence);
         let pixelsJump = vec2<u32>(frameOffset * 256.0);
         let bruteCoord = vec2<u32>(pixelCoords) + pixelsJump;
 
         let noiseData = textureLoad(noiseTex, bruteCoord % 256u, 0).rgb;
-        let u1 = noiseData.r;
+        let u1 = clamp(noiseData.r, 0.0, 0.999);
         let u2 = noiseData.g;
         let jitter = noiseData.b;
 
@@ -71,9 +70,13 @@ export const SSGIComputeShaderWGSL = `
 
         let rayOriginView = getViewSpacePosition(global_id.xy, pixelDepth) + (pixelNormalView * 0.05);
         
-       
         let rayLength = params.rayStepSize * f32(params.maxSteps);
-        let endPointView = rayOriginView + sampleDirectionView * rayLength;
+        var endPointView = rayOriginView + sampleDirectionView * rayLength;
+
+        if (endPointView.z >= -0.1) {
+            let t = (-0.1 - rayOriginView.z) / sampleDirectionView.z;
+            endPointView = rayOriginView + sampleDirectionView * t;
+        }
 
         let homogeneousOrigin = params.projectionMatrix * vec4<f32>(rayOriginView, 1.0);
         let homogeneousEndPoint = params.projectionMatrix * vec4<f32>(endPointView, 1.0);
@@ -118,7 +121,8 @@ export const SSGIComputeShaderWGSL = `
                 let normalViewOnImpact = normalize((params.viewMatrix * vec4<f32>(normalOnImpact, 0.0)).xyz);
                 
                 let attenuation = max(0.0, dot(sampleDirectionView, pixelNormalView)) * max(0.0, dot(-sampleDirectionView, normalViewOnImpact));
-                textureStore(ssgiOutput, pixelCoords, vec4<f32>(lightOnImpact * attenuation, 0.0));
+                let clampedLight = min(lightOnImpact, vec3<f32>(1.5, 1.5, 1.5));
+                textureStore(ssgiOutput, pixelCoords, vec4<f32>(clampedLight * attenuation, 0.0));
                 return;
             }
         }

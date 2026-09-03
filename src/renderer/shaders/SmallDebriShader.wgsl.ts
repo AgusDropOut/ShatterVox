@@ -18,7 +18,7 @@ export const smallDebriShaderWGSL = `
 
     struct VertexOutput {
         @builtin(position) position: vec4<f32>,
-        @location(0) normal: vec3<f32>,
+        @location(0) normal: vec4<f32>,
         @location(1) uv: vec2<f32>,
         @location(2) currentClipPos: vec4<f32>,
         @location(3) previousClipPos: vec4<f32>,
@@ -47,7 +47,7 @@ export const smallDebriShaderWGSL = `
 
         out.position = out.currentClipPos;
         out.uv = debriBuffer[instanceIndex].uvs[vertexIndex];
-        out.normal = normalMatrix * norm;
+        out.normal = vec4<f32>(normalMatrix * norm, 0.9);
         
         return out;
     }
@@ -67,8 +67,8 @@ export const smallDebriShaderWGSL = `
         let texColor = textureSample(atlasTexture, textureSampler, in.uv);
         if(texColor.a < 0.1) { discard; }
         
-        output.albedo = texColor;
-        output.normal = vec4<f32>(normalize(in.normal), 1.0);
+        output.albedo = vec4<f32>(texColor.rgb, 0.0);
+        output.normal = vec4<f32>(normalize(in.normal.xyz), in.normal.w);
         output.motion = calculateMotionVector(in.currentClipPos, in.previousClipPos);
 
         return output;

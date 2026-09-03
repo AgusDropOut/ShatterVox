@@ -4,7 +4,7 @@ import { PhysicsFacade } from "../physics/PhysicsFacade";
 import { WebGPUPipelineFactory } from "./WebGPUPipelineFactory";
 import { WebGPUTexture } from "./WebGPUTexture";
 import { physicsDebugShaderWGSL } from "./shaders/PhysicsDebugShader.wgsl";
-import { mat4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { debugColorQuadShaderWGSL, debugDepthQuadShaderWGSL } from "./shaders/DebugQuadShader";
 import { Engine } from "../core/Engine";
 
@@ -170,9 +170,9 @@ export class WebGPURenderer {
         this.depthTexture = this.device.createTexture({ size: [width, height], format: "depth32float", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
         this.depthView = this.depthTexture.createView();
 
-        if(!this.linearSampler || !this.nearestSampler) throw new Error("Samplers not initialized");
+        if (!this.linearSampler || !this.nearestSampler) throw new Error("Samplers not initialized");
 
-        this.particlePass.resize( this.depthView, this.normalView);
+        this.particlePass.resize(this.depthView, this.normalView);
         this.gtaoPass.resize(width, height, this.depthView, this.normalView, this.nearestSampler);
         this.deferredPass.resize(width, height, this.albedoView, this.normalView, this.depthView, this.gtaoPass.getResultView(), this.linearSampler, this.nearestSampler, this.viewBuffer, this.cameraBufferPlus);
         this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredPass.getResultView(), this.linearSampler, this.nearestSampler);
@@ -180,13 +180,13 @@ export class WebGPURenderer {
         this.taaPass.resize(width, height, this.compositionPass.getResultView(), this.linearSampler);
     }
 
-    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number): void {
+    public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number, cameraPosition: vec3): void {
         this.geometryPass.updateCamera(viewMatrix as mat4, Engine.projectionMatrix, frameCounter);
-       
 
         const combinedCameraData = new Float32Array(32);
         combinedCameraData.set(viewProjMatrix, 0);       
         combinedCameraData.set(invViewProjMatrix, 16);   
+        this.deferredPass.updateCameraPosition(cameraPosition);
         
         this.device.queue.writeBuffer(this.viewBuffer, 0, viewMatrix);
         this.device.queue.writeBuffer(this.cameraBufferPlus, 0, combinedCameraData);
@@ -355,6 +355,6 @@ export class WebGPURenderer {
     public get noisySSGIView() { return this.ssgiPass.noisyView; }
     public get blurredSSGIView() { return this.ssgiPass.blurredView; }
 
-    public get ssgiConfig(){return this.ssgiPass.config}
-    public get gtaoConfig(){return this.gtaoPass.config}
+    public get ssgiConfig(){ return this.ssgiPass.config; }
+    public get gtaoConfig(){ return this.gtaoPass.config; }
 }

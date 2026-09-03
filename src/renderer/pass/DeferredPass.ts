@@ -3,6 +3,7 @@ import { deferredShader } from "../shaders/DeferredShader.wgsl";
 import { LightManager } from "../LightManager";
 import { ClusteredShading } from "../ClusteredShading";
 import { PhysicsFacade } from "../../physics/PhysicsFacade";
+import { vec3 } from "gl-matrix";
 
 export class DeferredPass {
     private device: GPUDevice;
@@ -81,6 +82,12 @@ export class DeferredPass {
     public computeClusters(commandEncoder: GPUCommandEncoder): void {
         if (this.clusteredShading) {
             this.clusteredShading.assignLightsToClusters(commandEncoder);
+        }
+    }
+
+    public updateCameraPosition(cameraPosition: vec3): void {
+        if (this.clusteredShading) {
+            this.clusteredShading.updateParamsBuffer(cameraPosition);
         }
     }
 

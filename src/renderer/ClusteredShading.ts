@@ -1,6 +1,6 @@
 import { makeShaderDataDefinitions, makeStructuredView } from 'webgpu-utils';
 import type { StructuredView } from 'webgpu-utils';
-import { mat4 } from 'gl-matrix';
+import { mat4, vec3 } from 'gl-matrix';
 import { clusteredShadingComputeShaderWGSL } from './shaders/ClusteredShadingComputeShader.wgsl';
 import { Engine } from '../core/Engine';
 import { clusteredShadingLightsToClustersComputeShaderWGSL } from './shaders/ClusteredShadingLightsToClustersComputeShader.wgsl copy';
@@ -44,8 +44,6 @@ export class ClusteredShading {
         const computeLightsToClustersShaderModule = device.createShaderModule({
             code: clusteredShadingLightsToClustersComputeShaderWGSL,
         });
-
-
 
         this.computeClustersPipeline = device.createComputePipeline({
             layout: 'auto',
@@ -106,12 +104,10 @@ export class ClusteredShading {
             ]
         });
 
-
-
         this.updateParamsBuffer();
     }
 
-    public updateParamsBuffer(): void {
+    public updateParamsBuffer(cameraPosition: vec3 = [0, 0, 0]): void {
         const inverseProjectionMatrix = mat4.create();
         mat4.invert(inverseProjectionMatrix, Engine.projectionMatrix);
 
@@ -120,7 +116,8 @@ export class ClusteredShading {
             gridSize: [this.GRID_X, this.GRID_Y, this.GRID_Z],
             zNear: Engine.zNear,
             screenResolution: [Engine.screenWidth, Engine.screenHeight],
-            zFar: Engine.zFar
+            zFar: Engine.zFar,
+            cameraPosition: [cameraPosition[0], cameraPosition[1], cameraPosition[2], 1.0]
         });
 
         this.device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsView.arrayBuffer);
@@ -154,7 +151,6 @@ export class ClusteredShading {
         const workgroupCount = Math.ceil(this.TOTAL_CLUSTERS / 64);
         passEncoder.dispatchWorkgroups(workgroupCount, 1, 1);
         passEncoder.end();
-
     }
 
     public getClusterBuffer(): GPUBuffer {

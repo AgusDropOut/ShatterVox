@@ -13,7 +13,8 @@ export const clusteredShadingComputeShaderWGSL = `
         gridSize: vec3<u32>,                  
         zNear: f32,                           
         screenResolution: vec2<f32>,         
-        zFar: f32,                            
+        zFar: f32, 
+        cameraPosition: vec4<f32>,                           
     }
 
     @group(0) @binding(0) var<storage, read_write> clusterBuffer: array<Cluster>;

@@ -18,8 +18,8 @@ export const debriShaderWGSL = `
     struct VertexOutput {
         @builtin(position) position: vec4<f32>,
         @location(0) uv: vec2<f32>,
-        @location(1) color: vec3<f32>,
-        @location(2) normal: vec3<f32>,
+        @location(1) color: vec4<f32>,
+        @location(2) normal: vec4<f32>,
         @location(3) currentClipPos: vec4<f32>,
         @location(4) previousClipPos: vec4<f32>,
     };
@@ -27,8 +27,8 @@ export const debriShaderWGSL = `
     @vertex
     fn vs_main(
         @location(0) pos: vec3<f32>,
-        @location(1) norm: vec3<f32>,
-        @location(2) col: vec3<f32>,
+        @location(1) norm: vec4<f32>,
+        @location(2) col: vec4<f32>,
         @location(3) uv: vec2<f32>,
         @builtin(instance_index) instanceIndex: u32
     ) -> VertexOutput {
@@ -37,13 +37,19 @@ export const debriShaderWGSL = `
         let modelMatrix = debriBuffer[instanceIndex].matrix;
         let prevModelMatrix = debriBuffer[instanceIndex].prevMatrix;
         
+        let normalMatrix = mat3x3<f32>(
+            modelMatrix[0].xyz,
+            modelMatrix[1].xyz,
+            modelMatrix[2].xyz
+        );
+
         out.currentClipPos = camera.viewProj * modelMatrix * localPos;
         out.previousClipPos = camera.prevViewProj * prevModelMatrix * localPos;
 
         out.position = out.currentClipPos;
         out.uv = uv;
         out.color = col;
-        out.normal = norm;
+        out.normal = vec4<f32>(normalMatrix * norm.xyz, norm.w);
         return out;
     }
 
@@ -62,8 +68,8 @@ export const debriShaderWGSL = `
         let texColor = textureSample(atlasTexture, textureSampler, in.uv);
         if(texColor.a < 0.1) { discard; }
         
-        output.albedo = texColor;
-        output.normal = vec4<f32>(normalize(in.normal), 1.0);
+        output.albedo = vec4<f32>(texColor.rgb * in.color.rgb, in.normal.w);
+        output.normal = vec4<f32>(normalize(in.normal.xyz), in.color.a);
         output.motion = calculateMotionVector(in.currentClipPos, in.previousClipPos);
 
         return output;

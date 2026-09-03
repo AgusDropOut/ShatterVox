@@ -65,11 +65,12 @@ export const TAAShaderWGSL = `
     fn getBiggestVectorFromNeighboringVectors(baseCoord: vec2<i32>) -> vec2<f32> {
         var currentBiggestSquaredLenght = -1.0;
         var biggestVector = vec2<f32>(0.0, 0.0);
+        let maxX = i32(params.screenResolution.x) - 1;
+        let maxY = i32(params.screenResolution.y) - 1;
 
         for(var x = -i32(params.vectorSearchRadius); x <= i32(params.vectorSearchRadius) ; x = x + 1){
             for(var y = -i32(params.vectorSearchRadius); y <= i32(params.vectorSearchRadius) ; y = y + 1){
-                let sampleCoord = baseCoord + vec2<i32>(x, y);
-
+                let sampleCoord = clamp(baseCoord + vec2<i32>(x, y), vec2<i32>(0, 0), vec2<i32>(maxX, maxY));
                 let sampleMotionVector = textureLoad(motionVectorTex, sampleCoord, 0).rg;
                 let sampleLenght = dot(sampleMotionVector, sampleMotionVector);
 
@@ -104,37 +105,22 @@ export const TAAShaderWGSL = `
         var maxCo = -9999.0;
         var minCg = 9999.0;
         var maxCg = -9999.0;
+        
+        let maxX = i32(params.screenResolution.x) - 1;
+        let maxYLimit = i32(params.screenResolution.y) - 1;
 
         for(var x = -i32(params.colorClampRadius); x <= i32(params.colorClampRadius) ; x = x + 1){
             for(var y = -i32(params.colorClampRadius); y <= i32(params.colorClampRadius) ; y = y + 1){
-                let sampleCoord = baseCoord + vec2<i32>(x, y);
-
+                let sampleCoord = clamp(baseCoord + vec2<i32>(x, y), vec2<i32>(0, 0), vec2<i32>(maxX, maxYLimit));
                 let sampleColor = textureLoad(compositeTex, sampleCoord, 0).rgb;
                 let sampleYCoCg = toYCoCg(sampleColor);
 
-                if(sampleYCoCg.r < minY){
-                    minY = sampleYCoCg.r;
-                }
-
-                if(sampleYCoCg.r > maxY){
-                    maxY = sampleYCoCg.r;
-                }
-
-                if(sampleYCoCg.g < minCo){
-                    minCo = sampleYCoCg.g;
-                }
-
-                if(sampleYCoCg.g > maxCo){
-                    maxCo = sampleYCoCg.g;
-                }
-
-                if(sampleYCoCg.b < minCg){
-                    minCg = sampleYCoCg.b;
-                }
-
-                if(sampleYCoCg.b > maxCg){
-                    maxCg = sampleYCoCg.b;
-                }
+                if(sampleYCoCg.r < minY){ minY = sampleYCoCg.r; }
+                if(sampleYCoCg.r > maxY){ maxY = sampleYCoCg.r; }
+                if(sampleYCoCg.g < minCo){ minCo = sampleYCoCg.g; }
+                if(sampleYCoCg.g > maxCo){ maxCo = sampleYCoCg.g; }
+                if(sampleYCoCg.b < minCg){ minCg = sampleYCoCg.b; }
+                if(sampleYCoCg.b > maxCg){ maxCg = sampleYCoCg.b; }
             }
         }
 

@@ -79,6 +79,10 @@ export class PlayerController {
         canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     }
 
+    public getCameraPosition(): vec3 {
+        return this.camera.position;
+    }
+
     public update(deltaTime: number): void {
         const transform = this.physicsFacade.transforms.get(this.playerId);
         if (transform) {

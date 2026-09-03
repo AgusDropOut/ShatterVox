@@ -40,27 +40,29 @@ export class ChunkMesher {
 
                     const blockDef = BlockRegistry.get(blockId);
                     const [r, g, b] = blockDef.color;
+                    const roughness = blockDef.roughness;
+                    const metallic = blockDef.metallic;
 
                     const tileX = blockDef.textureId % ATLAS_SIZE;
                     const tileY = Math.floor(blockDef.textureId / ATLAS_SIZE);
 
                     if (this.isTransparent(center, neighbors.top, x, y + 1, z)) {
-                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getTopFace(), GeometryGenerator.getTopNormal(), x, y, z, r, g, b, tileX, tileY, offX, offY, offZ);
+                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getTopFace(), GeometryGenerator.getTopNormal(), x, y, z, r, g, b, roughness, metallic, tileX, tileY, offX, offY, offZ);
                     }
                     if (this.isTransparent(center, neighbors.bottom, x, y - 1, z)) {
-                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getBottomFace(), GeometryGenerator.getBottomNormal(), x, y, z, r, g, b, tileX, tileY, offX, offY, offZ);
+                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getBottomFace(), GeometryGenerator.getBottomNormal(), x, y, z, r, g, b, roughness, metallic, tileX, tileY, offX, offY, offZ);
                     }
                     if (this.isTransparent(center, neighbors.right, x + 1, y, z)) {
-                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getRightFace(), GeometryGenerator.getRightNormal(), x, y, z, r, g, b, tileX, tileY, offX, offY, offZ);
+                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getRightFace(), GeometryGenerator.getRightNormal(), x, y, z, r, g, b, roughness, metallic, tileX, tileY, offX, offY, offZ);
                     }
                     if (this.isTransparent(center, neighbors.left, x - 1, y, z)) {
-                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getLeftFace(), GeometryGenerator.getLeftNormal(), x, y, z, r, g, b, tileX, tileY, offX, offY, offZ);
+                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getLeftFace(), GeometryGenerator.getLeftNormal(), x, y, z, r, g, b, roughness, metallic, tileX, tileY, offX, offY, offZ);
                     }
                     if (this.isTransparent(center, neighbors.front, x, y, z + 1)) {
-                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getFrontFace(), GeometryGenerator.getFrontNormal(), x, y, z, r, g, b, tileX, tileY, offX, offY, offZ);
+                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getFrontFace(), GeometryGenerator.getFrontNormal(), x, y, z, r, g, b, roughness, metallic, tileX, tileY, offX, offY, offZ);
                     }
                     if (this.isTransparent(center, neighbors.back, x, y, z - 1)) {
-                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getBackFace(), GeometryGenerator.getBackNormal(), x, y, z, r, g, b, tileX, tileY, offX, offY, offZ);
+                        this.addFace(positions, normals, colors, uvs, GeometryGenerator.getBackFace(), GeometryGenerator.getBackNormal(), x, y, z, r, g, b, roughness, metallic, tileX, tileY, offX, offY, offZ);
                     }
                 }
             }
@@ -79,7 +81,7 @@ export class ChunkMesher {
         posArray: number[], normArray: number[], colArray: number[], uvArray: number[],
         facePositions: Float32Array, faceNormals: Int8Array,
         x: number, y: number, z: number,
-        r: number, g: number, b: number,
+        r: number, g: number, b: number, roughness: number, metallic: number,
         tileX: number, tileY: number,
         offX: number, offY: number, offZ: number 
     ): void {
@@ -107,10 +109,11 @@ export class ChunkMesher {
             normArray.push(
                 faceNormals[idx + 0],
                 faceNormals[idx + 1],
-                faceNormals[idx + 2]
+                faceNormals[idx + 2],
+                metallic
             );
 
-            colArray.push(r, g, b);
+            colArray.push(r, g, b, roughness);
 
             const u = (tileX + faceUvs[uvIdx + 0]) * TILE_SIZE;
             const v = (tileY + faceUvs[uvIdx + 1]) * TILE_SIZE;
@@ -121,7 +124,6 @@ export class ChunkMesher {
 
     private isTransparent(center: Mesheable, neighbor: Mesheable | null, x: number, y: number, z: number): boolean {
         let targetBlockId = 0;
-
 
         if (x < 0) {
             targetBlockId = neighbor ? neighbor.getBlock(Chunk.WIDTH - 1, y, z) : 0;
@@ -139,10 +141,8 @@ export class ChunkMesher {
             targetBlockId = center.getBlock(x, y, z);
         }
 
-    
         if (targetBlockId === 0) return true; 
 
-      
         const blockDef = BlockRegistry.get(targetBlockId);
         return blockDef.isTransparent === true;
     }

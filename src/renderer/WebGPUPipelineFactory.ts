@@ -12,8 +12,8 @@ const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
         topology: 'triangle-list',
         buffers: [
             { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }] },
-            { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: "float32x3" }] },
-            { arrayStride: 12, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x3" }] },
+            { arrayStride: 16, attributes: [{ shaderLocation: 1, offset: 0, format: "float32x4" }] },
+            { arrayStride: 16, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x4" }] },
             { arrayStride: 8,  attributes: [{ shaderLocation: 3, offset: 0, format: "float32x2" }] }
         ]
     },
@@ -39,8 +39,8 @@ const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
         topology: 'triangle-list',
         buffers: [
             { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }] },
-            { arrayStride: 12, attributes: [{ shaderLocation: 1, offset: 0, format: "float32x3" }] },
-            { arrayStride: 12, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x3" }] },
+            { arrayStride: 16, attributes: [{ shaderLocation: 1, offset: 0, format: "float32x4" }] },
+            { arrayStride: 16, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x4" }] },
             { arrayStride: 8,  attributes: [{ shaderLocation: 3, offset: 0, format: "float32x2" }] }
         ]
     },

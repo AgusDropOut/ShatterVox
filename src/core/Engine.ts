@@ -260,7 +260,7 @@ export class Engine {
         mat4.multiply(viewProj, Engine.projectionMatrix, view);
         mat4.invert(invViewProj, viewProj);
 
-        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array, this.totalFrames);
+        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array, this.totalFrames, this.player.getCameraPosition());
         
         this.renderer.drawGeometry(this.world, this.entityRepository, this.physicsFacade);
         this.renderer.computeParticles();

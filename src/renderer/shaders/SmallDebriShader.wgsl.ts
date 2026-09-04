@@ -12,9 +12,14 @@ export const smallDebriShaderWGSL = `
     struct DebriData {
         matrix: mat4x4<f32>,
         prevMatrix: mat4x4<f32>,
-        uvs: array<vec2<f32>, 36>
+        uvs: array<vec2<f32>, 36>,
+        colorAndRoughness: vec4<f32>,
+        metallicAndPadding: vec4<f32>
     };
     @group(1) @binding(0) var<storage, read> debriBuffer: array<DebriData>;
+
+    @group(3) @binding(0) var normalSampler: sampler;
+    @group(3) @binding(1) var normalAtlasTexture: texture_2d<f32>;
 
     struct VertexOutput {
         @builtin(position) position: vec4<f32>,
@@ -22,6 +27,9 @@ export const smallDebriShaderWGSL = `
         @location(1) uv: vec2<f32>,
         @location(2) currentClipPos: vec4<f32>,
         @location(3) previousClipPos: vec4<f32>,
+        @location(4) tangent: vec3<f32>,
+        @location(5) colorAndRoughness: vec4<f32>,
+        @location(6) metallic: f32,
     };
 
     @vertex
@@ -42,12 +50,25 @@ export const smallDebriShaderWGSL = `
             modelMatrix[2].xyz
         );
 
+        var localT: vec3<f32>;
+        let absN = abs(norm);
+        if (absN.y > 0.5) {
+            localT = vec3<f32>(1.0, 0.0, 0.0);
+        } else if (absN.x > 0.5) {
+            localT = vec3<f32>(0.0, 0.0, -sign(norm.x));
+        } else {
+            localT = vec3<f32>(sign(norm.z), 0.0, 0.0);
+        }
+
+        out.tangent = normalMatrix * localT;
         out.currentClipPos = camera.viewProj * modelMatrix * localPos;
         out.previousClipPos = camera.prevViewProj * prevModelMatrix * localPos;
 
         out.position = out.currentClipPos;
         out.uv = debriBuffer[instanceIndex].uvs[vertexIndex];
-        out.normal = vec4<f32>(normalMatrix * norm, 0.9);
+        out.normal = vec4<f32>(normalMatrix * norm, debriBuffer[instanceIndex].metallicAndPadding.x);
+        out.colorAndRoughness = debriBuffer[instanceIndex].colorAndRoughness;
+        out.metallic = debriBuffer[instanceIndex].metallicAndPadding.x;
         
         return out;
     }
@@ -67,8 +88,17 @@ export const smallDebriShaderWGSL = `
         let texColor = textureSample(atlasTexture, textureSampler, in.uv);
         if(texColor.a < 0.1) { discard; }
         
-        output.albedo = vec4<f32>(texColor.rgb, 0.0);
-        output.normal = vec4<f32>(normalize(in.normal.xyz), in.normal.w);
+        let N = normalize(in.normal.xyz);
+        let T = normalize(in.tangent);
+        let B = normalize(cross(N, T));
+        let TBN = mat3x3<f32>(T, B, N);
+
+        let rawNormalMap = textureSample(normalAtlasTexture, normalSampler, in.uv).rgb;
+        let decodedNormalMap = rawNormalMap * 2.0 - 1.0;
+        let finalNormal = normalize(TBN * decodedNormalMap);
+
+        output.albedo = vec4<f32>(texColor.rgb * in.colorAndRoughness.rgb, in.normal.w); // normal.w holds metallic
+        output.normal = vec4<f32>(finalNormal, in.colorAndRoughness.a); // colorAndRoughness.a holds roughness
         output.motion = calculateMotionVector(in.currentClipPos, in.previousClipPos);
 
         return output;

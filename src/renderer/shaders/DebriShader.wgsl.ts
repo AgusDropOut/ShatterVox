@@ -15,6 +15,9 @@ export const debriShaderWGSL = `
     };
     @group(1) @binding(0) var<storage, read> debriBuffer: array<DebriData>;
 
+    @group(3) @binding(0) var normalSampler: sampler;
+    @group(3) @binding(1) var normalAtlasTexture: texture_2d<f32>;
+
     struct VertexOutput {
         @builtin(position) position: vec4<f32>,
         @location(0) uv: vec2<f32>,
@@ -22,6 +25,7 @@ export const debriShaderWGSL = `
         @location(2) normal: vec4<f32>,
         @location(3) currentClipPos: vec4<f32>,
         @location(4) previousClipPos: vec4<f32>,
+        @location(5) tangent: vec3<f32>,
     };
 
     @vertex
@@ -43,6 +47,17 @@ export const debriShaderWGSL = `
             modelMatrix[2].xyz
         );
 
+        var localT: vec3<f32>;
+        let absN = abs(norm.xyz);
+        if (absN.y > 0.5) {
+            localT = vec3<f32>(1.0, 0.0, 0.0);
+        } else if (absN.x > 0.5) {
+            localT = vec3<f32>(0.0, 0.0, -sign(norm.x));
+        } else {
+            localT = vec3<f32>(sign(norm.z), 0.0, 0.0);
+        }
+
+        out.tangent = normalMatrix * localT;
         out.currentClipPos = camera.viewProj * modelMatrix * localPos;
         out.previousClipPos = camera.prevViewProj * prevModelMatrix * localPos;
 
@@ -68,8 +83,17 @@ export const debriShaderWGSL = `
         let texColor = textureSample(atlasTexture, textureSampler, in.uv);
         if(texColor.a < 0.1) { discard; }
         
+        let N = normalize(in.normal.xyz);
+        let T = normalize(in.tangent);
+        let B = normalize(cross(N, T));
+        let TBN = mat3x3<f32>(T, B, N);
+
+        let rawNormalMap = textureSample(normalAtlasTexture, normalSampler, in.uv).rgb;
+        let decodedNormalMap = rawNormalMap * 2.0 - 1.0;
+        let finalNormal = normalize(TBN * decodedNormalMap);
+
         output.albedo = vec4<f32>(texColor.rgb * in.color.rgb, in.normal.w);
-        output.normal = vec4<f32>(normalize(in.normal.xyz), in.color.a);
+        output.normal = vec4<f32>(finalNormal, in.color.a);
         output.motion = calculateMotionVector(in.currentClipPos, in.previousClipPos);
 
         return output;

@@ -40,6 +40,7 @@ export class WebGPURenderer {
     public normalView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
+    private normalAtlas!: WebGPUTexture;
     private viewBuffer!: GPUBuffer;
     private projectionBuffer!: GPUBuffer;
     private cameraBufferPlus!: GPUBuffer;
@@ -101,12 +102,13 @@ export class WebGPURenderer {
             alphaMode: 'opaque', 
         });
 
+        this.normalAtlas = await WebGPUTexture.create(this.device, "/assets/normal_atlas.png");
         this.atlas = await WebGPUTexture.create(this.device, "/assets/atlas.png");
 
         this.initDebugPipelines();
 
         this.geometryPass = new GeometryPass(this.device, this.presentationFormat);
-        this.geometryPass.init(this.atlas);
+        this.geometryPass.init(this.atlas, this.normalAtlas);
         this.particleManager = new ParticleManager(this.device, 1000);
         this.particlePass = new ParticlePass(this.device, this.presentationFormat, this.particleManager);
         

@@ -9,8 +9,9 @@ export const chunkShaderWGSL = `
     @group(0) @binding(0) var<uniform> camera: Camera;
     @group(0) @binding(1) var textureSampler: sampler;
     @group(0) @binding(2) var atlasTexture: texture_2d<f32>;
-
-  
+    @group(3) @binding(0) var normalAtlasSampler: sampler;
+    @group(3) @binding(1) var normalAtlasTexture: texture_2d<f32>;
+    
     struct Model {
         matrix: mat4x4<f32>,
     };
@@ -22,7 +23,8 @@ export const chunkShaderWGSL = `
         @location(1) color: vec4<f32>,
         @location(2) normal: vec4<f32>,
         @location(3) currentClipPos: vec4<f32>, 
-        @location(4) previousClipPos: vec4<f32>
+        @location(4) previousClipPos: vec4<f32>,
+        @location(5) tangent: vec3<f32>
     };
 
     @vertex
@@ -42,6 +44,19 @@ export const chunkShaderWGSL = `
         out.uv = uv;
         out.color = col;
         out.normal = norm;
+
+        var localT: vec3<f32>;
+        let absN = abs(norm.xyz);
+        if (absN.y > 0.5) {
+            localT = vec3<f32>(1.0, 0.0, 0.0);
+        } else if (absN.x > 0.5) {
+            localT = vec3<f32>(0.0, 0.0, -sign(norm.x));
+        } else {
+            localT = vec3<f32>(sign(norm.z), 0.0, 0.0);
+        }
+        
+        out.tangent = localT;
+
         return out;
     }
 
@@ -59,9 +74,18 @@ export const chunkShaderWGSL = `
         let texColor = textureSample(atlasTexture, textureSampler, in.uv);
 
         if(texColor.a < 0.1) { discard; }
+
+        let N = normalize(in.normal.xyz);
+        let T = normalize(in.tangent);
+        let B = normalize(cross(N, T));
+        let TBN = mat3x3<f32>(T, B, N);
+
+        let rawNormalMap = textureSample(normalAtlasTexture, normalAtlasSampler, in.uv).rgb;
+        let decodedNormalMap = rawNormalMap * 2.0 - 1.0;
+        let finalNormal = normalize(TBN * decodedNormalMap);
         
         output.albedo = vec4<f32>(texColor.rgb * in.color.rgb, in.normal.w);
-        output.normal = vec4<f32>(normalize(in.normal.xyz), in.color.a);
+        output.normal = vec4<f32>(finalNormal, in.color.a);
         output.motion = calculateMotionVector(in.currentClipPos, in.previousClipPos); 
     
         return output;

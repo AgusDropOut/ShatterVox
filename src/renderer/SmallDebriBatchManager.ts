@@ -3,6 +3,7 @@ import { Debri } from "../world/Debri";
 import { WebGPUVertexBuffer } from "./WebGPUVertexBuffer";
 import { Engine } from "../core/Engine";
 import { mat4 } from "gl-matrix";
+import { BlockRegistry } from "../block/BlockRegistry";
 
 export class SmallDebriBatchManager {
     private device: GPUDevice;
@@ -14,7 +15,9 @@ export class SmallDebriBatchManager {
     private maxCapacity: number;
     private hostArray: Float32Array;
     private prevMatrices: Map<number, Float32Array>;
-    private readonly FLOATS_PER_INSTANCE = 104;
+    
+   
+    private readonly FLOATS_PER_INSTANCE = 112;
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, maxCapacity: number = 2000) {
         this.device = device;
@@ -54,11 +57,9 @@ export class SmallDebriBatchManager {
                 Engine.voxelSize / 2
             ]);
             
-       
             const currentFloatArray = matrix as Float32Array;
             this.hostArray.set(currentFloatArray, baseIndex);
 
-          
             let prevMatrix = this.prevMatrices.get(debriId);
             if (!prevMatrix) {
                 prevMatrix = new Float32Array(currentFloatArray);
@@ -66,12 +67,32 @@ export class SmallDebriBatchManager {
             }
             this.hostArray.set(prevMatrix, baseIndex + 16);
 
-          
             prevMatrix.set(currentFloatArray);
     
-        
             const fullUVs = debris[i].getUVOffsets(); 
             this.hostArray.set(fullUVs, baseIndex + 32); 
+
+        
+            let r = 1.0, g = 1.0, b = 1.0, roughness = 0.9, metallic = 0.0;
+            const blockId = debris[i].getBlock(0, 0, 0); 
+            
+            if (blockId !== 0) {
+                const blockDef = BlockRegistry.get(blockId);
+                [r, g, b] = blockDef.color;
+                roughness = blockDef.roughness;
+                metallic = blockDef.metallic;
+            }
+
+           
+            this.hostArray[baseIndex + 104] = r;
+            this.hostArray[baseIndex + 105] = g;
+            this.hostArray[baseIndex + 106] = b;
+            this.hostArray[baseIndex + 107] = roughness;
+            
+            this.hostArray[baseIndex + 108] = metallic;
+            this.hostArray[baseIndex + 109] = 0.0; 
+            this.hostArray[baseIndex + 110] = 0.0; 
+            this.hostArray[baseIndex + 111] = 0.0; 
         }
 
         if (count > 0) {

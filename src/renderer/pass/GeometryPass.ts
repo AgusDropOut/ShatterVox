@@ -35,6 +35,10 @@ export class GeometryPass {
     private debriCameraBindGroup!: GPUBindGroup;
     private smallDebriCameraBindGroup!: GPUBindGroup;
 
+    private chunkNormalMappingBindGroup!: GPUBindGroup;
+    private debriNormalMappingBindGroup!: GPUBindGroup;
+    private smallDebriNormalMappingBindGroup!: GPUBindGroup;
+
     private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup, lastMatrix: Float32Array }> = new Map();
     private debriBatchManager!: DebriBatchManager;
     private smallDebriBatchManager!: SmallDebriBatchManager;
@@ -44,10 +48,9 @@ export class GeometryPass {
     constructor(device: GPUDevice, presentationFormat: GPUTextureFormat) {
         this.device = device;
         this.presentationFormat = presentationFormat;
-        
     }
 
-    public init(atlas: WebGPUTexture): void {
+    public init(atlas: WebGPUTexture, normalAtlas: WebGPUTexture): void {
         this.chunkPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'CHUNK', chunkShaderWGSL, this.presentationFormat, true);
         this.entityPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'ENTITY', entityShaderWGSL, this.presentationFormat, true);
         this.debriPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBRI', debriShaderWGSL, this.presentationFormat, true);
@@ -64,6 +67,10 @@ export class GeometryPass {
         this.debriCameraBindGroup = this.device.createBindGroup({ layout: this.debriPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }, { binding: 1, resource: atlas.sampler }, { binding: 2, resource: atlas.view }] });
         this.smallDebriCameraBindGroup = this.device.createBindGroup({ layout: this.smallDebriPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }, { binding: 1, resource: atlas.sampler }, { binding: 2, resource: atlas.view }] });
         this.entityCameraBindGroup = this.device.createBindGroup({ layout: this.entityPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.viewProjBuffer } }] });
+
+        this.chunkNormalMappingBindGroup = this.device.createBindGroup({ layout: this.chunkPipeline.getBindGroupLayout(3), entries: [{ binding: 0, resource: normalAtlas.sampler }, { binding: 1, resource: normalAtlas.view }] });
+        this.debriNormalMappingBindGroup = this.device.createBindGroup({ layout: this.debriPipeline.getBindGroupLayout(3), entries: [{ binding: 0, resource: normalAtlas.sampler }, { binding: 1, resource: normalAtlas.view }] });
+        this.smallDebriNormalMappingBindGroup = this.device.createBindGroup({ layout: this.smallDebriPipeline.getBindGroupLayout(3), entries: [{ binding: 0, resource: normalAtlas.sampler }, { binding: 1, resource: normalAtlas.view }] });
     }
 
     public getModelLayout(): GPUBindGroupLayout {
@@ -137,6 +144,7 @@ export class GeometryPass {
     private drawWorld(renderPass: GPURenderPassEncoder, world: World): void {
         renderPass.setPipeline(this.chunkPipeline);
         renderPass.setBindGroup(0, this.cameraBindGroup);
+        renderPass.setBindGroup(3, this.chunkNormalMappingBindGroup);
         for (const chunk of world.chunks.values()) {
             if(this.frustumCulling.isFrustumCulled(chunk.getCenter(), chunk.getRadius())) continue;
             chunk.draw(renderPass);
@@ -158,6 +166,7 @@ export class GeometryPass {
         renderPass.setBindGroup(0, this.debriCameraBindGroup);
         this.debriBatchManager.updateAndUploadModelMatrixes(world.debri);
         renderPass.setBindGroup(1, this.debriBatchManager.getBindGroup());
+        renderPass.setBindGroup(3, this.debriNormalMappingBindGroup);
 
         for (let i = 0; i < world.debri.length; i++) {
             const debri = world.debri[i];
@@ -168,6 +177,7 @@ export class GeometryPass {
         renderPass.setBindGroup(0, this.smallDebriCameraBindGroup);
         const count = this.smallDebriBatchManager.updateAndUploadModelMatrixesandUvs(world.debri);
         renderPass.setBindGroup(1, this.smallDebriBatchManager.getBindGroup());
+        renderPass.setBindGroup(3, this.smallDebriNormalMappingBindGroup);
         renderPass.setVertexBuffer(0, this.smallDebriBatchManager.getVertexBuffer().buffer);
         renderPass.setVertexBuffer(1, this.smallDebriBatchManager.getNormalBuffer().buffer);
         renderPass.draw(36, count, 0, 0);
@@ -179,11 +189,9 @@ export class GeometryPass {
 
         for (const [entityId, renderComp] of entityRepository.renders.entries()) {
             
-          
             let pos: vec3 | undefined = renderComp.position;
             let rot: quat | undefined = renderComp.rotation;
 
-       
             const physComp = entityRepository.physics.get(entityId);
             if (physComp) {
                 const transform = physicsFacade.transforms.get(physComp.bodyId);
@@ -193,7 +201,6 @@ export class GeometryPass {
                 }
             }
 
-          
             if (!pos || !rot) {
                 continue;
             }

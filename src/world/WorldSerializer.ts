@@ -3,12 +3,16 @@ import { Chunk } from "./Chunk";
 import type { EntityRepository } from "../entity/EntityRepository";
 import { BlockRegistry } from "../block/BlockRegistry";
 import { Engine } from "../core/Engine";
+import { Debri } from "./Debri";
+import { vec3, quat } from "gl-matrix";
+import type { PhysicsFacade } from "../physics/PhysicsFacade";
+import { globalEventBus } from "../core/EventBus";
 
 export class WorldSerializer {
     private static readonly MAGIC_NUMBER = 0x44335643; 
-    private static readonly VERSION = 1;
+    private static readonly VERSION = 2; 
 
-    public static saveWorld(world: World, repository: EntityRepository): Blob {
+    public static saveWorld(world: World, repository: EntityRepository, physicsFacade: PhysicsFacade): Blob {
         const chunkDataBuffers: Uint8Array[] = [];
         let totalChunkDataSize = 0;
 
@@ -62,8 +66,69 @@ export class WorldSerializer {
             offset += 16;
         }
 
+        const persistentDebris = world.debri.filter(d => d.isPersistent);
+        let totalDebriDataSize = 4; 
+        
+        for (const debri of persistentDebris) {
+            let blockCount = 0;
+            for (let x = 0; x < Debri.WIDTH; x++) {
+                for (let y = 0; y < Debri.HEIGHT; y++) {
+                    for (let z = 0; z < Debri.DEPTH; z++) {
+                        if (debri.getBlock(x, y, z) !== 0) blockCount++;
+                    }
+                }
+            }
+            totalDebriDataSize += 48 + (blockCount * 4); 
+        }
+
+        const debriBuffer = new ArrayBuffer(totalDebriDataSize);
+        const debriView = new DataView(debriBuffer);
+        let debriOffset = 0;
+
+        debriView.setUint32(debriOffset, persistentDebris.length, true); debriOffset += 4;
+        for (const debri of persistentDebris) {
+            debriView.setUint32(debriOffset, debri.id, true); debriOffset += 4;
+            
+            const transform = physicsFacade.transforms.get(debri.id);
+            const pos = transform ? transform.position : vec3.fromValues(debri.offsetX * Engine.voxelSize, debri.offsetY * Engine.voxelSize, debri.offsetZ * Engine.voxelSize);
+            const rot = transform ? transform.rotation : quat.create();
+            
+            debriView.setFloat32(debriOffset, pos[0], true); debriOffset += 4;
+            debriView.setFloat32(debriOffset, pos[1], true); debriOffset += 4;
+            debriView.setFloat32(debriOffset, pos[2], true); debriOffset += 4;
+            
+            debriView.setFloat32(debriOffset, rot[0], true); debriOffset += 4;
+            debriView.setFloat32(debriOffset, rot[1], true); debriOffset += 4;
+            debriView.setFloat32(debriOffset, rot[2], true); debriOffset += 4;
+            debriView.setFloat32(debriOffset, rot[3], true); debriOffset += 4;
+            
+            debriView.setFloat32(debriOffset, debri.offsetX, true); debriOffset += 4;
+            debriView.setFloat32(debriOffset, debri.offsetY, true); debriOffset += 4;
+            debriView.setFloat32(debriOffset, debri.offsetZ, true); debriOffset += 4;
+            
+            const blocksData: number[] = [];
+            for (let x = 0; x < Debri.WIDTH; x++) {
+                for (let y = 0; y < Debri.HEIGHT; y++) {
+                    for (let z = 0; z < Debri.DEPTH; z++) {
+                        const bId = debri.getBlock(x, y, z);
+                        if (bId !== 0) blocksData.push(x, y, z, bId);
+                    }
+                }
+            }
+            
+            const blockCount = blocksData.length / 4;
+            debriView.setUint32(debriOffset, blockCount, true); debriOffset += 4;
+            
+            for (let i = 0; i < blocksData.length; i += 4) {
+                debriView.setUint8(debriOffset++, blocksData[i]);
+                debriView.setUint8(debriOffset++, blocksData[i+1]);
+                debriView.setUint8(debriOffset++, blocksData[i+2]);
+                debriView.setUint8(debriOffset++, blocksData[i+3]);
+            }
+        }
+
         const headerSize = 9; 
-        const finalBuffer = new Uint8Array(headerSize + totalChunkDataSize + entityDataSize);
+        const finalBuffer = new Uint8Array(headerSize + totalChunkDataSize + entityDataSize + totalDebriDataSize);
         const headerView = new DataView(finalBuffer.buffer);
 
         headerView.setUint32(0, this.MAGIC_NUMBER, true);
@@ -77,11 +142,20 @@ export class WorldSerializer {
         }
 
         finalBuffer.set(new Uint8Array(entityBuffer), writeOffset);
+        writeOffset += entityDataSize;
+
+        finalBuffer.set(new Uint8Array(debriBuffer), writeOffset);
 
         return new Blob([finalBuffer], { type: "application/octet-stream" });
     }
 
-    public static loadWorld(buffer: ArrayBuffer, world: World, eventBus: any): boolean {
+    public static loadWorld(
+        buffer: ArrayBuffer, 
+        world: World, 
+        device: GPUDevice, 
+        layout: GPUBindGroupLayout, 
+        physicsFacade: PhysicsFacade
+    ): boolean {
         const view = new DataView(buffer);
         let offset = 0;
 
@@ -93,9 +167,6 @@ export class WorldSerializer {
         offset += 4;
 
         const version = view.getUint8(offset);
-        if (version !== this.VERSION) {
-            console.warn("World file version mismatch.");
-        }
         offset += 1;
 
         world.clearChunks();
@@ -138,19 +209,82 @@ export class WorldSerializer {
                     const rw = view.getFloat32(offset + 12, true);
                     offset += 16;
 
-                    eventBus.emit("SPAWN_BILLBOARD", {
+                    globalEventBus.emit("SPAWN_BILLBOARD", {
                         x: px, y: py, z: pz,
                         rot: { x: rx, y: ry, z: rz, w: rw }
                     });
-                } else {
-                    console.warn("Unknown entity type found in save file.");
                 }
             }
         }
 
-        
-        this.repopulateLights(world, eventBus);
+        if (version >= 2 && offset < buffer.byteLength) {
+            const debriCount = view.getUint32(offset, true);
+            offset += 4;
 
+            for (let i = 0; i < debriCount; i++) {
+                const originalId = view.getUint32(offset, true); offset += 4;
+                
+                const px = view.getFloat32(offset, true); offset += 4;
+                const py = view.getFloat32(offset, true); offset += 4;
+                const pz = view.getFloat32(offset, true); offset += 4;
+                
+                const rx = view.getFloat32(offset, true); offset += 4;
+                const ry = view.getFloat32(offset, true); offset += 4;
+                const rz = view.getFloat32(offset, true); offset += 4;
+                const rw = view.getFloat32(offset, true); offset += 4;
+
+                const offX = view.getFloat32(offset, true); offset += 4;
+                const offY = view.getFloat32(offset, true); offset += 4;
+                const offZ = view.getFloat32(offset, true); offset += 4;
+
+                const blockCount = view.getUint32(offset, true); offset += 4;
+                const blocks: number[][] = [];
+
+                for (let b = 0; b < blockCount; b++) {
+                    const lx = view.getUint8(offset++);
+                    const ly = view.getUint8(offset++);
+                    const lz = view.getUint8(offset++);
+                    const bId = view.getUint8(offset++);
+                    blocks.push([lx, ly, lz, bId]);
+                }
+
+                const debriId = physicsFacade.generateId();
+
+                physicsFacade.transforms.set(debriId, {
+                    position: vec3.fromValues(px, py, pz),
+                    rotation: quat.fromValues(rx, ry, rz, rw)
+                });
+
+                const debri = new Debri(device, layout, debriId, physicsFacade, blocks, offX, offY, offZ, true);
+                world.addDebri(debri);
+
+                
+                const baseGlobalX = (px / Engine.voxelSize) - offX;
+                const baseGlobalY = (py / Engine.voxelSize) - offY;
+                const baseGlobalZ = (pz / Engine.voxelSize) - offZ;
+
+                const blocksForPhysics: number[][] = [];
+                for (const b of blocks) {
+                    blocksForPhysics.push([
+                        b[0] + baseGlobalX,
+                        b[1] + baseGlobalY,
+                        b[2] + baseGlobalZ,
+                        b[3]
+                    ]);
+                }
+
+                globalEventBus.emit("PHYSICS_COMMAND", {
+                    type: 'CREATE_DEBRI',
+                    id: debriId,
+                    cx: px / Engine.voxelSize, 
+                    cy: py / Engine.voxelSize, 
+                    cz: pz / Engine.voxelSize,
+                    blocks: blocksForPhysics
+                }); 
+            }
+        }
+
+        this.repopulateLights(world, globalEventBus);
         world.updateAllMeshes();
         return true;
     }
@@ -174,8 +308,6 @@ export class WorldSerializer {
 
                         const def = BlockRegistry.get(blockId);
                         if (def && def.lightEmissive && def.lightRadius && def.lightColor) {
-                          
-                            
                             const globalX = wX + x;
                             const globalY = wY + y;
                             const globalZ = wZ + z;

@@ -5,7 +5,7 @@ export type PhysicsCommand =
     | { type: 'CREATE_STATIC_BOX', id: number, halfW: number, halfH: number, halfD: number, x: number, y: number, z: number, rot?: {x:number, y:number, z:number, w:number} }
     | { type: 'CREATE_PLAYER', id: number, x: number, y: number, z: number, radius: number, halfHeight: number }
     | { type: 'SET_PLAYER_VELOCITY', id: number, x: number, z: number, jump: boolean }
-    | { type: 'CREATE_DEBRI', id: number, cx: number, cy: number, cz: number, blocks: number[][] }
+    | { type: 'CREATE_DEBRI', id: number, cx: number, cy: number, cz: number, rot?: {x:number, y:number, z:number, w:number}, blocks: number[][] }
     | { type: 'REMOVE_BODY', id: number }
     | { type: 'RAYCAST', reqId: number, origin: vec3, direction: vec3, maxDistance: number, excludeId: number }
     | { type: 'ADD_TERRAIN_COLLIDERS', positions: Float32Array }

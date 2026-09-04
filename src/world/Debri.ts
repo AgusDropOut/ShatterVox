@@ -27,10 +27,13 @@ export class Debri implements Mesheable {
 
     private mesh: VoxelMesh;
     private modelBuffer: WebGPUUniformBuffer;
+
+    public isPersistent: boolean = false;
     
-    constructor(device: GPUDevice, layout: GPUBindGroupLayout, id: number, physicsFacade: PhysicsFacade, blocks: number[][], cx: number, cy: number, cz: number) {
+    constructor(device: GPUDevice, layout: GPUBindGroupLayout, id: number, physicsFacade: PhysicsFacade, blocks: number[][], cx: number, cy: number, cz: number, isPersistent: boolean = false) {
         this.id = id;
         this.physicsFacade = physicsFacade;
+        this.isPersistent = isPersistent; 
         const volume = Debri.WIDTH * Debri.HEIGHT * Debri.DEPTH;
         this.blocks = new Uint8Array(volume);
         

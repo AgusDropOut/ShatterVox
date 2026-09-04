@@ -109,7 +109,7 @@ export class Engine {
 
         this.world = new World(this.renderer.device, this.renderer.getModelLayout());
 
-        this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository);
+        this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade);
 
         this.structuralIntegrity = new StructuralIntegrity(
             this.renderer.device, 
@@ -130,7 +130,7 @@ export class Engine {
         this.soundManager.loadSound("slime_squish", "/assets/sounds/slime_squish.ogg");
         this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg");
 
-        this.buildManager = new BuildManager(this.world);
+        this.buildManager = new BuildManager(this.world, this.physicsFacade, this.renderer.device, this.renderer.getModelLayout());
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
@@ -142,7 +142,7 @@ export class Engine {
             
             if (response.ok && contentType && !contentType.includes("text/html")) {
                 const arrayBuffer = await response.arrayBuffer();
-                const loadSuccess = WorldSerializer.loadWorld(arrayBuffer, this.world, globalEventBus);
+                const loadSuccess = WorldSerializer.loadWorld(arrayBuffer, this.world, this.renderer.device, this.renderer.getModelLayout(), this.physicsFacade);
                 
                 if (loadSuccess) {
                     this.world.updateAllMeshes();

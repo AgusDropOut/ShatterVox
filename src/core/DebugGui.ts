@@ -5,20 +5,23 @@ import { BlockRegistry } from '../block/BlockRegistry';
 import { WorldSerializer } from '../world/WorldSerializer';
 import type { World } from '../world/World';
 import type { EntityRepository } from '../entity/EntityRepository';
+import { PhysicsFacade } from '../physics/PhysicsFacade';
 
 export class DebugGui {
     private gui: GUI;
 
-    
-    
     public state = {
         activeView: 'None',
         physicsDebug: false,
         buildMode: false,
-        selectedBlockId: 1
+        selectedBlockId: 1,
+        sphereRadius: 3,
+        destructionRadius: 3,
+        mineCooldownMs: 100,
+        buildCooldownMs: 100
     };
 
-    constructor(renderer: WebGPURenderer, world: World, entityRepo: EntityRepository) {
+    constructor(renderer: WebGPURenderer, world: World, entityRepo: EntityRepository, physicsFacade: PhysicsFacade) {
         this.gui = new GUI({ title: 'Engine Debug Settings' });
         this.gui.hide();
 
@@ -29,7 +32,7 @@ export class DebugGui {
         });
 
         this.setupViews();
-        this.setupBuildMode(world, entityRepo);
+        this.setupBuildMode(world, entityRepo, physicsFacade);
         this.setupProfiler(renderer);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
@@ -60,7 +63,7 @@ export class DebugGui {
         });
     }
 
-   private setupBuildMode(world: World, entityRepo: EntityRepository): void {
+   private setupBuildMode(world: World, entityRepo: EntityRepository, physicsFacade: PhysicsFacade): void {
         const folder = this.gui.addFolder('Build Mode');
         const availableBlocks = BlockRegistry.getAvailableBlocks();
         availableBlocks['Billboard (Entity)'] = 999; 
@@ -73,14 +76,36 @@ export class DebugGui {
             globalEventBus.emit("SET_BUILD_BLOCK", { id: Number(value) });
         });
 
-        const toolOptions = { 'Single Block': 'SINGLE', 'Box / Wall (3-Click)': 'BOX' };
+        const toolOptions = { 
+            'Single Block': 'SINGLE', 
+            'Solid Box': 'BOX', 
+            'Solid Sphere': 'SPHERE',
+            'Dynamic Cut Box': 'DYNAMIC_BOX'
+        };
+        
         folder.add({ tool: 'SINGLE' }, 'tool', toolOptions).name('Build Tool').onChange((value: string) => {
             globalEventBus.emit("SET_BUILD_TOOL", { tool: value });
         });
 
+        folder.add(this.state, 'sphereRadius', 1, 20, 1).name('Sphere Radius').onChange((value: number) => {
+            globalEventBus.emit("SET_SPHERE_RADIUS", { radius: value });
+        });
+
+        folder.add(this.state, 'destructionRadius', 1, 10, 1).name('Destruction Radius').onChange((value: number) => {
+            this.emitToolSettings();
+        });
+        
+        folder.add(this.state, 'buildCooldownMs', 0, 500, 10).name('Build Cooldown (ms)').onChange((value: number) => {
+            this.emitToolSettings();
+        });
+
+        folder.add(this.state, 'mineCooldownMs', 0, 500, 10).name('Mine Cooldown (ms)').onChange((value: number) => {
+            this.emitToolSettings();
+        });
+
         folder.add({ 
             saveWorld: () => {
-                const blob = WorldSerializer.saveWorld(world, entityRepo);
+                const blob = WorldSerializer.saveWorld(world, entityRepo, physicsFacade);
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -89,6 +114,14 @@ export class DebugGui {
                 URL.revokeObjectURL(url);
             }
         }, 'saveWorld').name('Export World (.bin)');
+    }
+
+    private emitToolSettings(): void {
+        globalEventBus.emit("SET_TOOL_SETTINGS", {
+            destructionRadius: this.state.destructionRadius,
+            buildCooldownMs: this.state.buildCooldownMs,
+            mineCooldownMs: this.state.mineCooldownMs
+        } as any); 
     }
 
     private setupProfiler(renderer: WebGPURenderer): void {

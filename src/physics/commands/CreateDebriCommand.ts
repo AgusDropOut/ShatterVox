@@ -29,6 +29,7 @@ export class CreateDebriCommand implements CommandHandler<Extract<PhysicsCommand
                 .setDensity(physDef.density)
                 .setFriction(physDef.friction)
                 .setRestitution(physDef.restitution)
+                .setRotation(command.rot ? new RAPIER.Quaternion(command.rot.x, command.rot.y, command.rot.z, command.rot.w) : new RAPIER.Quaternion(0, 0, 0, 1))
                 .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS);
                 
             const collider = context.world.createCollider(colliderDesc, rigidBody);

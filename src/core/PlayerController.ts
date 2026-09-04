@@ -16,7 +16,14 @@ export class PlayerController {
     private readonly buildManager: BuildManager;
     public readonly playerId: number;
     private speed: number = 6.0;
+    
     private canThrowBomb: boolean = true;
+    private canMine: boolean = true;
+    private canBuild: boolean = true;
+    
+    public mineCooldownMs: number = 100; 
+    public buildCooldownMs: number = 100; 
+    public destructionRadius: number = 3;
 
     public targetPosition: vec3;
     public currentPlacementTarget: vec3 | null = null;
@@ -47,6 +54,12 @@ export class PlayerController {
 
         this.soundManager = soundManager;
 
+        globalEventBus.on("SET_TOOL_SETTINGS", (data: any) => {
+            if (data.mineCooldownMs !== undefined) this.mineCooldownMs = data.mineCooldownMs;
+            if (data.buildCooldownMs !== undefined) this.buildCooldownMs = data.buildCooldownMs;
+            if (data.destructionRadius !== undefined) this.destructionRadius = data.destructionRadius;
+        });
+
         canvas.addEventListener("mousedown", (e) => {
             this.soundManager.unlock();
             if (this.input.isLocked) {
@@ -60,7 +73,7 @@ export class PlayerController {
                             if (this.buildManager.activeTool === 'SINGLE') {
                                 this.isDraggingBuild = true;
                                 this.handleBuildPlacement();
-                            } else if (this.buildManager.activeTool === 'BOX') {
+                            } else if (this.buildManager.activeTool === 'BOX' || this.buildManager.activeTool === 'DYNAMIC_BOX' || this.buildManager.activeTool === 'SPHERE') {
                                 this.handleBoxToolClick();
                             }
                         }
@@ -186,6 +199,11 @@ export class PlayerController {
     }
 
     private async handleLeftClick(): Promise<void> {
+        if (!this.canMine) return;
+        
+        this.canMine = false;
+        setTimeout(() => this.canMine = true, this.mineCooldownMs);
+
         const reach = 10.0; 
         
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
@@ -198,14 +216,14 @@ export class PlayerController {
         if (hitGridFirst) {
             const [x, y, z] = gridHit.blockPos;
             const blockType = this.world.getBlock(x, y, z);
-            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z, radius: 3, blockType });
+            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z, radius: this.destructionRadius, blockType });
         } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
             globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
                 debriId: physicsHit.hitId,
                 localX: physicsHit.localX!,
                 localY: physicsHit.localY!,
                 localZ: physicsHit.localZ!,
-                radius: 3
+                radius: this.destructionRadius
             });
         }
     }
@@ -244,9 +262,14 @@ export class PlayerController {
 
     private handleBuildPlacement(): void {
         if (!this.currentPlacementTarget) return;
-        const [x, y, z] = this.currentPlacementTarget;
+        if (!this.canBuild) return;
 
+        this.canBuild = false;
+        setTimeout(() => this.canBuild = true, this.buildCooldownMs);
+
+        const [x, y, z] = this.currentPlacementTarget;
         const posKey = `${x},${y},${z}`;
+        
         if (this.lastBuildPos === posKey) return;
         this.lastBuildPos = posKey;
 

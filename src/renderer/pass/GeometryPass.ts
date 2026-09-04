@@ -152,11 +152,13 @@ export class GeometryPass {
 
         for (let i = world.debri.length - 1; i >= 0; i--) {
             const debri = world.debri[i];
-            debri.lifeTime += 16.67;
-            if (debri.lifeTime > Debri.MAX_LIFETIME) {
-                world.removeDebri(debri);
-                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id});
-                debri.deleteGraphics();
+            if (!debri.isPersistent) { 
+                debri.lifeTime += 16.67;
+                if (debri.lifeTime > Debri.MAX_LIFETIME) {
+                    world.removeDebri(debri);
+                    globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id});
+                    debri.deleteGraphics();
+                }
             }
         }
 

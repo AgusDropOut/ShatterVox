@@ -1,5 +1,5 @@
 import type { PhysicsCommand } from "../physics/PhysicsProtocol";
-import {vec3, vec4} from "gl-matrix"
+import { vec3, vec4 } from "gl-matrix";
 
 export interface GameEvents {
     "BLOCK_MINED_STATIC": { x: number, y: number, z: number, radius?: number, blockType?: number };
@@ -8,7 +8,7 @@ export interface GameEvents {
     "TOGGLE_PHYSICS_DEBUG": { enabled?: boolean }; 
     "PHYSICS_COMMAND": PhysicsCommand;
     "SYNC_TRANSFORMS": { buffer: Float32Array };
-    "SPAWN_BOMB": { x: number, y: number, z: number, vx: number, vy: number, vz: number, rot: {x:number, y:number, z:number, w:number} };
+    "SPAWN_BOMB": { x: number, y: number, z: number, vx: number, vy: number, vz: number, rot: { x: number, y: number, z: number, w: number } };
     "BOMB_DETONATED": { x: number, y: number, z: number, radius: number };
     "CHANGE_DEBUG_VIEW": { view: string };
     "LIGHT_ADD": { position: { x: number, y: number, z: number }, color: { r: number, g: number, b: number }, radius: number, debriId?: number, localPos?: { x: number, y: number, z: number } };
@@ -19,22 +19,25 @@ export interface GameEvents {
     "TOGGLE_BUILD_MODE": { enabled?: boolean }; 
     "SET_BUILD_BLOCK": { id: number };
     "SET_BUILD_TOOL": { tool: string };
+    "SET_SPHERE_RADIUS": { radius: number };
+    "SET_TOOL_SETTINGS": { destructionRadius?: number, buildCooldownMs?: number, mineCooldownMs?: number };
 }
 
 class EventBus {
-    private listeners: any = {};
+    private listeners: Partial<Record<keyof GameEvents, Array<(data: any) => void>>> = {};
 
     public on<K extends keyof GameEvents>(event: K, callback: (data: GameEvents[K]) => void): void {
         if (!this.listeners[event]) {
             this.listeners[event] = [];
         }
-        this.listeners[event].push(callback);
+        this.listeners[event]!.push(callback);
     }
 
     public emit<K extends keyof GameEvents>(event: K, data: GameEvents[K]): void {
-        if (this.listeners[event]) {
-            for (const callback of this.listeners[event]) {
-                callback(data);
+        const callbacks = this.listeners[event];
+        if (callbacks) {
+            for (let i = 0; i < callbacks.length; i++) {
+                callbacks[i](data);
             }
         }
     }

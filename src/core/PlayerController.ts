@@ -15,7 +15,7 @@ export class PlayerController {
     private readonly physicsFacade: PhysicsFacade;
     private readonly buildManager: BuildManager;
     public readonly playerId: number;
-    private speed: number = 3.0;
+    private speed: number = 2.5;
     
     private canThrowBomb: boolean = true;
     private canMine: boolean = true;
@@ -46,23 +46,15 @@ export class PlayerController {
         this.physicsFacade = physicsFacade;
         this.buildManager = buildManager;
         
-        const spawnX = 13.63;
-        const spawnY = 5.20;
-        const spawnZ = 2.4;
+        const spawnX = 14.0;
+        const spawnY = 5.0;
+        const spawnZ = 3.4;
         
         this.camera = new Camera(vec3.fromValues(spawnX, spawnY, spawnZ), 90.0, 0.0);
         this.targetPosition = vec3.fromValues(spawnX, spawnY, spawnZ);
         
         this.input = new Input(canvas);
         this.playerId = this.physicsFacade.generateId();
-
-        globalEventBus.emit("PHYSICS_COMMAND", {
-            type: 'CREATE_PLAYER',
-            id: this.playerId,
-            x: spawnX, y: spawnY, z: spawnZ,
-            radius: 0.2,
-            halfHeight: 0.6
-        });
 
         this.soundManager = soundManager;
 
@@ -105,6 +97,18 @@ export class PlayerController {
         });
 
         canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    }
+
+    public spawn(): void {
+        globalEventBus.emit("PHYSICS_COMMAND", {
+            type: 'CREATE_PLAYER',
+            id: this.playerId,
+            x: this.targetPosition[0], 
+            y: this.targetPosition[1], 
+            z: this.targetPosition[2],
+            radius: 0.2,
+            halfHeight: 0.6
+        });
     }
 
     public getCameraPosition(): vec3 {

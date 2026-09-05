@@ -1,7 +1,7 @@
 import { Engine } from "../core/Engine";
 import { globalEventBus } from "../core/EventBus";
 import type { IBlockBehavior } from "./BlockBehaviors";
-import { RadioactiveBehavior, SlimeBehavior, MagicOreBehavior } from "./BlockBehaviors";
+import { RadioactiveBehavior, SlimeBehavior, MagicOreBehavior, FireBehavior } from "./BlockBehaviors";
 
 export interface BlockDef {
     id: number;
@@ -98,7 +98,7 @@ export class BlockRegistry {
         this.create(0).name("Air").texture(0).color(0.0, 0.0, 0.0).transparent().register();
         this.create(1).name("Stone").texture(1).color(0.2, 0.2, 0.2).fragmentation(0.04).sound("stone_collision").register();
         this.create(2).name("Grass").texture(2).color(0.0, 1.0, 0.0).fragmentation(0.08).sound("grass_collision").register();
-        this.create(3).name("Wood").texture(3).color(0.6, 0.4, 0.2).fragmentation(0.05).sound("wood_collision").register();
+        this.create(3).name("Wood").texture(3).color(0.6, 0.4, 0.2).fragmentation(0.05).sound("wood_crack").register();
         this.create(4).name("Leaves").texture(4).color(0.0, 0.6, 0.0).fragmentation(0.3).transparent().sound("leaves_collision").register();
         
         this.create(5).name("Amethyst").texture(5).color(0.8, 0.9, 1.0).light(1.5, 0.8, 0.9, 1.0).material(0.1, 0.1).fragmentation(0.12).sound("glass_collision").behavior(RadioactiveBehavior).register();
@@ -112,6 +112,9 @@ export class BlockRegistry {
         this.create(13).name("Slime").texture(11).color(0.3, 1.0, 0.3).material(0.1, 0.0).physics(0.8, 0.9, 1.4, 0.0).behavior(SlimeBehavior).sound("slime_squish").register();
         
         this.create(14).name("Iron").texture(12).color(0.9, 0.9, 0.9).material(0.2, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("metal_collision").fragmentation(0.05).toughness(90).register();
+        
+       
+        this.create(15).name("Fire").texture(13).color(1.0, 0.5, 0.0).transparent().light(2.0, 1.0, 0.4, 0.1).behavior(FireBehavior).physics(0.0, 0.0, 0.0, 0.0).toughness(0).register();
     }
 
     public static create(id: number): BlockBuilder {

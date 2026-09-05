@@ -105,11 +105,7 @@ export class Engine {
             return;
         }
 
-       
-
         this.world = new World(this.renderer.device, this.renderer.getModelLayout());
-
-       
 
         this.structuralIntegrity = new StructuralIntegrity(
             this.renderer.device, 
@@ -119,8 +115,8 @@ export class Engine {
         );
         
         this.terrainPhysics = new TerrainPhysics();
-        this.terrainPhysics.buildColliders(this.world);
         this.world.terrainPhysics = this.terrainPhysics;
+        
         this.soundManager.loadSound("stone_collision", "/assets/sounds/stone_collision.ogg");
         this.soundManager.loadSound("wood_collision", "/assets/sounds/wood_collision.ogg");
         this.soundManager.loadSound("glass_collision", "/assets/sounds/glass_collision.ogg");
@@ -130,17 +126,22 @@ export class Engine {
         this.soundManager.loadSound("slime_squish", "/assets/sounds/slime_squish.ogg");
         this.soundManager.loadSound("metal_collision", "/assets/sounds/metal_collision.ogg");
         this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg");
+        this.soundManager.loadSound("wood_crack-1", "/assets/sounds/wood_crack-1.ogg");
+        this.soundManager.loadSound("wood_crack-2", "/assets/sounds/wood_crack-2.ogg");
+        this.soundManager.loadSound("fire_chill", "/assets/sounds/fire_chill.ogg");
 
         this.buildManager = new BuildManager(this.world, this.physicsFacade, this.renderer.device, this.renderer.getModelLayout());
+        
+      
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager);
+        
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
-
         this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade, this.player);
+     
 
         try {
             const response = await fetch('/assets/portfolio.bin');
-            
             const contentType = response.headers.get("content-type");
             
             if (response.ok && contentType && !contentType.includes("text/html")) {
@@ -148,7 +149,6 @@ export class Engine {
                 const loadSuccess = WorldSerializer.loadWorld(arrayBuffer, this.world, this.renderer.device, this.renderer.getModelLayout(), this.physicsFacade);
                 
                 if (loadSuccess) {
-                    this.world.updateAllMeshes();
                     console.log("[Engine] Portfolio world loaded.");
                 } else {
                     console.warn("[Engine] Corrupted or invalid .bin file. Falling back to test map.");
@@ -162,8 +162,13 @@ export class Engine {
             console.warn("Failed to fetch world, generating default.", e);
             this.world.generateTestMap();
         }
-        
 
+       
+        this.world.updateAllMeshes();
+        this.terrainPhysics.buildColliders(this.world);
+        
+      
+        this.player.spawn();
         
         await this.renderer.loadEntityAsset(
             "bomb", 

@@ -35,7 +35,7 @@ export class World {
 
     public generateTestMap(): void {
         const generator = new TerrainGenerator(this, this.device, this.modelLayout);
-        generator.generateTestMap();
+        generator.generatePortfolioTerrain();
         this.updateAllMeshes();
     }
     

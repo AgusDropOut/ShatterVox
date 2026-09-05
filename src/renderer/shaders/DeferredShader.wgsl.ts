@@ -121,7 +121,7 @@ export const deferredShader = `
             }
         }
         
-        let ambient = vec3<f32>(0.9, 0.9, 0.9);
+        let ambient = vec3<f32>(1.0, 1.0, 1.0);
         let gtao = textureSample(gtaoTexture, texSamplerLinear, in.uv).r;
         let occludedAmbient = ambient * gtao * albedo.xyz;
         

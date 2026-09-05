@@ -109,7 +109,7 @@ export class Engine {
 
         this.world = new World(this.renderer.device, this.renderer.getModelLayout());
 
-        this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade);
+       
 
         this.structuralIntegrity = new StructuralIntegrity(
             this.renderer.device, 
@@ -135,6 +135,8 @@ export class Engine {
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager);
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
+
+        this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade, this.player);
 
         try {
             const response = await fetch('/assets/portfolio.bin');
@@ -271,6 +273,7 @@ export class Engine {
         this.renderer.computeSSGI();
         this.renderer.drawComposition();
         this.renderer.drawTAA(this.totalFrames);
+        this.renderer.drawPostProcess();
 
         switch (this.currentDebugView) {
             case 'Depth':

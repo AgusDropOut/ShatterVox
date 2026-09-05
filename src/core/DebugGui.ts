@@ -6,6 +6,7 @@ import { WorldSerializer } from '../world/WorldSerializer';
 import type { World } from '../world/World';
 import type { EntityRepository } from '../entity/EntityRepository';
 import { PhysicsFacade } from '../physics/PhysicsFacade';
+import { PlayerController } from './PlayerController';
 
 export class DebugGui {
     private gui: GUI;
@@ -21,7 +22,13 @@ export class DebugGui {
         buildCooldownMs: 100
     };
 
-    constructor(renderer: WebGPURenderer, world: World, entityRepo: EntityRepository, physicsFacade: PhysicsFacade) {
+    constructor(
+        renderer: WebGPURenderer, 
+        world: World, 
+        entityRepo: EntityRepository, 
+        physicsFacade: PhysicsFacade, 
+        player?: PlayerController
+    ) {
         this.gui = new GUI({ title: 'Engine Debug Settings' });
         this.gui.hide();
 
@@ -32,11 +39,20 @@ export class DebugGui {
         });
 
         this.setupViews();
+        if (player) this.setupPlayerInfo(player);
         this.setupBuildMode(world, entityRepo, physicsFacade);
         this.setupProfiler(renderer);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
         this.setupTAA(renderer);
+        this.setupPostProcess(renderer);
+    }
+
+    private setupPlayerInfo(player: PlayerController): void {
+        const folder = this.gui.addFolder('Player Info');
+        folder.add(player.guiState, 'x').listen().disable();
+        folder.add(player.guiState, 'y').listen().disable();
+        folder.add(player.guiState, 'z').listen().disable();
     }
 
     private setupViews(): void {
@@ -79,7 +95,9 @@ export class DebugGui {
         const toolOptions = { 
             'Single Block': 'SINGLE', 
             'Solid Box': 'BOX', 
-            'Solid Sphere': 'SPHERE',
+            'Sculpt Sphere': 'SPHERE',
+            'Sculpt Dynamite': 'DYNAMITE',
+            'Sculpt Smooth': 'SMOOTH',
             'Dynamic Cut Box': 'DYNAMIC_BOX'
         };
         
@@ -87,19 +105,19 @@ export class DebugGui {
             globalEventBus.emit("SET_BUILD_TOOL", { tool: value });
         });
 
-        folder.add(this.state, 'sphereRadius', 1, 20, 1).name('Sphere Radius').onChange((value: number) => {
+        folder.add(this.state, 'sphereRadius', 1, 20, 1).name('Sculpt Radius').onChange((value: number) => {
             globalEventBus.emit("SET_SPHERE_RADIUS", { radius: value });
         });
 
-        folder.add(this.state, 'destructionRadius', 1, 10, 1).name('Destruction Radius').onChange((value: number) => {
+        folder.add(this.state, 'destructionRadius', 1, 10, 1).name('Click Destruct Radius').onChange((value: number) => {
             this.emitToolSettings();
         });
         
-        folder.add(this.state, 'buildCooldownMs', 0, 500, 10).name('Build Cooldown (ms)').onChange((value: number) => {
+        folder.add(this.state, 'buildCooldownMs', 0, 500, 10).name('Right Click Delay(ms)').onChange((value: number) => {
             this.emitToolSettings();
         });
 
-        folder.add(this.state, 'mineCooldownMs', 0, 500, 10).name('Mine Cooldown (ms)').onChange((value: number) => {
+        folder.add(this.state, 'mineCooldownMs', 0, 500, 10).name('Left Click Delay(ms)').onChange((value: number) => {
             this.emitToolSettings();
         });
 
@@ -133,6 +151,7 @@ export class DebugGui {
         folder.add(renderer.gpuTimings, 'SSGI').listen().disable();
         folder.add(renderer.gpuTimings, 'Composition').listen().disable();
         folder.add(renderer.gpuTimings, 'TAA').listen().disable();
+        folder.add(renderer.gpuTimings, 'PostProcess').listen().disable();
     }
 
     private setupSSGI(renderer: any): void {
@@ -168,5 +187,15 @@ export class DebugGui {
         folder.add(config, 'alpha', 0.01, 1.0).name('Alpha');
         folder.add(config, 'vectorSearchRadius', 0, 5, 1).name('Vector Search Radius');
         folder.add(config, 'colorClampRadius', 0, 5, 1).name('Color Clamp Radius');
+    }
+
+    private setupPostProcess(renderer: any): void {
+        const folder = this.gui.addFolder('Post Process');
+        const config = renderer.postProcessPass.config;
+        folder.add(config, 'exposure', 0.1, 5.0).name('Exposure');
+        folder.add(config, 'gamma', 1.0, 3.0).name('Gamma');
+        folder.add(config, 'contrast', 0.5, 2.0).name('Contrast');
+        folder.add(config, 'saturation', 0.0, 3.0).name('Saturation');
+        folder.add(config, 'toneMappingMethod', { 'None': 0, 'ACES': 1, 'Reinhard': 2 }).name('Tone Mapping');
     }
 }

@@ -1,5 +1,6 @@
 import { Chunk } from "./Chunk";
 import { World } from "./World";
+import { PortfolioTerrainGenerator } from "./PortfolioTerrainGenerator";
 
 export type LightMode = 'RANDOM' | 'SINGLE_COLOR' | 'CLUSTERED';
 
@@ -15,6 +16,7 @@ export class TerrainGenerator {
     public static readonly ID_STONE = 1;
     public static readonly ID_GRASS = 2;
     public static readonly ID_WOOD = 3;
+    public static readonly ID_IRON = 14; 
     public static readonly ID_AMETHYST = 5;
     public static readonly ID_RUBY = 6;
     public static readonly ID_EMERALD = 7;
@@ -39,7 +41,7 @@ export class TerrainGenerator {
         this.modelLayout = modelLayout;
     }
 
-    private getLightBlockId(x: number, y: number, z: number): number {
+    public getLightBlockId(x: number, y: number, z: number): number {
         if (this.lightMode === 'SINGLE_COLOR') {
             return this.singleLightColorId;
         }
@@ -58,6 +60,11 @@ export class TerrainGenerator {
         }
 
         return this.LIGHT_BLOCKS[Math.floor(Math.random() * this.LIGHT_BLOCKS.length)];
+    }
+
+    public generatePortfolioTerrain(): void {
+        const generator = new PortfolioTerrainGenerator(this.world, this, this.device, this.modelLayout);
+        generator.generate();
     }
 
     public generateTestMap(): void {
@@ -271,6 +278,36 @@ export class TerrainGenerator {
         }
     }
 
+    public generateFlatTestMap(): void {
+        const CHUNKS_X = 4;
+        const CHUNKS_Y = 4; 
+        const CHUNKS_Z = 4;
+
+        for (let cx = 0; cx < CHUNKS_X; cx++) {
+            for (let cy = 0; cy < CHUNKS_Y; cy++) {
+                for (let cz = 0; cz < CHUNKS_Z; cz++) {
+                    const chunk = new Chunk(this.device, this.modelLayout, cx, cy, cz);
+                    this.world.chunks.set(`${cx},${cy},${cz}`, chunk);
+                }
+            }
+        }
+
+        const WORLD_WIDTH = CHUNKS_X * Chunk.WIDTH;
+        const WORLD_DEPTH = CHUNKS_Z * Chunk.DEPTH;
+
+        for (let x = 0; x < WORLD_WIDTH; x++) {
+            for (let z = 0; z < WORLD_DEPTH; z++) {
+                this.world.setBlock(x, 0, z, TerrainGenerator.ID_STONE);
+                this.world.setBlock(x, 1, z, TerrainGenerator.ID_STONE);
+                
+                if (x === 0 || x === WORLD_WIDTH - 1 || z === 0 || z === WORLD_DEPTH - 1) {
+                    this.world.setBlock(x, 2, z, TerrainGenerator.ID_STONE);
+                    this.world.setBlock(x, 3, z, TerrainGenerator.ID_STONE);
+                }
+            }
+        }
+    }
+
     public generateSSGITestMap(): void {
         const CHUNKS_X = 4;
         const CHUNKS_Y = 2; 
@@ -447,7 +484,6 @@ export class TerrainGenerator {
         }
     }
 
- 
     public generateAudioTestMap(): void {
         const CHUNKS_X = 4;
         const CHUNKS_Y = 3; 

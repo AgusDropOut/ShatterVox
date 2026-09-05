@@ -14,6 +14,7 @@ import { GTAOPass } from "./pass/GTAOPass";
 import { SSGIPass } from "./pass/SSGIPass";
 import { CompositionPass } from "./pass/CompositionPass";
 import { TAAPass } from "./pass/TAAPass";
+import { PostProcessPass } from "./pass/PostProcessPass";
 import { GPUTimer } from "./GPUTimer";
 import { ParticlePass } from "./pass/ParticlePass";
 import { ParticleManager } from "./ParticleManager";
@@ -34,10 +35,12 @@ export class WebGPURenderer {
     private depthTexture!: GPUTexture;
     private albedoTexture!: GPUTexture;
     private normalTexture!: GPUTexture;
+    private taaOutputTexture!: GPUTexture;
     
     public depthView!: GPUTextureView;
     public albedoView!: GPUTextureView;
     public normalView!: GPUTextureView;
+    private taaOutputView!: GPUTextureView;
 
     private atlas!: WebGPUTexture;
     private normalAtlas!: WebGPUTexture;
@@ -62,6 +65,7 @@ export class WebGPURenderer {
     private ssgiPass!: SSGIPass;
     private compositionPass!: CompositionPass;
     private taaPass!: TAAPass;
+    public postProcessPass!: PostProcessPass;
 
     private timer!: GPUTimer;
     private isTimerSupported: boolean = false;
@@ -73,6 +77,7 @@ export class WebGPURenderer {
         SSGI: '0.00',
         Composition: '0.00',
         TAA: '0.00',
+        PostProcess: '0.00',
         Total: '0.00'
     };
 
@@ -118,7 +123,9 @@ export class WebGPURenderer {
         await this.ssgiPass.init();
         
         this.compositionPass = new CompositionPass(this.device, "rgba16float"); 
-        this.taaPass = new TAAPass(this.device, this.presentationFormat);
+        
+        this.taaPass = new TAAPass(this.device, "rgba16float" as unknown as GPUTextureFormat);
+        this.postProcessPass = new PostProcessPass(this.device, this.presentationFormat);
 
         this.debugPipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEBUG_LINES', physicsDebugShaderWGSL, this.presentationFormat, false, false);
 
@@ -129,7 +136,7 @@ export class WebGPURenderer {
         this.debugCameraBindGroup = this.device.createBindGroup({ layout: this.debugPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.cameraBufferPlus } }] });
 
         if (this.isTimerSupported) {
-            this.timer = new GPUTimer(this.device, ['Geometry', 'GTAO', 'Deferred', 'SSGI', 'Composition', 'TAA']);
+            this.timer = new GPUTimer(this.device, ['Geometry', 'GTAO', 'Deferred', 'SSGI', 'Composition', 'TAA', 'PostProcess']);
         }
 
         this.resize(this.canvas.width, this.canvas.height);
@@ -162,6 +169,7 @@ export class WebGPURenderer {
         if (this.depthTexture) this.depthTexture.destroy();
         if (this.albedoTexture) this.albedoTexture.destroy();
         if (this.normalTexture) this.normalTexture.destroy();
+        if (this.taaOutputTexture) this.taaOutputTexture.destroy();
 
         this.albedoTexture = this.device.createTexture({ size: [width, height], format: "rgba8unorm", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
         this.albedoView = this.albedoTexture.createView();
@@ -172,6 +180,9 @@ export class WebGPURenderer {
         this.depthTexture = this.device.createTexture({ size: [width, height], format: "depth32float", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
         this.depthView = this.depthTexture.createView();
 
+        this.taaOutputTexture = this.device.createTexture({ size: [width, height], format: "rgba16float", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING });
+        this.taaOutputView = this.taaOutputTexture.createView();
+
         if (!this.linearSampler || !this.nearestSampler) throw new Error("Samplers not initialized");
 
         this.particlePass.resize(this.depthView, this.normalView);
@@ -180,6 +191,7 @@ export class WebGPURenderer {
         this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredPass.getResultView(), this.linearSampler, this.nearestSampler);
         this.compositionPass.resize(width, height, this.deferredPass.getResultView(), this.albedoView, this.ssgiPass.getResultView(), this.linearSampler);
         this.taaPass.resize(width, height, this.compositionPass.getResultView(), this.linearSampler);
+        this.postProcessPass.resize(this.taaOutputView, this.linearSampler);
     }
 
     public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number, cameraPosition: vec3): void {
@@ -205,9 +217,9 @@ export class WebGPURenderer {
         this.gtaoPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, Engine.zNear, Engine.zFar);
         this.ssgiPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, invViewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter, Engine.zNear, Engine.zFar);
         this.taaPass.updateParams(this.canvas.width, this.canvas.height); 
+        this.postProcessPass.updateParams();
 
         this.commandEncoder = this.device.createCommandEncoder();
-
         this.deferredPass.computeClusters(this.commandEncoder);
     }
 
@@ -261,8 +273,13 @@ export class WebGPURenderer {
 
     public drawTAA(frameCounter: number): void {
         if (!this.commandEncoder) return;
+        this.taaPass.draw(this.commandEncoder, this.taaOutputView, frameCounter, this.isTimerSupported ? this.timer.getTimestampWrites('TAA') : undefined);
+    }
+
+    public drawPostProcess(): void {
+        if (!this.commandEncoder) return;
         const screenTextureView = this.context.getCurrentTexture().createView();
-        this.taaPass.draw(this.commandEncoder, screenTextureView, frameCounter, this.isTimerSupported ? this.timer.getTimestampWrites('TAA') : undefined);
+        this.postProcessPass.draw(this.commandEncoder, screenTextureView, this.isTimerSupported ? this.timer.getTimestampWrites('PostProcess') : undefined);
     }
 
     public drawPhysicsDebug(vertices: Float32Array | null, colors: Float32Array | null): void {

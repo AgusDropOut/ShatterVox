@@ -15,7 +15,7 @@ export class PlayerController {
     private readonly physicsFacade: PhysicsFacade;
     private readonly buildManager: BuildManager;
     public readonly playerId: number;
-    private speed: number = 6.0;
+    private speed: number = 3.0;
     
     private canThrowBomb: boolean = true;
     private canMine: boolean = true;
@@ -35,19 +35,31 @@ export class PlayerController {
     private isDraggingBuild: boolean = false;
     private lastBuildPos: string = "";
 
+    public guiState = {
+        x: '0.00',
+        y: '0.00',
+        z: '0.00'
+    };
+
     constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade, soundManager: SoundManager, buildManager: BuildManager) {
         this.world = world;
         this.physicsFacade = physicsFacade;
         this.buildManager = buildManager;
-        this.camera = new Camera(vec3.fromValues(5, 0, 5));
-        this.targetPosition = vec3.fromValues(5, 0.8, 5);
+        
+        const spawnX = 13.63;
+        const spawnY = 5.20;
+        const spawnZ = 2.4;
+        
+        this.camera = new Camera(vec3.fromValues(spawnX, spawnY, spawnZ), 90.0, 0.0);
+        this.targetPosition = vec3.fromValues(spawnX, spawnY, spawnZ);
+        
         this.input = new Input(canvas);
         this.playerId = this.physicsFacade.generateId();
 
         globalEventBus.emit("PHYSICS_COMMAND", {
             type: 'CREATE_PLAYER',
             id: this.playerId,
-            x: 5, y: 10, z: 5,
+            x: spawnX, y: spawnY, z: spawnZ,
             radius: 0.2,
             halfHeight: 0.6
         });
@@ -73,8 +85,11 @@ export class PlayerController {
                             if (this.buildManager.activeTool === 'SINGLE') {
                                 this.isDraggingBuild = true;
                                 this.handleBuildPlacement();
-                            } else if (this.buildManager.activeTool === 'BOX' || this.buildManager.activeTool === 'DYNAMIC_BOX' || this.buildManager.activeTool === 'SPHERE') {
+                            } else if (this.buildManager.activeTool === 'BOX' || this.buildManager.activeTool === 'DYNAMIC_BOX') {
                                 this.handleBoxToolClick();
+                            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE') {
+                                this.isDraggingBuild = true;
+                                this.handleSculptPlacement();
                             }
                         }
                     }
@@ -105,6 +120,10 @@ export class PlayerController {
             vec3.lerp(this.camera.position, this.camera.position, this.targetPosition, t);
         }
 
+        this.guiState.x = this.camera.position[0].toFixed(2);
+        this.guiState.y = this.camera.position[1].toFixed(2);
+        this.guiState.z = this.camera.position[2].toFixed(2);
+
         const mouse = this.input.consumeMouseDeltas();
         if (mouse.x !== 0 || mouse.y !== 0) {
             this.camera.processMouseMovement(mouse.x, mouse.y);
@@ -120,14 +139,23 @@ export class PlayerController {
 
         const reach = 10.0;
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
-        if (gridHit.hit && gridHit.normal) {
-            this.currentPlacementTarget = vec3.fromValues(
-                gridHit.blockPos[0] + gridHit.normal[0],
-                gridHit.blockPos[1] + gridHit.normal[1],
-                gridHit.blockPos[2] + gridHit.normal[2]
-            );
+        
+        if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE') {
+            if (gridHit.hit) {
+                this.currentPlacementTarget = vec3.fromValues(gridHit.blockPos[0], gridHit.blockPos[1], gridHit.blockPos[2]);
+            } else {
+                this.currentPlacementTarget = null;
+            }
         } else {
-            this.currentPlacementTarget = null;
+            if (gridHit.hit && gridHit.normal) {
+                this.currentPlacementTarget = vec3.fromValues(
+                    gridHit.blockPos[0] + gridHit.normal[0],
+                    gridHit.blockPos[1] + gridHit.normal[1],
+                    gridHit.blockPos[2] + gridHit.normal[2]
+                );
+            } else {
+                this.currentPlacementTarget = null;
+            }
         }
 
         const velocity = vec3.create();
@@ -174,7 +202,11 @@ export class PlayerController {
         }
 
         if (this.isDraggingBuild && this.buildManager.isActive && this.buildManager.selectedBlockId !== 999) {
-            this.handleBuildPlacement();
+            if (this.buildManager.activeTool === 'SINGLE') {
+                this.handleBuildPlacement();
+            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE') {
+                this.handleSculptPlacement();
+            }
         }
     }
 
@@ -274,5 +306,17 @@ export class PlayerController {
         this.lastBuildPos = posKey;
 
         this.buildManager.placeSingle(x, y, z);
+    }
+
+    private handleSculptPlacement(): void {
+        if (!this.currentPlacementTarget) return;
+        if (!this.canBuild) return;
+
+        this.canBuild = false;
+        setTimeout(() => this.canBuild = true, this.buildCooldownMs);
+
+        const [x, y, z] = this.currentPlacementTarget;
+        
+        this.buildManager.executeSculptAction(x, y, z);
     }
 }

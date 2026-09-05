@@ -128,6 +128,7 @@ export class Engine {
         this.soundManager.loadSound("leaves_collision", "/assets/sounds/leaves_collision.ogg");
         this.soundManager.loadSound("nade_explosion", "/assets/sounds/nade_explosion.ogg");
         this.soundManager.loadSound("slime_squish", "/assets/sounds/slime_squish.ogg");
+        this.soundManager.loadSound("metal_collision", "/assets/sounds/metal_collision.ogg");
         this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg");
 
         this.buildManager = new BuildManager(this.world, this.physicsFacade, this.renderer.device, this.renderer.getModelLayout());

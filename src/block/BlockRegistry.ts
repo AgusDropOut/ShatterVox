@@ -111,7 +111,7 @@ export class BlockRegistry {
         this.create(11).name("Quartz").texture(10).color(1.0, 1.0, 1.0).material(0.2, 0.0).fragmentation(0.05).sound("glass_collision").register();
         this.create(13).name("Slime").texture(11).color(0.3, 1.0, 0.3).material(0.1, 0.0).physics(0.8, 0.9, 1.4, 0.0).behavior(SlimeBehavior).sound("slime_squish").register();
         
-        this.create(14).name("Iron").texture(12).color(0.9, 0.9, 0.9).material(0.2, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("stone_collision").register();
+        this.create(14).name("Iron").texture(12).color(0.9, 0.9, 0.9).material(0.2, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("metal_collision").fragmentation(0.05).toughness(90).register();
     }
 
     public static create(id: number): BlockBuilder {

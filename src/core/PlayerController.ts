@@ -15,7 +15,7 @@ export class PlayerController {
     private readonly physicsFacade: PhysicsFacade;
     private readonly buildManager: BuildManager;
     public readonly playerId: number;
-    private speed: number = 2.5;
+    private speed: number = 2.8;
     
     private canThrowBomb: boolean = true;
     private canMine: boolean = true;
@@ -46,9 +46,9 @@ export class PlayerController {
         this.physicsFacade = physicsFacade;
         this.buildManager = buildManager;
         
-        const spawnX = 14.0;
+        const spawnX = 21.00;
         const spawnY = 5.0;
-        const spawnZ = 3.4;
+        const spawnZ = 3.0;
         
         this.camera = new Camera(vec3.fromValues(spawnX, spawnY, spawnZ), 90.0, 0.0);
         this.targetPosition = vec3.fromValues(spawnX, spawnY, spawnZ);
@@ -79,7 +79,7 @@ export class PlayerController {
                                 this.handleBuildPlacement();
                             } else if (this.buildManager.activeTool === 'BOX' || this.buildManager.activeTool === 'DYNAMIC_BOX') {
                                 this.handleBoxToolClick();
-                            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE') {
+                            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE' || this.buildManager.activeTool === 'CUT_BOX') {
                                 this.isDraggingBuild = true;
                                 this.handleSculptPlacement();
                             }
@@ -144,7 +144,7 @@ export class PlayerController {
         const reach = 10.0;
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
         
-        if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE') {
+        if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE' || this.buildManager.activeTool === 'CUT_BOX') {
             if (gridHit.hit) {
                 this.currentPlacementTarget = vec3.fromValues(gridHit.blockPos[0], gridHit.blockPos[1], gridHit.blockPos[2]);
             } else {
@@ -208,7 +208,7 @@ export class PlayerController {
         if (this.isDraggingBuild && this.buildManager.isActive && this.buildManager.selectedBlockId !== 999) {
             if (this.buildManager.activeTool === 'SINGLE') {
                 this.handleBuildPlacement();
-            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE') {
+            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE' || this.buildManager.activeTool === 'CUT_BOX') {
                 this.handleSculptPlacement();
             }
         }

@@ -21,7 +21,7 @@ export class BuildManager {
 
     public isActive: boolean = false;
     public selectedBlockId: number = 1;
-    public activeTool: 'SINGLE' | 'BOX' | 'DYNAMIC_BOX' | 'SPHERE' | 'SMOOTH' | 'DYNAMITE' = 'SINGLE';
+    public activeTool: 'SINGLE' | 'BOX' | 'DYNAMIC_BOX' | 'SPHERE' | 'SMOOTH' | 'DYNAMITE' | 'CUT_BOX' = 'SINGLE';
     public sphereRadius: number = 3;
     
     private undoStack: BuildOperation[][] = [];
@@ -43,7 +43,7 @@ export class BuildManager {
         });
 
         globalEventBus.on("SET_BUILD_TOOL", (data) => {
-            this.activeTool = data.tool as 'SINGLE' | 'BOX' | 'DYNAMIC_BOX' | 'SPHERE' | 'SMOOTH' | 'DYNAMITE';
+            this.activeTool = data.tool as 'SINGLE' | 'BOX' | 'DYNAMIC_BOX' | 'SPHERE' | 'SMOOTH' | 'DYNAMITE' | 'CUT_BOX';
             this.boxPoints = [];
         });
 
@@ -87,6 +87,8 @@ export class BuildManager {
             this.boxPoints = [vec3.fromValues(x, y, z)];
             this.executeSphere();
             this.boxPoints = [];
+        } else if (this.activeTool === 'CUT_BOX') {
+            this.executeCutBox(x, y, z);
         }
     }
 
@@ -111,6 +113,33 @@ export class BuildManager {
         }
     }
 
+    private executeCutBox(cx: number, cy: number, cz: number): void {
+        const radius = this.sphereRadius;
+        const batch: BuildOperation[] = [];
+
+        for (let x = cx - radius; x <= cx + radius; x++) {
+            for (let y = cy - radius; y <= cy + radius; y++) {
+                for (let z = cz - radius; z <= cz + radius; z++) {
+                    const currentBlock = this.world.getBlock(x, y, z);
+                    if (currentBlock !== 0) {
+                        batch.push({ x, y, z, previousBlockId: currentBlock, newBlockId: 0 });
+                        this.world.setBlock(x, y, z, 0);
+                        this.world.setChunkDirtyAt(x, y, z);
+                    }
+                }
+            }
+        }
+
+        if (batch.length > 0) {
+            this.pushBatch(batch);
+            globalEventBus.emit("PLAY_SPATIAL_SOUND", { 
+                id: "stone_collision", 
+                position: [cx * Engine.voxelSize, cy * Engine.voxelSize, cz * Engine.voxelSize], 
+                volume: 0.5, pitch: 0.8
+            });
+        }
+    }
+
     private executeSmooth(cx: number, cy: number, cz: number): void {
         const radius = this.sphereRadius;
         const rSquared = radius * radius;
@@ -125,7 +154,6 @@ export class BuildManager {
                     if (distSq <= rSquared) {
                         const currentBlock = this.world.getBlock(x, y, z);
                         let neighborCount = 0;
-
 
                         if (this.world.getBlock(x + 1, y, z) !== 0) neighborCount++;
                         if (this.world.getBlock(x - 1, y, z) !== 0) neighborCount++;
@@ -310,7 +338,7 @@ export class BuildManager {
     public getHighlightBounds(target: vec3): { min: vec3, max: vec3 } | null {
         if (!this.isActive || this.selectedBlockId === 999) return null;
 
-        if (this.activeTool === 'SPHERE' || this.activeTool === 'SMOOTH' || this.activeTool === 'DYNAMITE') {
+        if (this.activeTool === 'SPHERE' || this.activeTool === 'SMOOTH' || this.activeTool === 'DYNAMITE' || this.activeTool === 'CUT_BOX') {
             const cx = target[0];
             const cy = target[1];
             const cz = target[2];

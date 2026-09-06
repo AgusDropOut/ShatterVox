@@ -28,9 +28,11 @@ export class TerrainPhysics {
     }
 
     public buildColliders(world: World): void {
+        console.time("Physics: Build Colliders");
         for (const [key, chunk] of world.chunks.entries()) {
             this.rebuildChunkColliders(chunk);
         }
+        console.timeEnd("Physics: Build Colliders");
     }
 
     public rebuildChunkColliders(chunk: Chunk): void {
@@ -38,19 +40,21 @@ export class TerrainPhysics {
         
         const existingIds = this.chunkColliderIds.get(key);
         if (existingIds) {
-            for (const id of existingIds) {
+            for (let i = 0; i < existingIds.length; i++) {
                 globalEventBus.emit("PHYSICS_COMMAND", {
                     type: 'REMOVE_TERRAIN_BOX',
-                    id: id
+                    id: existingIds[i]
                 });
             }
         }
 
         const boxes = this.computeGreedyMeshingForChunk(chunk);
-        const newIds: number[] = [];
-        for (const box of boxes) {
+        const newIds = new Array(boxes.length);
+        
+        for (let i = 0; i < boxes.length; i++) {
+            const box = boxes[i];
             const newId = this.globalIdCounter++;
-            newIds.push(newId);
+            newIds[i] = newId;
 
             globalEventBus.emit("PHYSICS_COMMAND", {
                 type: 'CREATE_STATIC_BOX',
@@ -74,21 +78,23 @@ export class TerrainPhysics {
         const voxelSize = Engine.voxelSize;
 
         const volume = W * H * D;
-        const voxels = new Uint8Array(volume);
         
-        let hasBlocks = false;
-        for (let x = 0; x < W; x++) {
-            for (let y = 0; y < H; y++) {
-                for (let z = 0; z < D; z++) {
-                    const worldY = chunk.chunkY * H + y;
-                    if (worldY === 0) continue; 
 
-                    const id = chunk.getBlock(x, y, z);
-                    const idx = x + (y * W) + (z * W * H);
-                    if (id !== 0) {
-                        voxels[idx] = 1;
+        const mask = new Uint8Array(volume);
+        let hasBlocks = false;
+        
+        let i = 0;
+        for (let z = 0; z < D; z++) {
+            for (let y = 0; y < H; y++) {
+                const worldY = chunk.chunkY * H + y;
+                const isBedrock = (worldY === 0);
+                
+                for (let x = 0; x < W; x++) {
+                    if (!isBedrock && chunk.getBlock(x, y, z) !== 0) {
+                        mask[i] = 1;
                         hasBlocks = true;
                     }
+                    i++;
                 }
             }
         }
@@ -96,72 +102,70 @@ export class TerrainPhysics {
         if (!hasBlocks) return [];
 
         const boxes: { x: number; y: number; z: number; halfW: number; halfH: number; halfD: number }[] = [];
-        const visited = new Uint8Array(volume);
+        
 
+        let idx = 0;
         for (let z = 0; z < D; z++) {
             for (let y = 0; y < H; y++) {
                 for (let x = 0; x < W; x++) {
-                    const idx = x + (y * W) + (z * W * H);
-                    if (voxels[idx] === 0 || visited[idx] === 1) continue;
+                    idx = x + y * W + z * W * H;
 
-                    let width = 0;
-                    while (x + width < W) {
-                        const nIdx = (x + width) + (y * W) + (z * W * H);
-                        if (voxels[nIdx] === 0 || visited[nIdx] === 1) break;
-                        width++;
-                    }
-
-                    let depth = 1;
-                    let canExpandZ = true;
-                    while (z + depth < D && canExpandZ) {
-                        for (let wx = 0; wx < width; wx++) {
-                            const checkIdx = (x + wx) + (y * W) + ((z + depth) * W * H);
-                            if (voxels[checkIdx] === 0 || visited[checkIdx] === 1) {
-                                canExpandZ = false;
-                                break;
-                            }
+                    if (mask[idx] === 1) {
+                        let width = 1;
+                        while (x + width < W && mask[idx + width] === 1) {
+                            width++;
                         }
-                        if (canExpandZ) depth++;
-                    }
 
-                    let height = 1;
-                    let canExpandY = true;
-                    while (y + height < H && canExpandY) {
-                        for (let wz = 0; wz < depth; wz++) {
+                        let height = 1;
+                        let doneHeight = false;
+                        while (y + height < H && !doneHeight) {
                             for (let wx = 0; wx < width; wx++) {
-                                const checkIdx = (x + wx) + ((y + height) * W) + ((z + wz) * W * H);
-                                if (voxels[checkIdx] === 0 || visited[checkIdx] === 1) {
-                                    canExpandY = false;
+                                if (mask[idx + wx + height * W] === 0) {
+                                    doneHeight = true;
                                     break;
                                 }
                             }
-                            if (!canExpandY) break;
+                            if (!doneHeight) height++;
                         }
-                        if (canExpandY) height++;
-                    }
 
-                    for (let wy = 0; wy < height; wy++) {
-                        for (let wz = 0; wz < depth; wz++) {
-                            for (let wx = 0; wx < width; wx++) {
-                                const markIdx = (x + wx) + ((y + wy) * W) + ((z + wz) * W * H);
-                                visited[markIdx] = 1;
+                        let depth = 1;
+                        let doneDepth = false;
+                        while (z + depth < D && !doneDepth) {
+                            for (let hy = 0; hy < height; hy++) {
+                                for (let wx = 0; wx < width; wx++) {
+                                    if (mask[idx + wx + hy * W + depth * W * H] === 0) {
+                                        doneDepth = true;
+                                        break;
+                                    }
+                                }
+                                if (doneDepth) break;
+                            }
+                            if (!doneDepth) depth++;
+                        }
+
+                 
+                        for (let dz = 0; dz < depth; dz++) {
+                            for (let dy = 0; dy < height; dy++) {
+                                for (let dx = 0; dx < width; dx++) {
+                                    mask[idx + dx + dy * W + dz * W * H] = 0;
+                                }
                             }
                         }
+
+                        const worldX = chunk.chunkX * W + x;
+                        const worldY = chunk.chunkY * H + y;
+                        const worldZ = chunk.chunkZ * D + z;
+
+                        const halfW = (width * voxelSize) / 2;
+                        const halfH = (height * voxelSize) / 2;
+                        const halfD = (depth * voxelSize) / 2;
+
+                        const centerX = (worldX + width / 2) * voxelSize;
+                        const centerY = (worldY + height / 2) * voxelSize;
+                        const centerZ = (worldZ + depth / 2) * voxelSize;
+
+                        boxes.push({ x: centerX, y: centerY, z: centerZ, halfW, halfH, halfD });
                     }
-
-                    const worldX = chunk.chunkX * W + x;
-                    const worldY = chunk.chunkY * H + y;
-                    const worldZ = chunk.chunkZ * D + z;
-
-                    const halfW = (width * voxelSize) / 2;
-                    const halfH = (height * voxelSize) / 2;
-                    const halfD = (depth * voxelSize) / 2;
-
-                    const centerX = (worldX + width / 2) * voxelSize;
-                    const centerY = (worldY + height / 2) * voxelSize;
-                    const centerZ = (worldZ + depth / 2) * voxelSize;
-
-                    boxes.push({ x: centerX, y: centerY, z: centerZ, halfW, halfH, halfD });
                 }
             }
         }

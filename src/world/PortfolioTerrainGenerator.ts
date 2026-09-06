@@ -16,9 +16,9 @@ export class PortfolioTerrainGenerator {
     }
 
     public generate(): void {
-        const CHUNKS_X = 6;
-        const CHUNKS_Y = 5;
-        const CHUNKS_Z = 8;
+        const CHUNKS_X = 10;
+        const CHUNKS_Y = 6;
+        const CHUNKS_Z = 16;
 
         for (let cx = 0; cx < CHUNKS_X; cx++) {
             for (let cy = 0; cy < CHUNKS_Y; cy++) {

@@ -98,6 +98,7 @@ export class DebugGui {
             'Sculpt Sphere': 'SPHERE',
             'Sculpt Dynamite': 'DYNAMITE',
             'Sculpt Smooth': 'SMOOTH',
+            'Cut Box': 'CUT_BOX',
             'Dynamic Cut Box': 'DYNAMIC_BOX'
         };
         

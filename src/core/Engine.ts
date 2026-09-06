@@ -98,10 +98,8 @@ export class Engine {
     public async start(): Promise<void> {
         if (this.isRunning) return;
 
-        console.log("[Engine] Initializing WebGPU...");
         const success = await this.renderer.init();
         if (!success) {
-            console.error("[Engine] Failed to initialize graphics engine.");
             return;
         }
 
@@ -132,13 +130,11 @@ export class Engine {
 
         this.buildManager = new BuildManager(this.world, this.physicsFacade, this.renderer.device, this.renderer.getModelLayout());
         
-      
         this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager);
         
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
         this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade, this.player);
-     
 
         try {
             const response = await fetch('/assets/portfolio.bin');
@@ -148,26 +144,19 @@ export class Engine {
                 const arrayBuffer = await response.arrayBuffer();
                 const loadSuccess = WorldSerializer.loadWorld(arrayBuffer, this.world, this.renderer.device, this.renderer.getModelLayout(), this.physicsFacade);
                 
-                if (loadSuccess) {
-                    console.log("[Engine] Portfolio world loaded.");
-                } else {
-                    console.warn("[Engine] Corrupted or invalid .bin file. Falling back to test map.");
+                if (!loadSuccess) {
                     this.world.generateTestMap();
                 }
             } else {
-                console.log("[Engine] No saved world found. Falling back to test map.");
                 this.world.generateTestMap();
             }
         } catch (e) {
-            console.warn("Failed to fetch world, generating default.", e);
             this.world.generateTestMap();
         }
 
-       
         this.world.updateAllMeshes();
         this.terrainPhysics.buildColliders(this.world);
         
-      
         this.player.spawn();
         
         await this.renderer.loadEntityAsset(
@@ -182,7 +171,14 @@ export class Engine {
             "/assets/textures/billboard.png"
         );
 
-        console.log("[Engine] Initialization complete. Starting main loop.");
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 800);
+        }
+
         this.isRunning = true;
         requestAnimationFrame((time) => this.loop(time));
     }

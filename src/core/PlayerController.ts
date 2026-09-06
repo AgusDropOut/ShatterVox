@@ -23,7 +23,7 @@ export class PlayerController {
     
     public mineCooldownMs: number = 100; 
     public buildCooldownMs: number = 100; 
-    public destructionRadius: number = 3;
+    public destructionRadius: number = 6;
 
     public targetPosition: vec3;
     public currentPlacementTarget: vec3 | null = null;

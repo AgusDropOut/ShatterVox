@@ -115,6 +115,8 @@ export class BlockRegistry {
         
        
         this.create(15).name("Fire").texture(13).color(1.0, 0.5, 0.0).transparent().light(2.0, 1.0, 0.4, 0.1).behavior(FireBehavior).physics(0.0, 0.0, 0.0, 0.0).toughness(0).register();
+        this.create(16).name("Stone_bricks").texture(14).color(0.2, 0.2, 0.2).fragmentation(0.02).sound("stone_collision").register();
+        
     }
 
     public static create(id: number): BlockBuilder {

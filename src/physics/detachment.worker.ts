@@ -40,8 +40,8 @@ function evaluateDynamicDetachment(debriId: number, blocks: Uint8Array, WIDTH: n
                     }
                 }
 
-           
-                if (airBlocks >= 5 || (airBlocks >= 4 && !supportBelow)) {
+    
+                if (airBlocks >= 6 || (airBlocks === 5 && !supportBelow)) {
                     detachedBlocks.push([x, y, z, currentBlockId]);
                 }
             }
@@ -55,43 +55,58 @@ function evaluateStaticDetachment(chunks: { chunkX: number, chunkY: number, chun
     const detachedBlocks: { chunkX: number, chunkY: number, chunkZ: number, blocks: number[][] }[] = [];
 
     for (const chunk of chunks) {
-        const { chunkX, chunkY, chunkZ, blocks } = chunk;
+        const { chunkX, chunkY, chunkZ, blocks, WIDTH, HEIGHT, DEPTH } = chunk;
         const chunkDetachedBlocks: number[][] = [];
+        const visited = new Uint8Array(WIDTH * HEIGHT * DEPTH);
 
-        for (let z = 0; z < chunk.DEPTH; z++) {
-            for (let y = 0; y < chunk.HEIGHT; y++) {
-                for (let x = 0; x < chunk.WIDTH; x++) {
-                    const idx = getIndex(x, y, z, chunk.WIDTH, chunk.HEIGHT);
+        for (let z = 0; z < DEPTH; z++) {
+            for (let y = 0; y < HEIGHT; y++) {
+                for (let x = 0; x < WIDTH; x++) {
+                    const idx = getIndex(x, y, z, WIDTH, HEIGHT);
                     const currentBlockId = blocks[idx];
 
-                    if (currentBlockId === 0) continue;
-                    if (y === 0 || y - 1 === 0) continue; 
+                    if (currentBlockId === 0 || visited[idx] === 1) continue;
 
-                    let airBlocks = 0;
-                    const neighborOffsets = [
-                        [1, 0, 0], [-1, 0, 0],
-                        [0, 1, 0], [0, -1, 0],
-                        [0, 0, 1], [0, 0, -1]
-                    ];
+    
+                    const queue: number[][] = [[x, y, z, currentBlockId]];
+                    let head = 0;
+                    const island: number[][] = [];
+                    let touchesBoundary = false;
 
-                    for (const [dx, dy, dz] of neighborOffsets) {
-                        const nx = x + dx;
-                        const ny = y + dy;
-                        const nz = z + dz;
+                    visited[idx] = 1;
 
-                        if (!inBounds(nx, ny, nz, chunk.WIDTH, chunk.HEIGHT, chunk.DEPTH)) {
-                            airBlocks++;
-                            continue;
+                    while (head < queue.length) {
+                        const [cx, cy, cz, bId] = queue[head++];
+                        island.push([cx, cy, cz, bId]);
+
+                        if (cx === 0 || cx === WIDTH - 1 || 
+                            cy === 0 || cy === HEIGHT - 1 || 
+                            cz === 0 || cz === DEPTH - 1) {
+                            touchesBoundary = true;
                         }
 
-                        const nIdx = getIndex(nx, ny, nz, chunk.WIDTH, chunk.HEIGHT);
-                        if (blocks[nIdx] === 0) {
-                            airBlocks++;
+                        const nbs = [
+                            [cx + 1, cy, cz], [cx - 1, cy, cz],
+                            [cx, cy + 1, cz], [cx, cy - 1, cz],
+                            [cx, cy, cz + 1], [cx, cy, cz - 1]
+                        ];
+
+                        for (const [nx, ny, nz] of nbs) {
+                            if (!inBounds(nx, ny, nz, WIDTH, HEIGHT, DEPTH)) continue;
+                            const nIdx = getIndex(nx, ny, nz, WIDTH, HEIGHT);
+                            
+                            if (visited[nIdx] === 0 && blocks[nIdx] !== 0) {
+                                visited[nIdx] = 1;
+                                queue.push([nx, ny, nz, blocks[nIdx]]);
+                            }
                         }
                     }
 
-                    if (airBlocks >= 4) {
-                        chunkDetachedBlocks.push([x, y, z, currentBlockId]);
+             
+                    if (!touchesBoundary) {
+                        for (let i = 0; i < island.length; i++) {
+                            chunkDetachedBlocks.push(island[i]);
+                        }
                     }
                 }
             }

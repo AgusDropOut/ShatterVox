@@ -189,6 +189,11 @@ export class WorldSerializer {
             offset += dataSize;
         }
 
+      
+        if (world.terrainPhysics) {
+            world.terrainPhysics.buildColliders(world);
+        }
+
         if (offset < buffer.byteLength) {
             const entityCount = view.getUint32(offset, true);
             offset += 4;
@@ -258,7 +263,6 @@ export class WorldSerializer {
                 const debri = new Debri(device, layout, debriId, physicsFacade, blocks, offX, offY, offZ, true);
                 world.addDebri(debri);
 
-                
                 const baseGlobalX = (px / Engine.voxelSize) - offX;
                 const baseGlobalY = (py / Engine.voxelSize) - offY;
                 const baseGlobalZ = (pz / Engine.voxelSize) - offZ;

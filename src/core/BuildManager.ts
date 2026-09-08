@@ -25,7 +25,7 @@ export class BuildManager {
     public sphereRadius: number = 3;
     
     private undoStack: BuildOperation[][] = [];
-    private boxPoints: vec3[] = [];
+    public boxPoints: vec3[] = [];
 
     constructor(world: World, physicsFacade: PhysicsFacade, device: GPUDevice, layout: GPUBindGroupLayout) {
         this.world = world;
@@ -75,6 +75,87 @@ export class BuildManager {
         this.world.setChunkDirtyAt(x, y, z);
     }
 
+    public removeSingle(x: number, y: number, z: number): void {
+        if (!this.isActive) return;
+
+        const currentBlock = this.world.getBlock(x, y, z);
+        if (currentBlock === 0) return; 
+
+        const batch: BuildOperation[] = [{
+            x, y, z,
+            previousBlockId: currentBlock,
+            newBlockId: 0
+        }];
+
+        this.pushBatch(batch);
+        this.world.setBlock(x, y, z, 0);
+        this.world.setChunkDirtyAt(x, y, z);
+    }
+
+    public removeSingleDebri(debriId: number, localX: number, localY: number, localZ: number): void {
+        if (!this.isActive) return;
+
+        const debri = this.world.debri.find(d => d.id === debriId);
+        if (!debri) return;
+
+   
+        const centerX = Math.round((localX / Engine.voxelSize) + debri.offsetX);
+        const centerY = Math.round((localY / Engine.voxelSize) + debri.offsetY);
+        const centerZ = Math.round((localZ / Engine.voxelSize) + debri.offsetZ);
+
+        let targetX = centerX;
+        let targetY = centerY;
+        let targetZ = centerZ;
+        let foundBlock = false;
+        
+        let currentBlock = debri.getBlock(centerX, centerY, centerZ);
+
+    
+        if (currentBlock === 0) {
+            for (let dx = -1; dx <= 1 && !foundBlock; dx++) {
+                for (let dy = -1; dy <= 1 && !foundBlock; dy++) {
+                    for (let dz = -1; dz <= 1 && !foundBlock; dz++) {
+                        const bId = debri.getBlock(centerX + dx, centerY + dy, centerZ + dz);
+                        if (bId !== 0) {
+                            targetX = centerX + dx;
+                            targetY = centerY + dy;
+                            targetZ = centerZ + dz;
+                            currentBlock = bId;
+                            foundBlock = true;
+                        }
+                    }
+                }
+            }
+        } else {
+            foundBlock = true;
+        }
+
+        if (!foundBlock) return;
+
+    
+        debri.setBlock(targetX, targetY, targetZ, 0);
+        this.world.updateDebriMesh(debri);
+
+  
+        const lX = (targetX - debri.offsetX) * Engine.voxelSize;
+        const lY = (targetY - debri.offsetY) * Engine.voxelSize;
+        const lZ = (targetZ - debri.offsetZ) * Engine.voxelSize;
+
+        globalEventBus.emit("PHYSICS_COMMAND", {
+            type: 'REMOVE_DEBRI_BLOCK',
+            id: debriId,
+            localX: lX,
+            localY: lY,
+            localZ: lZ
+        });
+        
+        globalEventBus.emit("PLAY_SPATIAL_SOUND", { 
+            id: "stone_collision", 
+            position: [targetX * Engine.voxelSize, targetY * Engine.voxelSize, targetZ * Engine.voxelSize], 
+            volume: 0.5, pitch: 1.2 
+        });
+    }
+
     public executeSculptAction(x: number, y: number, z: number): void {
         if (this.activeTool === 'DYNAMITE') {
             globalEventBus.emit("BLOCK_MINED_STATIC", { 
@@ -87,8 +168,6 @@ export class BuildManager {
             this.boxPoints = [vec3.fromValues(x, y, z)];
             this.executeSphere();
             this.boxPoints = [];
-        } else if (this.activeTool === 'CUT_BOX') {
-            this.executeCutBox(x, y, z);
         }
     }
 
@@ -108,18 +187,29 @@ export class BuildManager {
                 this.executeDynamicBox();
             } else if (this.activeTool === 'BOX') {
                 this.executeBox();
+            } else if (this.activeTool === 'CUT_BOX') {
+                this.executeCutBox();
             }
             this.boxPoints = [];
         }
     }
 
-    private executeCutBox(cx: number, cy: number, cz: number): void {
-        const radius = this.sphereRadius;
+    private executeCutBox(): void {
+        const p1 = this.boxPoints[0];
+        const p2 = this.boxPoints[1];
+
+        const minX = Math.min(p1[0], p2[0]);
+        const maxX = Math.max(p1[0], p2[0]);
+        const minY = Math.min(p1[1], p2[1]);
+        const maxY = Math.max(p1[1], p2[1]);
+        const minZ = Math.min(p1[2], p2[2]);
+        const maxZ = Math.max(p1[2], p2[2]);
+
         const batch: BuildOperation[] = [];
 
-        for (let x = cx - radius; x <= cx + radius; x++) {
-            for (let y = cy - radius; y <= cy + radius; y++) {
-                for (let z = cz - radius; z <= cz + radius; z++) {
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                for (let z = minZ; z <= maxZ; z++) {
                     const currentBlock = this.world.getBlock(x, y, z);
                     if (currentBlock !== 0) {
                         batch.push({ x, y, z, previousBlockId: currentBlock, newBlockId: 0 });
@@ -132,11 +222,6 @@ export class BuildManager {
 
         if (batch.length > 0) {
             this.pushBatch(batch);
-            globalEventBus.emit("PLAY_SPATIAL_SOUND", { 
-                id: "stone_collision", 
-                position: [cx * Engine.voxelSize, cy * Engine.voxelSize, cz * Engine.voxelSize], 
-                volume: 0.5, pitch: 0.8
-            });
         }
     }
 
@@ -266,6 +351,7 @@ export class BuildManager {
 
         const debriId = this.physicsFacade.generateId();
         const debri = new Debri(this.device, this.layout, debriId, this.physicsFacade, blocks, cx, cy, cz, true);
+        debri.isPersistent = true;
         
         this.world.addDebri(debri);
         this.world.updateDebriMesh(debri);

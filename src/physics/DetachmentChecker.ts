@@ -14,10 +14,10 @@ export class DetachmentChecker {
     private detachmentWorker: Worker;
     private shatterWorker: Worker;
     
-
-    
     private flagedForCheckingChunks: Set<string> = new Set();
     private flagedForCheckingDebris: Set<number> = new Set();
+
+    private isBuildMode: boolean = false;
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, world: World, physicsFacade: PhysicsFacade, shatterWorker: Worker) {
         
@@ -32,10 +32,19 @@ export class DetachmentChecker {
             this.handleDetachmentWorkerMessage(e.data);
         }
 
+        globalEventBus.on("TOGGLE_BUILD_MODE", (data) => {
+            this.isBuildMode = data.enabled !== undefined ? data.enabled : !this.isBuildMode;
+            if (this.isBuildMode) {
+                this.flagedForCheckingChunks.clear();
+                this.flagedForCheckingDebris.clear();
+            }
+        });
+
         setInterval(() => this.makePeriodicDynamicCheck(), 100);
         setInterval(() => this.makePeriodicStaticCheck(), 100);
 
         globalEventBus.on("BLOCK_MINED_STATIC", (data) => {
+            if (this.isBuildMode) return;
             const cx = Math.floor(data.x / Chunk.WIDTH);
             const cy = Math.floor(data.y / Chunk.HEIGHT);
             const cz = Math.floor(data.z / Chunk.DEPTH);
@@ -43,21 +52,23 @@ export class DetachmentChecker {
         });
 
         globalEventBus.on("BLOCK_MINED_DYNAMIC", (data) => {
+            if (this.isBuildMode) return;
             this.flagDebriForChecking(data.debriId);
         });
     }
 
     public flagChunkForChecking(chunkX: number, chunkY: number, chunkZ: number): void {
+        if (this.isBuildMode) return;
         this.flagedForCheckingChunks.add(`${chunkX},${chunkY},${chunkZ}`);
     }
 
     public flagDebriForChecking(debriId: number): void {
+        if (this.isBuildMode) return;
         this.flagedForCheckingDebris.add(debriId);
     }
 
-
     private makePeriodicDynamicCheck(): void {
-        if (!this.physicsFacade.isReady || this.flagedForCheckingDebris.size === 0) return;
+        if (this.isBuildMode || !this.physicsFacade.isReady || this.flagedForCheckingDebris.size === 0) return;
 
         for (const debriId of this.flagedForCheckingDebris) {
             const targetDebri = this.world.debri.find(d => d.id === debriId);
@@ -83,7 +94,7 @@ export class DetachmentChecker {
     }
 
     private makePeriodicStaticCheck(): void {
-        if (!this.physicsFacade.isReady || this.flagedForCheckingChunks.size === 0) return;
+        if (this.isBuildMode || !this.physicsFacade.isReady || this.flagedForCheckingChunks.size === 0) return;
 
         const chunksToSend = [];
 
@@ -111,6 +122,8 @@ export class DetachmentChecker {
     }
 
     private handleDetachmentWorkerMessage(data: any): void {
+        if (this.isBuildMode) return;
+
         if (data.type === 'DETACHMENT_RESULT_DYNAMIC') {
             this.handleDynamicDetachmentResult(data);
         } else if (data.type === 'DETACHMENT_RESULT_STATIC') {
@@ -135,8 +148,6 @@ export class DetachmentChecker {
                 const fragmentationChance = blockDef?.fragmentationChance ?? 0.3;
 
                 this.world.setBlock(worldX, worldY, worldZ, 0);
-                
-             
                 this.world.setChunkDirtyAt(worldX, worldY, worldZ); 
 
                 if (Math.random() < fragmentationChance) {

@@ -15,11 +15,14 @@ export class PlayerController {
     private readonly physicsFacade: PhysicsFacade;
     private readonly buildManager: BuildManager;
     public readonly playerId: number;
-    private speed: number = 2.8;
+    
+    private walkSpeed: number = 2.8;
+    private flySpeed: number = 8.0;
     
     private canThrowBomb: boolean = true;
     private canMine: boolean = true;
     private canBuild: boolean = true;
+    private isBuildMode: boolean = false;
     
     public mineCooldownMs: number = 100; 
     public buildCooldownMs: number = 100; 
@@ -64,6 +67,21 @@ export class PlayerController {
             if (data.destructionRadius !== undefined) this.destructionRadius = data.destructionRadius;
         });
 
+        globalEventBus.on("TOGGLE_BUILD_MODE", (data) => {
+            this.isBuildMode = data.enabled !== undefined ? data.enabled : !this.isBuildMode;
+            if (!this.isBuildMode) {
+                globalEventBus.emit("PHYSICS_COMMAND", {
+                    type: 'CREATE_PLAYER', 
+                    id: this.playerId,
+                    x: this.camera.position[0], 
+                    y: this.camera.position[1], 
+                    z: this.camera.position[2],
+                    radius: 0.2,
+                    halfHeight: 0.6
+                });
+            }
+        });
+
         canvas.addEventListener("mousedown", (e) => {
             this.soundManager.unlock();
             if (this.input.isLocked) {
@@ -77,9 +95,9 @@ export class PlayerController {
                             if (this.buildManager.activeTool === 'SINGLE') {
                                 this.isDraggingBuild = true;
                                 this.handleBuildPlacement();
-                            } else if (this.buildManager.activeTool === 'BOX' || this.buildManager.activeTool === 'DYNAMIC_BOX') {
+                            } else if (this.buildManager.activeTool === 'BOX' || this.buildManager.activeTool === 'DYNAMIC_BOX' || this.buildManager.activeTool === 'CUT_BOX') {
                                 this.handleBoxToolClick();
-                            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE' || this.buildManager.activeTool === 'CUT_BOX') {
+                            } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE') {
                                 this.isDraggingBuild = true;
                                 this.handleSculptPlacement();
                             }
@@ -93,6 +111,12 @@ export class PlayerController {
             if (e.button === 2) {
                 this.isDraggingBuild = false;
                 this.lastBuildPos = "";
+
+                if (this.buildManager.isActive && this.input.isLocked) {
+                    if (this.buildManager.activeTool === 'BOX' || this.buildManager.activeTool === 'DYNAMIC_BOX' || this.buildManager.activeTool === 'CUT_BOX') {
+                         this.handleBoxToolClick();
+                    }
+                }
             }
         });
 
@@ -116,12 +140,14 @@ export class PlayerController {
     }
 
     public update(deltaTime: number): void {
-        const transform = this.physicsFacade.transforms.get(this.playerId);
-        if (transform) {
-            vec3.set(this.targetPosition, transform.position[0], transform.position[1] + 0.8, transform.position[2]);
-            const lerpSpeed = 15.0; 
-            const t = Math.min(lerpSpeed * deltaTime, 1.0);
-            vec3.lerp(this.camera.position, this.camera.position, this.targetPosition, t);
+        if (!this.isBuildMode) {
+            const transform = this.physicsFacade.transforms.get(this.playerId);
+            if (transform) {
+                vec3.set(this.targetPosition, transform.position[0], transform.position[1] + 0.8, transform.position[2]);
+                const lerpSpeed = 15.0; 
+                const t = Math.min(lerpSpeed * deltaTime, 1.0);
+                vec3.lerp(this.camera.position, this.camera.position, this.targetPosition, t);
+            }
         }
 
         this.guiState.x = this.camera.position[0].toFixed(2);
@@ -141,7 +167,7 @@ export class PlayerController {
             this.acousticTimer = 0;
         }
 
-        const reach = 10.0;
+        const reach = 25.0; 
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
         
         if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE' || this.buildManager.activeTool === 'CUT_BOX') {
@@ -162,27 +188,48 @@ export class PlayerController {
             }
         }
 
-        const velocity = vec3.create();
-        const front = vec3.fromValues(this.camera.front[0], 0, this.camera.front[2]);
-        vec3.normalize(front, front);
-        const right = vec3.create();
-        vec3.cross(right, front, [0, 1, 0]);
-        vec3.normalize(right, right);
+        if (this.isBuildMode) {
+            const flyVel = vec3.create();
+            const front = vec3.fromValues(this.camera.front[0], this.camera.front[1], this.camera.front[2]);
+            vec3.normalize(front, front);
+            const right = vec3.create();
+            vec3.cross(right, front, [0, 1, 0]);
+            vec3.normalize(right, right);
+            const up = vec3.fromValues(0, 1, 0);
 
-        if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(velocity, velocity, front, this.speed);
-        if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(velocity, velocity, front, -this.speed);
-        if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(velocity, velocity, right, -this.speed);
-        if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(velocity, velocity, right, this.speed);
+            if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(flyVel, flyVel, front, this.flySpeed);
+            if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(flyVel, flyVel, front, -this.flySpeed);
+            if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(flyVel, flyVel, right, -this.flySpeed);
+            if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(flyVel, flyVel, right, this.flySpeed);
+            if (this.input.isKeyPressed("Space")) vec3.scaleAndAdd(flyVel, flyVel, up, this.flySpeed);
+            if (this.input.isKeyPressed("ShiftLeft")) vec3.scaleAndAdd(flyVel, flyVel, up, -this.flySpeed);
 
-        const isJumping = this.input.isKeyPressed("Space");
+            vec3.scaleAndAdd(this.camera.position, this.camera.position, flyVel, deltaTime);
+            vec3.copy(this.targetPosition, this.camera.position); 
 
-        globalEventBus.emit("PHYSICS_COMMAND", {
-            type: 'SET_PLAYER_VELOCITY',
-            id: this.playerId,
-            x: velocity[0],
-            z: velocity[2],
-            jump: isJumping
-        });
+        } else {
+            const velocity = vec3.create();
+            const front = vec3.fromValues(this.camera.front[0], 0, this.camera.front[2]);
+            vec3.normalize(front, front);
+            const right = vec3.create();
+            vec3.cross(right, front, [0, 1, 0]);
+            vec3.normalize(right, right);
+
+            if (this.input.isKeyPressed("KeyW")) vec3.scaleAndAdd(velocity, velocity, front, this.walkSpeed);
+            if (this.input.isKeyPressed("KeyS")) vec3.scaleAndAdd(velocity, velocity, front, -this.walkSpeed);
+            if (this.input.isKeyPressed("KeyA")) vec3.scaleAndAdd(velocity, velocity, right, -this.walkSpeed);
+            if (this.input.isKeyPressed("KeyD")) vec3.scaleAndAdd(velocity, velocity, right, this.walkSpeed);
+
+            const isJumping = this.input.isKeyPressed("Space");
+
+            globalEventBus.emit("PHYSICS_COMMAND", {
+                type: 'SET_PLAYER_VELOCITY',
+                id: this.playerId,
+                x: velocity[0],
+                z: velocity[2],
+                jump: isJumping
+            });
+        }
 
         if (this.input.isKeyPressed("KeyB") && this.canThrowBomb) {
             this.canThrowBomb = false;
@@ -240,7 +287,7 @@ export class PlayerController {
         this.canMine = false;
         setTimeout(() => this.canMine = true, this.mineCooldownMs);
 
-        const reach = 10.0; 
+        const reach = this.isBuildMode ? 40.0 : 10.0;
         
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
         const physicsHit = await this.physicsFacade.raycast(this.camera.position, this.camera.front, reach, this.playerId);
@@ -248,6 +295,21 @@ export class PlayerController {
         let hitGridFirst = false;
         if (gridHit.hit && !physicsHit.hit) hitGridFirst = true;
         else if (gridHit.hit && physicsHit.hit && gridHit.distance < physicsHit.distance) hitGridFirst = true;
+
+        if (this.isBuildMode && this.buildManager.activeTool === 'SINGLE') {
+            if (hitGridFirst) {
+                const [x, y, z] = gridHit.blockPos;
+                this.buildManager.removeSingle(x, y, z);
+            } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
+                this.buildManager.removeSingleDebri(
+                    physicsHit.hitId,
+                    physicsHit.localX!,
+                    physicsHit.localY!,
+                    physicsHit.localZ!
+                );
+            }
+            return;
+        }
 
         if (hitGridFirst) {
             const [x, y, z] = gridHit.blockPos;

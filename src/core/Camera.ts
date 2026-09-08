@@ -46,6 +46,7 @@ export class Camera {
     }
 
 
+
     public processKeyboard(direction: CameraMovement, deltaTime: number): void {
         const velocity = this.movementSpeed * deltaTime;
         const temp = vec3.create();

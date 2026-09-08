@@ -96,27 +96,30 @@ export class BlockRegistry {
 
     public static init(): void {
         this.create(0).name("Air").texture(0).color(0.0, 0.0, 0.0).transparent().register();
-        this.create(1).name("Stone").texture(1).color(0.2, 0.2, 0.2).fragmentation(0.04).sound("stone_collision").register();
-        this.create(2).name("Grass").texture(2).color(0.0, 1.0, 0.0).fragmentation(0.08).sound("grass_collision").register();
-        this.create(3).name("Wood").texture(3).color(0.6, 0.4, 0.2).fragmentation(0.05).sound("wood_crack").register();
-        this.create(4).name("Leaves").texture(4).color(0.0, 0.6, 0.0).fragmentation(0.3).transparent().sound("leaves_collision").register();
         
-        this.create(5).name("Amethyst").texture(5).color(0.8, 0.9, 1.0).light(1.5, 0.8, 0.9, 1.0).material(0.1, 0.1).fragmentation(0.12).sound("glass_collision").behavior(RadioactiveBehavior).register();
-        this.create(6).name("Ruby").texture(6).color(3.0, 0.2, 0.2).light(1.5, 1.0, 0.1, 0.1).material(0.1, 0.1).fragmentation(0.12).sound("glass_collision").register();
-        this.create(7).name("Emerald").texture(7).color(0.2, 1.0, 0.2).light(1.5, 0.1, 1.0, 0.1).material(0.1, 0.1).fragmentation(0.12).sound("glass_collision").behavior(MagicOreBehavior).register();
-        this.create(8).name("Sapphire").texture(8).color(0.2, 0.4, 1.0).light(2.5, 0.1, 0.3, 1.0).material(0.1, 0.1).fragmentation(0.12).sound("glass_collision").register();
-        this.create(9).name("Glowstone").texture(9).color(0.5, 0.9, 0.4).light(1.5, 1.0, 0.8, 0.2).material(0.3, 0.0).fragmentation(0.12).sound("glass_collision").register();
+        this.create(1).name("Stone").texture(1).color(0.25, 0.25, 0.25).material(0.85, 0.0).fragmentation(0.04).sound("stone_collision").register();
+        this.create(2).name("Grass").texture(2).color(0.15, 0.5, 0.15).material(0.9, 0.0).fragmentation(0.08).sound("grass_collision").register();
+        this.create(3).name("Wood").texture(3).color(0.48, 0.32, 0.2).material(0.8, 0.0).fragmentation(0.05).sound("wood_crack").register();
+        this.create(4).name("Leaves").texture(4).color(0.1, 0.4, 0.1).material(0.9, 0.0).fragmentation(0.3).transparent().sound("leaves_collision").register();
         
-        this.create(10).name("Redstone").texture(6).color(1.0, 0.0, 0.0).fragmentation(0.05).sound("stone_collision").register();
-        this.create(11).name("Quartz").texture(10).color(1.0, 1.0, 1.0).material(0.2, 0.0).fragmentation(0.05).sound("glass_collision").register();
-        this.create(13).name("Slime").texture(11).color(0.3, 1.0, 0.3).material(0.1, 0.0).physics(0.8, 0.9, 1.4, 0.0).behavior(SlimeBehavior).sound("slime_squish").register();
+        this.create(5).name("Amethyst").texture(5).color(0.6, 0.4, 0.8).light(1.5, 0.8, 0.9, 1.0).material(0.05, 0.0).fragmentation(0.12).sound("glass_collision").behavior(RadioactiveBehavior).register();
+        this.create(6).name("Ruby").texture(6).color(0.8, 0.05, 0.05).light(1.5, 1.0, 0.1, 0.1).material(0.05, 0.0).fragmentation(0.12).sound("glass_collision").register();
+        this.create(7).name("Emerald").texture(7).color(0.1, 0.8, 0.3).light(1.5, 0.1, 1.0, 0.1).material(0.05, 0.0).fragmentation(0.12).sound("glass_collision").behavior(MagicOreBehavior).register();
+        this.create(8).name("Sapphire").texture(8).color(0.1, 0.3, 0.8).light(2.5, 0.1, 0.3, 1.0).material(0.05, 0.0).fragmentation(0.12).sound("glass_collision").register();
+        this.create(9).name("Glowstone").texture(9).color(0.8, 0.8, 0.3).light(1.5, 1.0, 0.8, 0.2).material(0.4, 0.0).fragmentation(0.12).sound("glass_collision").register();
         
-        this.create(14).name("Iron").texture(12).color(0.9, 0.9, 0.9).material(0.2, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("metal_collision").fragmentation(0.05).toughness(90).register();
+        this.create(10).name("Redstone").texture(6).color(0.7, 0.1, 0.1).material(0.7, 0.0).fragmentation(0.05).sound("stone_collision").register();
+        this.create(11).name("Quartz").texture(10).color(0.85, 0.85, 0.85).material(0.15, 0.0).fragmentation(0.05).sound("glass_collision").register();
+        this.create(13).name("Slime").texture(11).color(0.22, 0.65, 0.22).material(0.2, 0.0).physics(0.8, 0.9, 1.4, 0.0).behavior(SlimeBehavior).sound("slime_squish").register();
         
-       
+        this.create(14).name("Iron").texture(12).color(0.56, 0.57, 0.58).material(0.35, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("metal_collision").fragmentation(0.05).toughness(90).register();
         this.create(15).name("Fire").texture(13).color(1.0, 0.5, 0.0).transparent().light(2.0, 1.0, 0.4, 0.1).behavior(FireBehavior).physics(0.0, 0.0, 0.0, 0.0).toughness(0).register();
-        this.create(16).name("Stone_bricks").texture(14).color(0.2, 0.2, 0.2).fragmentation(0.02).sound("stone_collision").register();
         
+        this.create(16).name("Stone_bricks").texture(14).color(0.25, 0.25, 0.25).material(0.8, 0.0).fragmentation(0.02).sound("stone_collision").register();
+        this.create(17).name("Stone_column").texture(15).color(0.25, 0.25, 0.25).material(0.8, 0.0).fragmentation(0.02).sound("stone_collision").register();
+        this.create(18).name("Wood_planks").texture(16).color(0.55, 0.4, 0.25).material(0.7, 0.0).fragmentation(0.05).sound("wood_crack").register();
+        this.create(19).name("Stone_pattern_1").texture(17).color(0.2, 0.2, 0.2).material(0.8, 0.0).fragmentation(0.02).sound("stone_collision").register();
+        this.create(20).name("metal").texture(18).color(0.35, 0.37, 0.4).material(0.25, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("metal_collision").fragmentation(0.05).toughness(90).register();
     }
 
     public static create(id: number): BlockBuilder {

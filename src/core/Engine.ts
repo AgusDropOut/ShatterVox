@@ -146,17 +146,18 @@ export class Engine {
                 
                 if (!loadSuccess) {
                     this.world.generateTestMap();
+                    this.terrainPhysics.buildColliders(this.world);
                 }
             } else {
                 this.world.generateTestMap();
+                this.terrainPhysics.buildColliders(this.world);
             }
         } catch (e) {
             this.world.generateTestMap();
+            this.terrainPhysics.buildColliders(this.world);
         }
 
         this.world.updateAllMeshes();
-        this.terrainPhysics.buildColliders(this.world);
-        
         this.player.spawn();
         
         await this.renderer.loadEntityAsset(

@@ -7,6 +7,8 @@ import type { PhysicsFacade } from "../physics/PhysicsFacade";
 import { VoxelRaycaster } from "../physics/VoxelRaycaster";
 import type { SoundManager } from "../audio/SoundManager";
 import type { BuildManager } from "./BuildManager";
+import type { EntityRepository } from "../entity/EntityRepository";
+import { ProjectRegistry } from "../entity/data/ProjectRegistry";
 
 export class PlayerController {
     public readonly camera: Camera;
@@ -14,6 +16,7 @@ export class PlayerController {
     private readonly world: World;
     private readonly physicsFacade: PhysicsFacade;
     private readonly buildManager: BuildManager;
+    private readonly entityRepo: EntityRepository;
     public readonly playerId: number;
     
     private walkSpeed: number = 2.8;
@@ -31,6 +34,7 @@ export class PlayerController {
     public targetPosition: vec3;
     public currentPlacementTarget: vec3 | null = null;
     public currentHitEntity: number | null = null; 
+    public currentHitEntityInternalId: number | null = null;
 
     private soundManager: SoundManager;
     private acousticTimer: number = 0;
@@ -45,10 +49,11 @@ export class PlayerController {
         z: '0.00'
     };
 
-    constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade, soundManager: SoundManager, buildManager: BuildManager) {
+    constructor(canvas: HTMLCanvasElement, world: World, physicsFacade: PhysicsFacade, soundManager: SoundManager, buildManager: BuildManager, entityRepo: EntityRepository) {
         this.world = world;
         this.physicsFacade = physicsFacade;
         this.buildManager = buildManager;
+        this.entityRepo = entityRepo;
         
         const spawnX = 21.00;
         const spawnY = 5.0;
@@ -89,9 +94,27 @@ export class PlayerController {
                 if (e.button === 0) {
                     this.handleLeftClick();
                 } else if (e.button === 2) {
+                    
+                    if (!this.isBuildMode && this.currentHitEntityInternalId !== null) {
+                        const interactable = this.entityRepo.interactables.get(this.currentHitEntityInternalId);
+                        if (interactable) {
+                            globalEventBus.emit("SHOW_OVERLAY", { data: interactable.overlayData });
+                            return; 
+                        }
+                    }
+
                     if (this.buildManager.isActive) {
-                        if (this.buildManager.selectedBlockId === 999 || this.buildManager.selectedBlockId === 998) {
-                            this.handleBillboardPlacement(this.buildManager.selectedBlockId === 999 ? 'billboard' : 'billboard-1');
+                        if (this.buildManager.selectedBlockId >= 900) {
+                            let selectedModelId = "billboard";
+                            let customIdCounter = 999;
+                            for (const modelId in ProjectRegistry) {
+                                if (customIdCounter === this.buildManager.selectedBlockId) {
+                                    selectedModelId = modelId;
+                                    break;
+                                }
+                                customIdCounter--;
+                            }
+                            this.handleBillboardPlacement(selectedModelId);
                         } else {
                             if (this.buildManager.activeTool === 'SINGLE') {
                                 this.isDraggingBuild = true;
@@ -253,7 +276,7 @@ export class PlayerController {
             });
         }
 
-        if (this.isDraggingBuild && this.buildManager.isActive && this.buildManager.selectedBlockId !== 999 && this.buildManager.selectedBlockId !== 998) {
+        if (this.isDraggingBuild && this.buildManager.isActive && this.buildManager.selectedBlockId < 900) {
             if (this.buildManager.activeTool === 'SINGLE') {
                 this.handleBuildPlacement();
             } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE' || this.buildManager.activeTool === 'CUT_BOX') {
@@ -261,15 +284,23 @@ export class PlayerController {
             }
         }
         
-        if (this.buildManager.isActive && this.buildManager.activeTool === 'SINGLE') {
-            this.physicsFacade.raycast(this.camera.position, this.camera.front, 10.0, this.playerId).then(res => {
-                if (res.hit && res.hitId !== undefined) {
-                    this.currentHitEntity = res.hitId;
-                } else {
-                    this.currentHitEntity = null;
+        this.physicsFacade.raycast(this.camera.position, this.camera.front, 10.0, this.playerId).then(res => {
+            if (res.hit && res.hitId !== undefined) {
+                this.currentHitEntity = res.hitId;
+                
+                let foundEntityId = null;
+                for (const [id, physComp] of this.entityRepo.physics.entries()) {
+                    if (physComp.bodyId === res.hitId) {
+                        foundEntityId = id;
+                        break;
+                    }
                 }
-            });
-        }
+                this.currentHitEntityInternalId = foundEntityId;
+            } else {
+                this.currentHitEntity = null;
+                this.currentHitEntityInternalId = null;
+            }
+        });
     }
 
     private evaluateAcousticEnvironment(): void {

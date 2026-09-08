@@ -28,17 +28,32 @@ export class RaycastCommand implements CommandHandler<Extract<PhysicsCommand, { 
         if (hit) {
             const hitParent = hit.collider.parent();
             if (hitParent) {
+            
                 for (const [id, body] of context.dynamicBodies.entries()) {
                     if (body.handle === hitParent.handle) {
                         hitId = id;
-                        
-                    
                         const localPos = hit.collider.translationWrtParent();
-                        if (!localPos) continue;
-                        localX = localPos.x;
-                        localY = localPos.y;
-                        localZ = localPos.z;
+                        if (localPos) {
+                            localX = localPos.x;
+                            localY = localPos.y;
+                            localZ = localPos.z;
+                        }
                         break;
+                    }
+                }
+                
+         
+                if (hitId === undefined && context.terrainCollidersMap) {
+                    for (const [id, collider] of context.terrainCollidersMap.entries()) {
+                        if (collider.handle === hit.collider.handle) {
+                            hitId = id;
+                            const globalHitPos = ray.pointAt(hit.timeOfImpact);
+                            const colTranslation = collider.translation();
+                            localX = globalHitPos.x - colTranslation.x;
+                            localY = globalHitPos.y - colTranslation.y;
+                            localZ = globalHitPos.z - colTranslation.z;
+                            break;
+                        }
                     }
                 }
             }

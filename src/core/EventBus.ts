@@ -22,6 +22,7 @@ export interface GameEvents {
     "SET_SPHERE_RADIUS": { radius: number };
     "SET_TOOL_SETTINGS": { destructionRadius?: number, buildCooldownMs?: number, mineCooldownMs?: number };
     "REMOVE_BILLBOARD_BY_BODY": { bodyId: number };
+    "SHOW_OVERLAY": { data: any };
 }
 
 class EventBus {

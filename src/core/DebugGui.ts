@@ -7,6 +7,7 @@ import type { World } from '../world/World';
 import type { EntityRepository } from '../entity/EntityRepository';
 import { PhysicsFacade } from '../physics/PhysicsFacade';
 import { PlayerController } from './PlayerController';
+import { ProjectRegistry } from '../entity/data/ProjectRegistry';
 
 export class DebugGui {
     private gui: GUI;
@@ -79,11 +80,15 @@ export class DebugGui {
         });
     }
 
-   private setupBuildMode(world: World, entityRepo: EntityRepository, physicsFacade: PhysicsFacade): void {
+    private setupBuildMode(world: World, entityRepo: EntityRepository, physicsFacade: PhysicsFacade): void {
         const folder = this.gui.addFolder('Build Mode');
         const availableBlocks = BlockRegistry.getAvailableBlocks();
-        availableBlocks['Billboard Main'] = 999; 
-        availableBlocks['Billboard 1'] = 998; 
+        
+        let customIdCounter = 999;
+        for (const modelId in ProjectRegistry) {
+            availableBlocks[`Billboard: ${ProjectRegistry[modelId].title}`] = customIdCounter;
+            customIdCounter--;
+        }
 
         folder.add(this.state, 'buildMode').name('Enable Build Mode').onChange((value: boolean) => {
             globalEventBus.emit("TOGGLE_BUILD_MODE", { enabled: value });

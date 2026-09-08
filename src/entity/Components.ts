@@ -1,4 +1,3 @@
-// src/entity/Components.ts
 import { vec3, quat } from "gl-matrix";
 
 
@@ -22,3 +21,6 @@ export interface ExplosiveComponent {
     fuseActive: boolean;
 }
 
+export interface InteractableComponent {
+    overlayData: any;
+}

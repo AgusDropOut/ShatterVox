@@ -12,7 +12,8 @@ export const entityShaderWGSL = `
 
     struct Model { 
         matrix: mat4x4<f32>,
-        prevMatrix: mat4x4<f32>, 
+        prevMatrix: mat4x4<f32>,
+        isHighlighted: f32,
     };
 
     @group(2) @binding(0) var<uniform> model: Model;
@@ -23,6 +24,7 @@ export const entityShaderWGSL = `
         @location(1) normal: vec3<f32>,
         @location(2) currentClipPos: vec4<f32>,
         @location(3) previousClipPos: vec4<f32>,
+        @location(4) isHighlighted: f32,
     };
 
     @vertex
@@ -40,6 +42,7 @@ export const entityShaderWGSL = `
         out.position = out.currentClipPos;
         out.uv = vec2<f32>(uv.x, 1.0 - uv.y);
         out.normal = normal;
+        out.isHighlighted = model.isHighlighted;
         return out;
     }
 
@@ -54,9 +57,14 @@ export const entityShaderWGSL = `
     @fragment
     fn fs_main(in: VertexOutput) -> GBufferOutput {
         var output: GBufferOutput;
-        let texColor = textureSample(entityTexture, textureSampler, in.uv);
+        var texColor = textureSample(entityTexture, textureSampler, in.uv);
         
         if (texColor.a < 0.1) { discard; }
+
+        if (in.isHighlighted > 0.5) {
+            let emission = vec3<f32>(0.2, 0.8, 0.2); 
+            texColor = vec4<f32>(texColor.rgb + emission, texColor.a);
+        }
 
         output.albedo = texColor;
         output.normal = vec4<f32>(normalize(in.normal), 1.0);

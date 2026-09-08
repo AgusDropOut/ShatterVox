@@ -4,6 +4,7 @@ import { vec3, quat } from "gl-matrix";
 import type { EntityRepository } from "../EntityRepository";
 import { Engine } from "../../core/Engine";
 import type { World } from "../../world/World";
+import { ProjectRegistry } from "../data/ProjectRegistry";
 
 interface BillboardState {
     bodyId: number;
@@ -69,6 +70,16 @@ export class BillBoardManager {
             visualOffset: vec3.fromValues(0, -0.50, 0),
             position: vec3.fromValues(data.x, data.y, data.z),
             rotation: quat.fromValues(data.rot.x, data.rot.y, data.rot.z, data.rot.w)
+        });
+
+        const projectData = ProjectRegistry[data.modelId] || {
+            title: "Unknown Project",
+            description: "No data available for this model.",
+            link: "#"
+        };
+
+        this.repository.interactables.set(entityId, {
+            overlayData: projectData
         });
 
         this.activePanels.set(entityId, { bodyId, isDetached: false, halfExtents });

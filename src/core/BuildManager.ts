@@ -434,7 +434,7 @@ export class BuildManager {
     }
 
     public getHighlightBounds(target: vec3): { min: vec3, max: vec3 } | null {
-        if (!this.isActive || this.selectedBlockId === 999 || this.selectedBlockId === 998) return null;
+        if (!this.isActive || this.selectedBlockId >= 900) return null;
 
         if (this.activeTool === 'SPHERE' || this.activeTool === 'SMOOTH' || this.activeTool === 'DYNAMITE' || this.activeTool === 'CUT_BOX') {
             const cx = target[0];

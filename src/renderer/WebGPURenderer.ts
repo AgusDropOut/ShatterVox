@@ -161,6 +161,10 @@ export class WebGPURenderer {
         return this.geometryPass.getModelLayout();
     }
 
+    public async loadEntityAsset(id: string, objUrl: string, textureUrl: string): Promise<void> {
+        await this.geometryPass.loadEntityAsset(id, objUrl, textureUrl);
+    }
+
     public resize(width: number, height: number): void {
         this.canvas.width = width;
         this.canvas.height = height;
@@ -221,6 +225,10 @@ export class WebGPURenderer {
 
         this.commandEncoder = this.device.createCommandEncoder();
         this.deferredPass.computeClusters(this.commandEncoder);
+    }
+
+    public setHighlightedEntity(entityId: number | null): void {
+        this.geometryPass.currentHighlightedEntity = entityId;
     }
 
     public drawGeometry(world: World, entityRepository: EntityRepository, physicsFacade: PhysicsFacade): void {
@@ -339,10 +347,6 @@ export class WebGPURenderer {
                 }
             });
         }
-    }
-
-    public async loadEntityAsset(id: string, objUrl: string, textureUrl: string): Promise<void> {
-        await this.geometryPass.loadEntityAsset(id, objUrl, textureUrl);
     }
 
     public debugDrawTexture(textureView: GPUTextureView, isDepth: boolean = false): void {

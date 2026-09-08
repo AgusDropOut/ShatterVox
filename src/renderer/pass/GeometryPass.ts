@@ -39,11 +39,12 @@ export class GeometryPass {
     private debriNormalMappingBindGroup!: GPUBindGroup;
     private smallDebriNormalMappingBindGroup!: GPUBindGroup;
 
-    private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup, lastMatrix: Float32Array }> = new Map();
+    private entityBuffers: Map<number, { buffer: WebGPUUniformBuffer, bindGroup: GPUBindGroup, lastMatrix: Float32Array, isHighlighted: number }> = new Map();
     private debriBatchManager!: DebriBatchManager;
     private smallDebriBatchManager!: SmallDebriBatchManager;
 
     private frustumCulling!: FrustumCull;
+    public currentHighlightedEntity: number | null = null;
 
     constructor(device: GPUDevice, presentationFormat: GPUTextureFormat) {
         this.device = device;
@@ -203,9 +204,7 @@ export class GeometryPass {
                 }
             }
 
-            if (!pos || !rot) {
-                continue;
-            }
+            if (!pos || !rot) continue;
 
             const asset = AssetManager.getAsset(renderComp.modelId);
             if (!asset || !asset.mesh || asset.mesh.vertexCount === 0 || !asset.materialBindGroup) {
@@ -221,29 +220,34 @@ export class GeometryPass {
             if (renderComp.visualOffset) {
                 mat4.translate(modelMatrix, modelMatrix, renderComp.visualOffset);
             }
-            
             mat4.scale(modelMatrix, modelMatrix, renderComp.scale);
 
             let instanceData = this.entityBuffers.get(entityId);
-            const dataArray = new Float32Array(32);
+            const dataArray = new Float32Array(36); 
+            const isHighlightedValue = (this.currentHighlightedEntity === entityId) ? 1.0 : 0.0;
 
             if (!instanceData) {
                 dataArray.set(modelMatrix as Float32Array, 0);
                 dataArray.set(modelMatrix as Float32Array, 16); 
+                dataArray[32] = isHighlightedValue;
 
                 const buffer = new WebGPUUniformBuffer(this.device, dataArray);
                 const bindGroup = this.device.createBindGroup({
                     layout: this.entityPipeline.getBindGroupLayout(2),
                     entries: [{ binding: 0, resource: { buffer: buffer.buffer } }]
                 });
-                instanceData = { buffer, bindGroup, lastMatrix: new Float32Array(modelMatrix) };
+                instanceData = { buffer, bindGroup, lastMatrix: new Float32Array(modelMatrix), isHighlighted: isHighlightedValue };
                 this.entityBuffers.set(entityId, instanceData);
             } else {
                 dataArray.set(modelMatrix as Float32Array, 0);
                 dataArray.set(instanceData.lastMatrix, 16);
+                dataArray[32] = isHighlightedValue;
                 
-                instanceData.buffer.update(dataArray);
-                instanceData.lastMatrix.set(modelMatrix as Float32Array);
+                if (isHighlightedValue !== instanceData.isHighlighted || !mat4.equals(modelMatrix, instanceData.lastMatrix)) {
+                    instanceData.buffer.update(dataArray);
+                    instanceData.lastMatrix.set(modelMatrix as Float32Array);
+                    instanceData.isHighlighted = isHighlightedValue;
+                }
             }
 
             renderPass.setBindGroup(1, asset.materialBindGroup);

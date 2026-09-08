@@ -1,6 +1,6 @@
 import { WebGPURenderer } from "../renderer/WebGPURenderer";
 import { World } from "../world/World";
-import { mat4 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 import { TerrainPhysics } from "../physics/TerrainPhysics";
 import { PlayerController } from "./PlayerController";
 import { Window } from "./Window";
@@ -16,6 +16,8 @@ import { ParticleEffectsController } from "../particle/ParticleEffectController"
 import { BillBoardManager } from "../entity/manager/BillBoardManager";
 import { BuildManager } from "./BuildManager";
 import { WorldSerializer } from "../world/WorldSerializer";
+import { AudioLoader } from "../resources/AudioLoader";
+import { ModelLoader } from "../resources/ModelLoader";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -115,26 +117,16 @@ export class Engine {
         this.terrainPhysics = new TerrainPhysics();
         this.world.terrainPhysics = this.terrainPhysics;
         
-        this.soundManager.loadSound("stone_collision", "/assets/sounds/stone_collision.ogg");
-        this.soundManager.loadSound("wood_collision", "/assets/sounds/wood_collision.ogg");
-        this.soundManager.loadSound("glass_collision", "/assets/sounds/glass_collision.ogg");
-        this.soundManager.loadSound("grass_collision", "/assets/sounds/grass_collision.ogg");
-        this.soundManager.loadSound("leaves_collision", "/assets/sounds/leaves_collision.ogg");
-        this.soundManager.loadSound("nade_explosion", "/assets/sounds/nade_explosion.ogg");
-        this.soundManager.loadSound("slime_squish", "/assets/sounds/slime_squish.ogg");
-        this.soundManager.loadSound("metal_collision", "/assets/sounds/metal_collision.ogg");
-        this.soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg");
-        this.soundManager.loadSound("wood_crack-1", "/assets/sounds/wood_crack-1.ogg");
-        this.soundManager.loadSound("wood_crack-2", "/assets/sounds/wood_crack-2.ogg");
-        this.soundManager.loadSound("fire_chill", "/assets/sounds/fire_chill.ogg");
-
         this.buildManager = new BuildManager(this.world, this.physicsFacade, this.renderer.device, this.renderer.getModelLayout());
         
-        this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager);
+        this.player = new PlayerController(this.canvas, this.world, this.physicsFacade, this.soundManager, this.buildManager, this.entityRepository);
         
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
         this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade, this.player);
+
+        const audioPromise = AudioLoader.loadAll(this.soundManager);
+        const modelsPromise = ModelLoader.loadAll(this.renderer);
 
         try {
             const response = await fetch('/assets/portfolio.bin');
@@ -160,23 +152,7 @@ export class Engine {
         this.world.updateAllMeshes();
         this.player.spawn();
         
-        await this.renderer.loadEntityAsset(
-            "bomb", 
-            "/assets/models/bomb.obj", 
-            "/assets/textures/bomb.png"
-        );
-
-        await this.renderer.loadEntityAsset(
-            "billboard", 
-            "/assets/models/billboard.obj", 
-            "/assets/textures/billboard.png"
-        );
-
-         await this.renderer.loadEntityAsset(
-            "billboard-1", 
-            "/assets/models/billboard-1.obj", 
-            "/assets/textures/billboard-1.png"
-        );
+        await Promise.all([audioPromise, modelsPromise]);
 
         const loadingScreen = document.getElementById('loading-screen');
         if (loadingScreen) {
@@ -222,10 +198,13 @@ export class Engine {
         this.player.update(deltaTime);
         this.explosiveManager.update(deltaTime);
         this.world.update(deltaTime);
+        
+        this.renderer.setHighlightedEntity(this.player.currentHitEntityInternalId);
     }
 
     private drawBuildHighlight(): void {
-        if (!this.buildManager.isActive || !this.player.currentPlacementTarget) return;
+        if (!this.buildManager.isActive) return;
+        if (!this.player.currentPlacementTarget) return;
 
         const bounds = this.buildManager.getHighlightBounds(this.player.currentPlacementTarget);
         if (!bounds) return;

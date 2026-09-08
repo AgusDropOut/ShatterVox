@@ -172,6 +172,12 @@ export class Engine {
             "/assets/textures/billboard.png"
         );
 
+         await this.renderer.loadEntityAsset(
+            "billboard-1", 
+            "/assets/models/billboard-1.obj", 
+            "/assets/textures/billboard-1.png"
+        );
+
         const loadingScreen = document.getElementById('loading-screen');
         if (loadingScreen) {
             loadingScreen.style.opacity = '0';

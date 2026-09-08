@@ -13,6 +13,10 @@ export interface BuildOperation {
     newBlockId: number;
 }
 
+export type UndoAction = 
+    | { type: 'BLOCKS', ops: BuildOperation[] }
+    | { type: 'BILLBOARD', bodyId: number };
+
 export class BuildManager {
     private world: World;
     private physicsFacade: PhysicsFacade;
@@ -24,7 +28,7 @@ export class BuildManager {
     public activeTool: 'SINGLE' | 'BOX' | 'DYNAMIC_BOX' | 'SPHERE' | 'SMOOTH' | 'DYNAMITE' | 'CUT_BOX' = 'SINGLE';
     public sphereRadius: number = 3;
     
-    private undoStack: BuildOperation[][] = [];
+    private undoStack: UndoAction[] = [];
     public boxPoints: vec3[] = [];
 
     constructor(world: World, physicsFacade: PhysicsFacade, device: GPUDevice, layout: GPUBindGroupLayout) {
@@ -98,7 +102,6 @@ export class BuildManager {
         const debri = this.world.debri.find(d => d.id === debriId);
         if (!debri) return;
 
-   
         const centerX = Math.round((localX / Engine.voxelSize) + debri.offsetX);
         const centerY = Math.round((localY / Engine.voxelSize) + debri.offsetY);
         const centerZ = Math.round((localZ / Engine.voxelSize) + debri.offsetZ);
@@ -110,7 +113,6 @@ export class BuildManager {
         
         let currentBlock = debri.getBlock(centerX, centerY, centerZ);
 
-    
         if (currentBlock === 0) {
             for (let dx = -1; dx <= 1 && !foundBlock; dx++) {
                 for (let dy = -1; dy <= 1 && !foundBlock; dy++) {
@@ -132,11 +134,9 @@ export class BuildManager {
 
         if (!foundBlock) return;
 
-    
         debri.setBlock(targetX, targetY, targetZ, 0);
         this.world.updateDebriMesh(debri);
 
-  
         const lX = (targetX - debri.offsetX) * Engine.voxelSize;
         const lY = (targetY - debri.offsetY) * Engine.voxelSize;
         const lZ = (targetZ - debri.offsetZ) * Engine.voxelSize;
@@ -395,8 +395,15 @@ export class BuildManager {
         }
     }
 
+    public recordBillboardSpawn(bodyId: number): void {
+        this.undoStack.push({ type: 'BILLBOARD', bodyId: bodyId });
+        if (this.undoStack.length > 100) {
+            this.undoStack.shift();
+        }
+    }
+
     private pushBatch(batch: BuildOperation[]): void {
-        this.undoStack.push(batch);
+        this.undoStack.push({ type: 'BLOCKS', ops: batch });
         if (this.undoStack.length > 100) {
             this.undoStack.shift();
         }
@@ -405,24 +412,29 @@ export class BuildManager {
     private undoLastOperation(): void {
         if (this.undoStack.length === 0) return;
 
-        const batch = this.undoStack.pop()!;
-        let lastX = 0, lastY = 0, lastZ = 0;
+        const action = this.undoStack.pop()!;
 
-        for (const op of batch) {
-            this.world.setBlock(op.x, op.y, op.z, op.previousBlockId);
-            this.world.setChunkDirtyAt(op.x, op.y, op.z);
-            lastX = op.x; lastY = op.y; lastZ = op.z;
+        if (action.type === 'BLOCKS') {
+            let lastX = 0, lastY = 0, lastZ = 0;
+
+            for (const op of action.ops) {
+                this.world.setBlock(op.x, op.y, op.z, op.previousBlockId);
+                this.world.setChunkDirtyAt(op.x, op.y, op.z);
+                lastX = op.x; lastY = op.y; lastZ = op.z;
+            }
+            
+            globalEventBus.emit("PLAY_SPATIAL_SOUND", { 
+                id: "stone_collision", 
+                position: [lastX * Engine.voxelSize, lastY * Engine.voxelSize, lastZ * Engine.voxelSize], 
+                volume: 0.5, pitch: 0.8
+            });
+        } else if (action.type === 'BILLBOARD') {
+            globalEventBus.emit("REMOVE_BILLBOARD_BY_BODY", { bodyId: action.bodyId });
         }
-        
-        globalEventBus.emit("PLAY_SPATIAL_SOUND", { 
-            id: "stone_collision", 
-            position: [lastX * Engine.voxelSize, lastY * Engine.voxelSize, lastZ * Engine.voxelSize], 
-            volume: 0.5, pitch: 0.8
-        });
     }
 
     public getHighlightBounds(target: vec3): { min: vec3, max: vec3 } | null {
-        if (!this.isActive || this.selectedBlockId === 999) return null;
+        if (!this.isActive || this.selectedBlockId === 999 || this.selectedBlockId === 998) return null;
 
         if (this.activeTool === 'SPHERE' || this.activeTool === 'SMOOTH' || this.activeTool === 'DYNAMITE' || this.activeTool === 'CUT_BOX') {
             const cx = target[0];

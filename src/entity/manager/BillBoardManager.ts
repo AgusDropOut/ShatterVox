@@ -24,11 +24,28 @@ export class BillBoardManager {
 
         globalEventBus.on("SPAWN_BILLBOARD", (data) => this.spawnBillboard(data));
         globalEventBus.on("BOMB_DETONATED", (data) => this.handleExplosion(data));
+
+        globalEventBus.on("REMOVE_BILLBOARD_BY_BODY", (data) => {
+            for (const [entityId, state] of this.activePanels.entries()) {
+                if (state.bodyId === data.bodyId) {
+                    this.repository.destroyEntity(entityId);
+                    
+                    if (state.isDetached) {
+                        globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: state.bodyId });
+                    } else {
+                        globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_TERRAIN_BOX', id: state.bodyId });
+                    }
+                    
+                    this.activePanels.delete(entityId);
+                    return; 
+                }
+            }
+        });
     }
 
-    private spawnBillboard(data: { x: number, y: number, z: number, rot: any }): void {
+    private spawnBillboard(data: { x: number, y: number, z: number, rot: any, modelId: string, bodyId: number }): void {
         const entityId = this.repository.createEntity();
-        const bodyId = this.physicsFacade.generateId();
+        const bodyId = data.bodyId;
 
         const visualScale = vec3.fromValues(0.35, 0.28, 0.3);
         const halfExtents = { x: 1.0, y: 0.5, z: 0.05 };
@@ -46,7 +63,7 @@ export class BillBoardManager {
         this.repository.physics.set(entityId, { bodyId });
         
         this.repository.renders.set(entityId, { 
-            modelId: "billboard", 
+            modelId: data.modelId, 
             scale: visualScale, 
             color: [1, 1, 1],
             visualOffset: vec3.fromValues(0, -0.50, 0),

@@ -37,8 +37,9 @@ export class WorldSerializer {
 
         const billboardEntities: any[] = [];
         for (const [entityId, renderComp] of repository.renders.entries()) {
-            if (renderComp.modelId === "billboard" && renderComp.position && renderComp.rotation) {
+            if (renderComp.modelId && renderComp.modelId.startsWith("billboard") && renderComp.position && renderComp.rotation) {
                 billboardEntities.push({
+                    type: renderComp.modelId === "billboard" ? 1 : 2,
                     pos: renderComp.position,
                     rot: renderComp.rotation
                 });
@@ -53,7 +54,7 @@ export class WorldSerializer {
         let offset = 4;
         
         for (const bb of billboardEntities) {
-            entityView.setUint8(offset, 1);
+            entityView.setUint8(offset, bb.type);
             offset += 1;
             entityView.setFloat32(offset, bb.pos[0], true);
             entityView.setFloat32(offset + 4, bb.pos[1], true);
@@ -161,7 +162,6 @@ export class WorldSerializer {
 
         const magic = view.getUint32(offset, true);
         if (magic !== this.MAGIC_NUMBER) {
-            console.error("Invalid world file format.");
             return false;
         }
         offset += 4;
@@ -189,7 +189,6 @@ export class WorldSerializer {
             offset += dataSize;
         }
 
-      
         if (world.terrainPhysics) {
             world.terrainPhysics.buildColliders(world);
         }
@@ -202,7 +201,7 @@ export class WorldSerializer {
                 const type = view.getUint8(offset);
                 offset += 1;
 
-                if (type === 1) { 
+                if (type === 1 || type === 2) { 
                     const px = view.getFloat32(offset, true);
                     const py = view.getFloat32(offset + 4, true);
                     const pz = view.getFloat32(offset + 8, true);
@@ -214,9 +213,13 @@ export class WorldSerializer {
                     const rw = view.getFloat32(offset + 12, true);
                     offset += 16;
 
+                    const bodyId = physicsFacade.generateId();
+
                     globalEventBus.emit("SPAWN_BILLBOARD", {
                         x: px, y: py, z: pz,
-                        rot: { x: rx, y: ry, z: rz, w: rw }
+                        rot: { x: rx, y: ry, z: rz, w: rw },
+                        modelId: type === 1 ? "billboard" : "billboard-1",
+                        bodyId: bodyId
                     });
                 }
             }

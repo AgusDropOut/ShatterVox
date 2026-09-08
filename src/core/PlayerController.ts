@@ -30,6 +30,7 @@ export class PlayerController {
 
     public targetPosition: vec3;
     public currentPlacementTarget: vec3 | null = null;
+    public currentHitEntity: number | null = null; 
 
     private soundManager: SoundManager;
     private acousticTimer: number = 0;
@@ -89,8 +90,8 @@ export class PlayerController {
                     this.handleLeftClick();
                 } else if (e.button === 2) {
                     if (this.buildManager.isActive) {
-                        if (this.buildManager.selectedBlockId === 999) {
-                            this.handleBillboardPlacement();
+                        if (this.buildManager.selectedBlockId === 999 || this.buildManager.selectedBlockId === 998) {
+                            this.handleBillboardPlacement(this.buildManager.selectedBlockId === 999 ? 'billboard' : 'billboard-1');
                         } else {
                             if (this.buildManager.activeTool === 'SINGLE') {
                                 this.isDraggingBuild = true;
@@ -252,12 +253,22 @@ export class PlayerController {
             });
         }
 
-        if (this.isDraggingBuild && this.buildManager.isActive && this.buildManager.selectedBlockId !== 999) {
+        if (this.isDraggingBuild && this.buildManager.isActive && this.buildManager.selectedBlockId !== 999 && this.buildManager.selectedBlockId !== 998) {
             if (this.buildManager.activeTool === 'SINGLE') {
                 this.handleBuildPlacement();
             } else if (this.buildManager.activeTool === 'SPHERE' || this.buildManager.activeTool === 'SMOOTH' || this.buildManager.activeTool === 'DYNAMITE' || this.buildManager.activeTool === 'CUT_BOX') {
                 this.handleSculptPlacement();
             }
+        }
+        
+        if (this.buildManager.isActive && this.buildManager.activeTool === 'SINGLE') {
+            this.physicsFacade.raycast(this.camera.position, this.camera.front, 10.0, this.playerId).then(res => {
+                if (res.hit && res.hitId !== undefined) {
+                    this.currentHitEntity = res.hitId;
+                } else {
+                    this.currentHitEntity = null;
+                }
+            });
         }
     }
 
@@ -301,6 +312,8 @@ export class PlayerController {
                 const [x, y, z] = gridHit.blockPos;
                 this.buildManager.removeSingle(x, y, z);
             } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
+                globalEventBus.emit("REMOVE_BILLBOARD_BY_BODY", { bodyId: physicsHit.hitId });
+                
                 this.buildManager.removeSingleDebri(
                     physicsHit.hitId,
                     physicsHit.localX!,
@@ -326,7 +339,7 @@ export class PlayerController {
         }
     }
 
-    private handleBillboardPlacement(): void {
+    private handleBillboardPlacement(modelId: string): void {
         const reach = 10.0;
         const gridHit = VoxelRaycaster.raycastGrid(this.camera.position, this.camera.front, reach, this.world);
 
@@ -343,12 +356,18 @@ export class PlayerController {
             const rotation = quat.create();
             quat.rotationTo(rotation, [0, 0, 1], lookDir);
 
+            const bodyId = this.physicsFacade.generateId();
+
             globalEventBus.emit("SPAWN_BILLBOARD", {
                 x: spawnPos[0],
                 y: spawnPos[1],
                 z: spawnPos[2],
-                rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] }
+                rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] },
+                modelId: modelId,
+                bodyId: bodyId
             });
+
+            this.buildManager.recordBillboardSpawn(bodyId);
         }
     }
 

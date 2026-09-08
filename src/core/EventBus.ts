@@ -15,12 +15,13 @@ export interface GameEvents {
     "LIGHT_REMOVE": { position?: { x: number, y: number, z: number }, debriId?: number };
     "PLAY_SPATIAL_SOUND": { id: string, position: vec3, volume?: number, pitch?: number };
     "SPAWN_PARTICLE": { position: vec3, velocity: vec3, color: vec4, lifetime: number, size: number, gravity?: boolean };
-    "SPAWN_BILLBOARD": { x: number, y: number, z: number, rot: any };
+    "SPAWN_BILLBOARD": { x: number, y: number, z: number, rot: any, modelId: string, bodyId: number };
     "TOGGLE_BUILD_MODE": { enabled?: boolean }; 
     "SET_BUILD_BLOCK": { id: number };
     "SET_BUILD_TOOL": { tool: string };
     "SET_SPHERE_RADIUS": { radius: number };
     "SET_TOOL_SETTINGS": { destructionRadius?: number, buildCooldownMs?: number, mineCooldownMs?: number };
+    "REMOVE_BILLBOARD_BY_BODY": { bodyId: number };
 }
 
 class EventBus {

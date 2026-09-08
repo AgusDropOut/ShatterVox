@@ -82,7 +82,8 @@ export class DebugGui {
    private setupBuildMode(world: World, entityRepo: EntityRepository, physicsFacade: PhysicsFacade): void {
         const folder = this.gui.addFolder('Build Mode');
         const availableBlocks = BlockRegistry.getAvailableBlocks();
-        availableBlocks['Billboard (Entity)'] = 999; 
+        availableBlocks['Billboard Main'] = 999; 
+        availableBlocks['Billboard 1'] = 998; 
 
         folder.add(this.state, 'buildMode').name('Enable Build Mode').onChange((value: boolean) => {
             globalEventBus.emit("TOGGLE_BUILD_MODE", { enabled: value });

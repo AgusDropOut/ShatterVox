@@ -1,4 +1,4 @@
-import type { PhysicsComponent, RenderComponent, ExplosiveComponent, InteractableComponent } from "./Components";
+import type { PhysicsComponent, RenderComponent, ExplosiveComponent, InteractableComponent, UpdateComponent } from "./Components";
 
 export class EntityRepository {
     private nextEntityId: number = 1;
@@ -7,6 +7,7 @@ export class EntityRepository {
     public readonly renders = new Map<number, RenderComponent>();
     public readonly explosives = new Map<number, ExplosiveComponent>();
     public readonly interactables = new Map<number, InteractableComponent>();
+    public readonly updates = new Map<number, UpdateComponent>();
 
     public createEntity(): number {
         return this.nextEntityId++;
@@ -17,5 +18,6 @@ export class EntityRepository {
         this.renders.delete(entity);
         this.explosives.delete(entity);
         this.interactables.delete(entity);
+        this.updates.delete(entity);
     }
 }

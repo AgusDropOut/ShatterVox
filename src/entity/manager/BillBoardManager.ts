@@ -23,10 +23,15 @@ export class BillBoardManager {
         this.physicsFacade = physicsFacade;
         this.world = world;
 
-        globalEventBus.on("SPAWN_BILLBOARD", (data) => this.spawnBillboard(data));
+        globalEventBus.on("SPAWN_ENTITY", (data) => {
+            if (ProjectRegistry[data.modelId] || data.modelId.startsWith("billboard")) {
+                this.spawnBillboard(data);
+            }
+        });
+
         globalEventBus.on("BOMB_DETONATED", (data) => this.handleExplosion(data));
 
-        globalEventBus.on("REMOVE_BILLBOARD_BY_BODY", (data) => {
+        globalEventBus.on("REMOVE_ENTITY_BY_BODY", (data) => {
             for (const [entityId, state] of this.activePanels.entries()) {
                 if (state.bodyId === data.bodyId) {
                     this.repository.destroyEntity(entityId);
@@ -44,18 +49,20 @@ export class BillBoardManager {
         });
     }
 
-    private spawnBillboard(data: { x: number, y: number, z: number, rot: any, modelId: string, bodyId: number }): void {
+    private spawnBillboard(data: { x: number, y: number, z: number, rot?: any, modelId: string, bodyId?: number }): void {
         const entityId = this.repository.createEntity();
-        const bodyId = data.bodyId;
+        const bodyId = data.bodyId ?? this.physicsFacade.generateId();
 
         const visualScale = vec3.fromValues(0.35, 0.28, 0.3);
         const halfExtents = { x: 1.0, y: 0.5, z: 0.05 };
+        
+        const rotation = data.rot ?? { x: 0, y: 0, z: 0, w: 1 };
 
         globalEventBus.emit("PHYSICS_COMMAND", {
             type: 'CREATE_STATIC_BOX',
             id: bodyId,
             x: data.x, y: data.y, z: data.z,
-            rot: data.rot, 
+            rot: rotation, 
             halfW: halfExtents.x,
             halfH: halfExtents.y, 
             halfD: halfExtents.z
@@ -69,12 +76,12 @@ export class BillBoardManager {
             color: [1, 1, 1],
             visualOffset: vec3.fromValues(0, -0.50, 0),
             position: vec3.fromValues(data.x, data.y, data.z),
-            rotation: quat.fromValues(data.rot.x, data.rot.y, data.rot.z, data.rot.w)
+            rotation: quat.fromValues(rotation.x, rotation.y, rotation.z, rotation.w)
         });
 
         const projectData = ProjectRegistry[data.modelId] || {
-            title: "Unknown Project",
-            description: "No data available for this model.",
+            title: "Unknown Entity",
+            description: "No registry data available.",
             link: "#"
         };
 

@@ -110,7 +110,12 @@ export class PlayerController {
                     if (!this.isBuildMode && this.currentHitEntityInternalId !== null) {
                         const interactable = this.entityRepo.interactables.get(this.currentHitEntityInternalId);
                         if (interactable) {
-                            globalEventBus.emit("SHOW_OVERLAY", { data: interactable.overlayData });
+                            if (interactable.onInteract) {
+                                interactable.onInteract();
+                            }
+                            if (interactable.overlayData) {
+                                globalEventBus.emit("SHOW_OVERLAY", { data: interactable.overlayData });
+                            }
                             return; 
                         }
                     }
@@ -300,7 +305,8 @@ export class PlayerController {
             const rotation = quat.create();
             quat.rotationTo(rotation, [0, 0, -1], this.camera.front);
 
-            globalEventBus.emit("SPAWN_BOMB", {
+            globalEventBus.emit("SPAWN_ENTITY", {
+                modelId: "bomb",
                 x: spawnPos[0], y: spawnPos[1], z: spawnPos[2],
                 vx: throwVel[0], vy: throwVel[1], vz: throwVel[2],
                 rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] }
@@ -374,7 +380,7 @@ export class PlayerController {
                 const [x, y, z] = gridHit.blockPos;
                 this.buildManager.removeSingle(x, y, z);
             } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
-                globalEventBus.emit("REMOVE_BILLBOARD_BY_BODY", { bodyId: physicsHit.hitId });
+                globalEventBus.emit("REMOVE_ENTITY_BY_BODY", { bodyId: physicsHit.hitId });
                 
                 this.buildManager.removeSingleDebri(
                     physicsHit.hitId,
@@ -418,18 +424,13 @@ export class PlayerController {
             const rotation = quat.create();
             quat.rotationTo(rotation, [0, 0, 1], lookDir);
 
-            const bodyId = this.physicsFacade.generateId();
-
-            globalEventBus.emit("SPAWN_BILLBOARD", {
+            globalEventBus.emit("SPAWN_ENTITY", {
                 x: spawnPos[0],
                 y: spawnPos[1],
                 z: spawnPos[2],
                 rot: { x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3] },
-                modelId: modelId,
-                bodyId: bodyId
+                modelId: modelId
             });
-
-            this.buildManager.recordBillboardSpawn(bodyId);
         }
     }
 

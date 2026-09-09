@@ -21,7 +21,7 @@ export class ParticleSpawner {
         return Math.random() * (max - min) + min;
     }
 
-    private static getColor(gradient: Gradient): vec4 {
+    public static getColor(gradient: Gradient): vec4 {
         const numColors = gradient.colors.length;
         if (numColors === 1) return vec4.clone(gradient.colors[0]);
 
@@ -148,6 +148,41 @@ export class ParticleSpawner {
                 lifetime: this.getRandom(80, 150),
                 size: this.getRandom(0.06, 0.14),
                 gravity: false
+            });
+        }
+    }
+
+    public static spawnFuseAura(position: vec3): void {
+        const count = Math.floor(this.getRandom(1, 3)); 
+        const colors = [
+            vec4.fromValues(1.0, 0.6, 0.1, 1.0),
+            vec4.fromValues(1.0, 0.3, 0.0, 1.0), 
+            vec4.fromValues(1.0, 0.8, 0.2, 0.8) 
+        ];
+
+        for (let i = 0; i < count; i++) {
+            const jitteredPos = vec3.fromValues(
+                position[0] + this.getRandom(-0.04, 0.04),
+                position[1] + this.getRandom(-0.02, 0.05),
+                position[2] + this.getRandom(-0.04, 0.04)
+            );
+
+    
+            const vel = vec3.fromValues(
+                this.getRandom(-0.008, 0.008),
+                this.getRandom(0.015, 0.035), 
+                this.getRandom(-0.008, 0.008)
+            );
+
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: jitteredPos,
+                velocity: vel,
+                color: color,
+                lifetime: this.getRandom(50, 110), 
+                size: this.getRandom(0.06, 0.12),  
+                gravity: false 
             });
         }
     }

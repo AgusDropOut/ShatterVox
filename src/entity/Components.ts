@@ -1,10 +1,8 @@
 import { vec3, quat } from "gl-matrix";
 
-
 export interface PhysicsComponent {
     bodyId: number; 
 }
-
 
 export interface RenderComponent {
     modelId: string; 
@@ -22,5 +20,10 @@ export interface ExplosiveComponent {
 }
 
 export interface InteractableComponent {
-    overlayData: any;
+    overlayData?: any;
+    onInteract?: () => void;
+}
+
+export interface UpdateComponent {
+    onUpdate: (deltaTime: number) => void;
 }

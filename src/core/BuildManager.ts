@@ -429,7 +429,7 @@ export class BuildManager {
                 volume: 0.5, pitch: 0.8
             });
         } else if (action.type === 'BILLBOARD') {
-            globalEventBus.emit("REMOVE_BILLBOARD_BY_BODY", { bodyId: action.bodyId });
+            globalEventBus.emit("REMOVE_ENTITY_BY_BODY", { bodyId: action.bodyId });
         }
     }
 

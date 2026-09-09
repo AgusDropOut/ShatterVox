@@ -199,6 +199,10 @@ export class Engine {
         this.explosiveManager.update(deltaTime);
         this.world.update(deltaTime);
         
+        for (const updateComp of this.entityRepository.updates.values()) {
+            updateComp.onUpdate(deltaTime);
+        }
+        
         this.renderer.setHighlightedEntity(this.player.currentHitEntityInternalId);
     }
 

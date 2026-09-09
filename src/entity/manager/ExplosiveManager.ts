@@ -5,6 +5,7 @@ import type { EntityRepository } from "../EntityRepository";
 import type { ExplosiveComponent } from "../Components";
 import { Engine } from "../../core/Engine";
 import type { World } from "../../world/World";
+import { ExplosiveRegistry } from "../data/ExplosiveRegistry";
 
 export class ExplosiveManager {
     private repository: EntityRepository; 
@@ -16,12 +17,27 @@ export class ExplosiveManager {
         this.physicsFacade = physicsFacade;
         this.world = world;
 
-        globalEventBus.on("SPAWN_BOMB", (data) => this.spawnBomb(data));
+        globalEventBus.on("SPAWN_ENTITY", (data) => {
+            if (ExplosiveRegistry[data.modelId]) {
+                this.spawnExplosive(data);
+            }
+        });
+
+        globalEventBus.on("REMOVE_ENTITY_BY_BODY", (data) => {
+            for (const [entityId, physComp] of this.repository.physics.entries()) {
+                if (physComp.bodyId === data.bodyId && this.repository.explosives.has(entityId)) {
+                    this.repository.destroyEntity(entityId);
+                    globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: data.bodyId });
+                    return; 
+                }
+            }
+        });
     }
 
-    private spawnBomb(data: { x: number, y: number, z: number, vx: number, vy: number, vz: number, rot: any }): void {
+    private spawnExplosive(data: { modelId: string, bodyId?: number, x: number, y: number, z: number, vx?: number, vy?: number, vz?: number, rot?: any }): void {
+        const config = ExplosiveRegistry[data.modelId];
         const entityId = this.repository.createEntity();
-        const bodyId = this.physicsFacade.generateId();
+        const bodyId = data.bodyId ?? this.physicsFacade.generateId();
 
         globalEventBus.emit("PHYSICS_COMMAND", {
             type: 'CREATE_DYNAMIC_BOX',
@@ -29,24 +45,36 @@ export class ExplosiveManager {
             x: data.x, y: data.y, z: data.z,
             rot: data.rot, 
             halfExtents: { x: 0.1, y: 0.1, z: 0.1 },
-            mass: 5.0,
-            restitution: 0.5 
+            mass: config.mass,
+            restitution: config.restitution 
         });
 
-        globalEventBus.emit("PHYSICS_COMMAND", {
-            type: 'APPLY_IMPULSE',
-            id: bodyId,
-            x: data.vx, y: data.vy, z: data.vz
-        });
-
+        if (data.vx !== undefined && data.vy !== undefined && data.vz !== undefined) {
+            globalEventBus.emit("PHYSICS_COMMAND", {
+                type: 'APPLY_IMPULSE',
+                id: bodyId,
+                x: data.vx, y: data.vy, z: data.vz
+            });
+        }
       
         this.repository.physics.set(entityId, { bodyId });
-        this.repository.renders.set(entityId, { modelId: "bomb", scale: vec3.fromValues(0.4, 0.4, 0.4), color: [1,1,1], visualOffset: vec3.fromValues(0, -0.125, 0) });
-        this.repository.explosives.set(entityId, { timer: 3.0, radius: 30, fuseActive: true });
+        this.repository.renders.set(entityId, { modelId: data.modelId, scale: config.scale, color: [1,1,1], visualOffset: config.visualOffset });
+        this.repository.explosives.set(entityId, { timer: config.timer, radius: config.radius, fuseActive: false });
+        
+        if (config.behavior.onInteract) {
+            this.repository.interactables.set(entityId, {
+                onInteract: () => config.behavior.onInteract!(entityId, this.repository, this.physicsFacade)
+            });
+        }
+
+        if (config.behavior.onUpdate) {
+            this.repository.updates.set(entityId, {
+                onUpdate: (deltaTime: number) => config.behavior.onUpdate!(entityId, deltaTime, this.repository, this.physicsFacade)
+            });
+        }
     }
 
     public update(deltaTime: number): void {
-
         for (const [entity, exp] of this.repository.explosives.entries()) {
             if (!exp.fuseActive) continue;
 
@@ -78,23 +106,19 @@ export class ExplosiveManager {
                     });
                 }, 100);
 
-
                 globalEventBus.emit("BLOCK_MINED_STATIC", {
                     x: blockX,
                     y: blockY,
                     z: blockZ,
                     radius: exp.radius
                 });
-
             
                 for (const debri of this.world.debri) {
-                    
                     const debriTransform = this.physicsFacade.transforms.get(debri.id);
                     const debriWorldX = debriTransform ? debriTransform.position[0] : (debri.offsetX * Engine.voxelSize);
                     const debriWorldY = debriTransform ? debriTransform.position[1] : (debri.offsetY * Engine.voxelSize);
                     const debriWorldZ = debriTransform ? debriTransform.position[2] : (debri.offsetZ * Engine.voxelSize);
 
-                 
                     const localX = transform.position[0] - debriWorldX;
                     const localY = transform.position[1] - debriWorldY;
                     const localZ = transform.position[2] - debriWorldZ;
@@ -109,7 +133,6 @@ export class ExplosiveManager {
                 }
 
                 globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: phys.bodyId });
-
 
                 globalEventBus.emit("PLAY_SPATIAL_SOUND", {
                     id: "nade_explosion",

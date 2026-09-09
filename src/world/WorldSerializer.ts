@@ -39,11 +39,24 @@ export class WorldSerializer {
         const saveableEntities: any[] = [];
         
         for (const [entityId, renderComp] of repository.renders.entries()) {
-            if (renderComp.modelId && renderComp.position && renderComp.rotation && renderComp.modelId !== "bomb") {
+            
+            if (renderComp.modelId && renderComp.position && renderComp.rotation ) {
+                let pos = renderComp.position;
+                let rot = renderComp.rotation;
+                
+                const physComp = repository.physics.get(entityId);
+                if (physComp) {
+                    const transform = physicsFacade.transforms.get(physComp.bodyId);
+                    if (transform) {
+                        pos = transform.position;
+                        rot = transform.rotation;
+                    }
+                }
+
                 saveableEntities.push({
                     modelIdBytes: encoder.encode(renderComp.modelId),
-                    pos: renderComp.position,
-                    rot: renderComp.rotation
+                    pos: pos,
+                    rot: rot
                 });
             }
         }
@@ -241,7 +254,7 @@ export class WorldSerializer {
 
                     const bodyId = physicsFacade.generateId();
 
-                    globalEventBus.emit("SPAWN_BILLBOARD", {
+                    globalEventBus.emit("SPAWN_ENTITY", {
                         x: px, y: py, z: pz,
                         rot: { x: rx, y: ry, z: rz, w: rw },
                         modelId: modelId,

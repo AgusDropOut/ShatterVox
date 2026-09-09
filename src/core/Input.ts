@@ -1,25 +1,28 @@
 export class Input {
     private readonly canvas: HTMLCanvasElement;
     private readonly keys: Set<string>;
+    private readonly mouseButtons: Set<number>;
     
     private deltaX: number = 0;
     private deltaY: number = 0;
     
     public isLocked: boolean = false;
 
-  
     constructor(canvas: HTMLCanvasElement) {
         this.canvas = canvas;
         this.keys = new Set();
+        this.mouseButtons = new Set();
 
         this.attachListeners();
     }
 
-  
     public isKeyPressed(keyCode: string): boolean {
         return this.keys.has(keyCode);
     }
 
+    public isMouseButtonPressed(buttonCode: number): boolean {
+        return this.mouseButtons.has(buttonCode);
+    }
     
     public consumeMouseDeltas(): { x: number; y: number } {
         const deltas = { x: this.deltaX, y: this.deltaY };
@@ -32,17 +35,17 @@ export class Input {
         window.addEventListener("keydown", (e) => this.keys.add(e.code));
         window.addEventListener("keyup", (e) => this.keys.delete(e.code));
 
-     
+        window.addEventListener("mousedown", (e) => this.mouseButtons.add(e.button));
+        window.addEventListener("mouseup", (e) => this.mouseButtons.delete(e.button));
+
         this.canvas.addEventListener("click", () => {
             if (!this.isLocked) {
-              
                 this.canvas.requestPointerLock().catch((err) => {
-                    console.warn("No se pudo bloquear el puntero (hacé clic en el juego primero).");
+                    console.warn("Could not lock pointer:", err);
                 });
             }
         });
 
-      
         document.addEventListener("pointerlockchange", () => {
             this.isLocked = document.pointerLockElement === this.canvas;
         });

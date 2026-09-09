@@ -36,6 +36,9 @@ export class PlayerController {
     public currentHitEntity: number | null = null; 
     public currentHitEntityInternalId: number | null = null;
 
+    private draggedEntityId: number | null = null;
+    private dragDistance: number = 0;
+
     private soundManager: SoundManager;
     private acousticTimer: number = 0;
     private readonly ACOUSTIC_INTERVAL: number = 0.25;
@@ -92,9 +95,18 @@ export class PlayerController {
             this.soundManager.unlock();
             if (this.input.isLocked) {
                 if (e.button === 0) {
-                    this.handleLeftClick();
+                    if (!this.isBuildMode && this.currentHitEntity !== null) {
+                        this.draggedEntityId = this.currentHitEntity;
+                        const t = this.physicsFacade.transforms.get(this.currentHitEntity);
+                        if (t) {
+                            this.dragDistance = vec3.distance(this.camera.position, t.position);
+                        } else {
+                            this.dragDistance = 5.0; 
+                        }
+                    } else {
+                        this.handleLeftClick();
+                    }
                 } else if (e.button === 2) {
-                    
                     if (!this.isBuildMode && this.currentHitEntityInternalId !== null) {
                         const interactable = this.entityRepo.interactables.get(this.currentHitEntityInternalId);
                         if (interactable) {
@@ -132,7 +144,11 @@ export class PlayerController {
         });
 
         window.addEventListener("mouseup", (e) => {
-            if (e.button === 2) {
+            if (e.button === 0) {
+                if (this.draggedEntityId !== null) {
+                    this.draggedEntityId = null;
+                }
+            } else if (e.button === 2) {
                 this.isDraggingBuild = false;
                 this.lastBuildPos = "";
 
@@ -253,6 +269,21 @@ export class PlayerController {
                 z: velocity[2],
                 jump: isJumping
             });
+
+            if (this.draggedEntityId !== null && this.input.isMouseButtonPressed(0)) {
+                const targetPos = vec3.create();
+                vec3.scaleAndAdd(targetPos, this.camera.position, this.camera.front, this.dragDistance);
+
+                globalEventBus.emit("PHYSICS_COMMAND", {
+                    type: 'DRAG_ENTITY',
+                    id: this.draggedEntityId,
+                    targetX: targetPos[0],
+                    targetY: targetPos[1],
+                    targetZ: targetPos[2]
+                });
+            } else if (this.draggedEntityId !== null) {
+                this.draggedEntityId = null;
+            }
         }
 
         if (this.input.isKeyPressed("KeyB") && this.canThrowBomb) {

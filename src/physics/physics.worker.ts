@@ -17,6 +17,8 @@ import { CreateDynamicBoxCommand } from "./commands/CreateDynamicBoxCommand";
 import { ApplyRadialImpulseCommand } from "./commands/ApplyRadialImpulseCommand";
 import { RemoveTerrainBoxCommand } from "./commands/RemoveTerrainBoxCommand";
 import { PhysicsSimulationLoop } from "./PhysicsSimulationLoop";
+import { ApplyForceCommand } from "./commands/ApplyForceCommand";
+import { DragEntityCommand } from "./commands/DragEntityCommand";
 
 
 const context = new PhysicsContext();
@@ -37,6 +39,8 @@ registry.register('APPLY_IMPULSE', new ApplyImpulseCommand());
 registry.register('CREATE_DYNAMIC_BOX', new CreateDynamicBoxCommand());
 registry.register('APPLY_RADIAL_IMPULSE', new ApplyRadialImpulseCommand());
 registry.register('REMOVE_TERRAIN_BOX', new RemoveTerrainBoxCommand());
+registry.register('APPLY_FORCE', new ApplyForceCommand());
+registry.register('DRAG_ENTITY', new DragEntityCommand());
 
 const simulationLoop = new PhysicsSimulationLoop(context);
 simulationLoop.start();

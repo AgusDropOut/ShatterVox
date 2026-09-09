@@ -13,9 +13,11 @@ export type PhysicsCommand =
     | { type: 'REMOVE_DEBRI_BLOCK', id: number, localX: number, localY: number, localZ: number }
     | { type: 'SPLIT_DEBRI', parentId: number, newDebriId: number, collidersToMove: Float32Array }
     | { type: 'APPLY_IMPULSE', id: number, x: number, y: number, z: number }
+    | { type: 'APPLY_FORCE', id: number, x: number, y: number, z: number }
     | { type: 'CREATE_DYNAMIC_BOX', id: number, x: number, y: number, z: number, rot?: {x:number, y:number, z:number, w:number}, halfExtents: { x: number, y: number, z: number }, mass: number, restitution: number }
     | { type: 'APPLY_RADIAL_IMPULSE', epicenter: { x: number, y: number, z: number }, radius: number, force: number }
-    | { type: 'REMOVE_TERRAIN_BOX', id: number };
+    | { type: 'REMOVE_TERRAIN_BOX', id: number }
+    | { type: 'DRAG_ENTITY', id: number, targetX: number, targetY: number, targetZ: number };
 
 export type WorkerToMainMsg = 
     | { type: 'INIT_DONE' }

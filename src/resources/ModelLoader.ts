@@ -17,6 +17,16 @@ export class ModelLoader {
                 "billboard-1", 
                 "/assets/models/billboard-1.obj", 
                 "/assets/textures/billboard-1.png"
+            ),
+            renderer.loadEntityAsset(
+                "billboard-2", 
+                "/assets/models/billboard-2.obj", 
+                "/assets/textures/billboard-2.png"
+            ),
+            renderer.loadEntityAsset(
+                "billboard-3", 
+                "/assets/models/billboard-3.obj", 
+                "/assets/textures/billboard-3.png"
             )
         ];
 

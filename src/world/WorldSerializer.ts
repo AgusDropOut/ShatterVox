@@ -10,7 +10,7 @@ import { globalEventBus } from "../core/EventBus";
 
 export class WorldSerializer {
     private static readonly MAGIC_NUMBER = 0x44335643; 
-    private static readonly VERSION = 2; 
+    private static readonly VERSION = 3; 
 
     public static saveWorld(world: World, repository: EntityRepository, physicsFacade: PhysicsFacade): Blob {
         const chunkDataBuffers: Uint8Array[] = [];
@@ -35,35 +35,47 @@ export class WorldSerializer {
             totalChunkDataSize += combined.byteLength;
         }
 
-        const billboardEntities: any[] = [];
+        const encoder = new TextEncoder();
+        const saveableEntities: any[] = [];
+        
         for (const [entityId, renderComp] of repository.renders.entries()) {
-            if (renderComp.modelId && renderComp.modelId.startsWith("billboard") && renderComp.position && renderComp.rotation) {
-                billboardEntities.push({
-                    type: renderComp.modelId === "billboard" ? 1 : 2,
+            if (renderComp.modelId && renderComp.position && renderComp.rotation && renderComp.modelId !== "bomb") {
+                saveableEntities.push({
+                    modelIdBytes: encoder.encode(renderComp.modelId),
                     pos: renderComp.position,
                     rot: renderComp.rotation
                 });
             }
         }
 
-        const entityDataSize = 4 + (billboardEntities.length * (1 + 12 + 16));
+        let entityDataSize = 4;
+        for (const entity of saveableEntities) {
+            entityDataSize += 1 + entity.modelIdBytes.length + 12 + 16;
+        }
+
         const entityBuffer = new ArrayBuffer(entityDataSize);
         const entityView = new DataView(entityBuffer);
         
-        entityView.setUint32(0, billboardEntities.length, true);
+        entityView.setUint32(0, saveableEntities.length, true);
         let offset = 4;
         
-        for (const bb of billboardEntities) {
-            entityView.setUint8(offset, bb.type);
+        for (const entity of saveableEntities) {
+            entityView.setUint8(offset, entity.modelIdBytes.length);
             offset += 1;
-            entityView.setFloat32(offset, bb.pos[0], true);
-            entityView.setFloat32(offset + 4, bb.pos[1], true);
-            entityView.setFloat32(offset + 8, bb.pos[2], true);
+            
+            for (let i = 0; i < entity.modelIdBytes.length; i++) {
+                entityView.setUint8(offset++, entity.modelIdBytes[i]);
+            }
+            
+            entityView.setFloat32(offset, entity.pos[0], true);
+            entityView.setFloat32(offset + 4, entity.pos[1], true);
+            entityView.setFloat32(offset + 8, entity.pos[2], true);
             offset += 12;
-            entityView.setFloat32(offset, bb.rot[0], true);
-            entityView.setFloat32(offset + 4, bb.rot[1], true);
-            entityView.setFloat32(offset + 8, bb.rot[2], true);
-            entityView.setFloat32(offset + 12, bb.rot[3], true);
+            
+            entityView.setFloat32(offset, entity.rot[0], true);
+            entityView.setFloat32(offset + 4, entity.rot[1], true);
+            entityView.setFloat32(offset + 8, entity.rot[2], true);
+            entityView.setFloat32(offset + 12, entity.rot[3], true);
             offset += 16;
         }
 
@@ -196,12 +208,26 @@ export class WorldSerializer {
         if (offset < buffer.byteLength) {
             const entityCount = view.getUint32(offset, true);
             offset += 4;
+            const decoder = new TextDecoder();
 
             for (let i = 0; i < entityCount; i++) {
-                const type = view.getUint8(offset);
-                offset += 1;
+                let modelId = "";
+                
+                if (version >= 3) {
+                    const strLen = view.getUint8(offset);
+                    offset += 1;
+                    const strBytes = new Uint8Array(buffer, offset, strLen);
+                    modelId = decoder.decode(strBytes);
+                    offset += strLen;
+                } else {
+                    const type = view.getUint8(offset);
+                    offset += 1;
+                    if (type === 1 || type === 2) {
+                        modelId = type === 1 ? "billboard" : "billboard-1";
+                    }
+                }
 
-                if (type === 1 || type === 2) { 
+                if (modelId !== "") {
                     const px = view.getFloat32(offset, true);
                     const py = view.getFloat32(offset + 4, true);
                     const pz = view.getFloat32(offset + 8, true);
@@ -218,9 +244,11 @@ export class WorldSerializer {
                     globalEventBus.emit("SPAWN_BILLBOARD", {
                         x: px, y: py, z: pz,
                         rot: { x: rx, y: ry, z: rz, w: rw },
-                        modelId: type === 1 ? "billboard" : "billboard-1",
+                        modelId: modelId,
                         bodyId: bodyId
                     });
+                } else {
+                    offset += 28; 
                 }
             }
         }

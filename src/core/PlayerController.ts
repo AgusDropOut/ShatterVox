@@ -83,7 +83,7 @@ export class PlayerController {
                     y: this.camera.position[1], 
                     z: this.camera.position[2],
                     radius: 0.2,
-                    halfHeight: 0.6
+                    halfHeight: 0.3
                 });
             }
         });
@@ -155,7 +155,7 @@ export class PlayerController {
             y: this.targetPosition[1], 
             z: this.targetPosition[2],
             radius: 0.2,
-            halfHeight: 0.6
+            halfHeight: 0.3
         });
     }
 
@@ -167,7 +167,7 @@ export class PlayerController {
         if (!this.isBuildMode) {
             const transform = this.physicsFacade.transforms.get(this.playerId);
             if (transform) {
-                vec3.set(this.targetPosition, transform.position[0], transform.position[1] + 0.8, transform.position[2]);
+                vec3.set(this.targetPosition, transform.position[0], transform.position[1] + 0.3, transform.position[2]);
                 const lerpSpeed = 15.0; 
                 const t = Math.min(lerpSpeed * deltaTime, 1.0);
                 vec3.lerp(this.camera.position, this.camera.position, this.targetPosition, t);

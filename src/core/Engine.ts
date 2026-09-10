@@ -18,6 +18,8 @@ import { BuildManager } from "./BuildManager";
 import { WorldSerializer } from "../world/WorldSerializer";
 import { AudioLoader } from "../resources/AudioLoader";
 import { ModelLoader } from "../resources/ModelLoader";
+import { WorldModifier } from "../world/WorldModifier";
+import { SingularityManager } from "../entity/manager/SingularityManager";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -46,8 +48,10 @@ export class Engine {
     private entityRepository: EntityRepository;
     private explosiveManager!: ExplosiveManager;
     private billboardManager!: BillBoardManager;
+    private singularityManager!: SingularityManager;
     private buildManager!: BuildManager;
     private debugGui!: DebugGui;
+    private worldModifier!: WorldModifier;
 
     public static projectionMatrix: mat4 = mat4.create();
     public static zNear: number = 0.1;
@@ -123,7 +127,9 @@ export class Engine {
         
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
+        this.singularityManager = new SingularityManager(this.entityRepository);
         this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade, this.player);
+        this.worldModifier = new WorldModifier(this.world, this.physicsFacade);
 
         const audioPromise = AudioLoader.loadAll(this.soundManager);
         const modelsPromise = ModelLoader.loadAll(this.renderer);
@@ -197,6 +203,7 @@ export class Engine {
 
         this.player.update(deltaTime);
         this.explosiveManager.update(deltaTime);
+        this.singularityManager.update(deltaTime);
         this.world.update(deltaTime);
         
         for (const updateComp of this.entityRepository.updates.values()) {

@@ -112,7 +112,6 @@ export class ParticleSpawner {
                 position[2] + this.getRandom(-0.08, 0.08)
             );
 
-          
             const vel = vec3.fromValues(
                 this.getRandom(-0.005, 0.005), 
                 this.getRandom(0.002, 0.012),
@@ -130,7 +129,6 @@ export class ParticleSpawner {
         }
     }
 
-   
     public static spawnDirectional(position: vec3, direction: vec3, color: vec4, speed: number, count: number = 3): void {
         for (let i = 0; i < count; i++) {
             const vel = vec3.create();
@@ -167,7 +165,6 @@ export class ParticleSpawner {
                 position[2] + this.getRandom(-0.04, 0.04)
             );
 
-    
             const vel = vec3.fromValues(
                 this.getRandom(-0.008, 0.008),
                 this.getRandom(0.015, 0.035), 
@@ -182,6 +179,108 @@ export class ParticleSpawner {
                 color: color,
                 lifetime: this.getRandom(50, 110), 
                 size: this.getRandom(0.06, 0.12),  
+                gravity: false 
+            });
+        }
+    }
+
+    public static spawnVoidAura(position: vec3): void {
+        const count = Math.floor(this.getRandom(2, 5)); 
+        const colors = [
+            vec4.fromValues(0.1, 0.0, 0.2, 1.0),
+            vec4.fromValues(0.3, 0.0, 0.4, 0.8), 
+            vec4.fromValues(0.0, 0.0, 0.0, 0.9) 
+        ];
+
+        for (let i = 0; i < count; i++) {
+            const distance = this.getRandom(0.2, 0.6);
+            const dir = this.randomSphereDir();
+            
+            const startPos = vec3.fromValues(
+                position[0] + dir[0] * distance,
+                position[1] + dir[1] * distance,
+                position[2] + dir[2] * distance
+            );
+
+            const vel = vec3.create();
+            vec3.scale(vel, dir, -0.015); 
+
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: startPos,
+                velocity: vel,
+                color: color,
+                lifetime: this.getRandom(30, 60), 
+                size: this.getRandom(0.02, 0.08),  
+                gravity: false 
+            });
+        }
+    }
+
+    public static spawnImplosionStream(center: vec3, radius: number): void {
+        const count = Math.floor(this.getRandom(6, 12)); 
+        const colors = [
+            vec4.fromValues(0.1, 0.0, 0.2, 1.0),
+            vec4.fromValues(0.3, 0.0, 0.4, 0.8), 
+            vec4.fromValues(0.0, 0.0, 0.0, 0.9) 
+        ];
+
+        for (let i = 0; i < count; i++) {
+            const distance = this.getRandom(radius * 0.3, radius);
+            const dir = this.randomSphereDir();
+            
+            const startPos = vec3.fromValues(
+                center[0] + dir[0] * distance,
+                center[1] + dir[1] * distance,
+                center[2] + dir[2] * distance
+            );
+
+            const vel = vec3.create();
+            vec3.scale(vel, dir, -distance * 0.05); 
+
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: startPos,
+                velocity: vel,
+                color: color,
+                lifetime: this.getRandom(20, 35), 
+                size: this.getRandom(0.04, 0.15),  
+                gravity: false 
+            });
+        }
+    }
+
+    public static spawnMagicAura(position: vec3): void {
+        const count = Math.floor(this.getRandom(1, 2)); 
+        const colors = [
+            vec4.fromValues(0.1, 0.9, 0.3, 1.0),
+            vec4.fromValues(0.3, 1.0, 0.5, 0.8), 
+            vec4.fromValues(0.0, 0.8, 0.2, 0.5) 
+        ];
+
+        for (let i = 0; i < count; i++) {
+            const jitteredPos = vec3.fromValues(
+                position[0] + this.getRandom(-0.15, 0.15),
+                position[1] + this.getRandom(-0.15, 0.15),
+                position[2] + this.getRandom(-0.15, 0.15)
+            );
+
+            const vel = vec3.fromValues(
+                this.getRandom(-0.002, 0.002),
+                this.getRandom(0.005, 0.015), 
+                this.getRandom(-0.002, 0.002)
+            );
+
+            const color = colors[Math.floor(Math.random() * colors.length)];
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: jitteredPos,
+                velocity: vel,
+                color: color,
+                lifetime: this.getRandom(80, 160), 
+                size: this.getRandom(0.05, 0.15),  
                 gravity: false 
             });
         }

@@ -4,8 +4,7 @@ import { WebGPUTexture } from "./WebGPUTexture";
 
 export interface ModelAsset {
     mesh: Model;
-    texture: WebGPUTexture;
-    materialBindGroup: GPUBindGroup; 
+    materialBindGroups: Map<string, GPUBindGroup>; 
 }
 
 export class AssetManager {
@@ -14,7 +13,7 @@ export class AssetManager {
     public static async loadAsset(
         id: string, 
         objUrl: string, 
-        textureUrl: string, 
+        textureUrls: Record<string, string>, 
         device: GPUDevice, 
         materialLayout: GPUBindGroupLayout
     ): Promise<void> {
@@ -27,17 +26,23 @@ export class AssetManager {
             const mesh = new Model(device);
             mesh.uploadData(parsedData);
 
-            const texture = await WebGPUTexture.create(device, textureUrl);
+            const materialBindGroups = new Map<string, GPUBindGroup>();
 
-            const materialBindGroup = device.createBindGroup({
-                layout: materialLayout,
-                entries: [
-                    { binding: 0, resource: texture.sampler },
-                    { binding: 1, resource: texture.view }
-                ]
+            const texturePromises = Object.entries(textureUrls).map(async ([matName, url]) => {
+                const texture = await WebGPUTexture.create(device, url);
+                const bindGroup = device.createBindGroup({
+                    layout: materialLayout,
+                    entries: [
+                        { binding: 0, resource: texture.sampler },
+                        { binding: 1, resource: texture.view }
+                    ]
+                });
+                materialBindGroups.set(matName, bindGroup);
             });
 
-            this.assets.set(id, { mesh, texture, materialBindGroup });
+            await Promise.all(texturePromises);
+
+            this.assets.set(id, { mesh, materialBindGroups });
         } catch (error) {
             console.error(`Error loading asset '${id}':`, error);
         }

@@ -1,7 +1,9 @@
 import { WebGPUVertexBuffer } from "./WebGPUVertexBuffer";
+import type { ParsedModelData, SubMeshData } from "./ObjLoader";
 
 export class Model {
     public vertexCount: number = 0;
+    public subMeshes: SubMeshData[] = [];
     
     private positionBuffer!: WebGPUVertexBuffer;
     private uvBuffer!: WebGPUVertexBuffer;
@@ -12,8 +14,9 @@ export class Model {
         this.device = device;
     }
 
-    public uploadData(data: { positions: Float32Array, uvs: Float32Array, normals: Float32Array, vertexCount: number }): void {
+    public uploadData(data: ParsedModelData): void {
         this.vertexCount = data.vertexCount;
+        this.subMeshes = data.subMeshes;
 
         if (!this.positionBuffer) {
             this.positionBuffer = new WebGPUVertexBuffer(this.device, data.positions);
@@ -34,6 +37,16 @@ export class Model {
         renderPass.setVertexBuffer(2, this.normalBuffer.buffer);
         
         renderPass.draw(this.vertexCount);
+    }
+
+    public drawSubMesh(renderPass: GPURenderPassEncoder, subMesh: SubMeshData): void {
+        if (this.vertexCount === 0 || !this.positionBuffer || !this.uvBuffer || !this.normalBuffer) return;
+
+        renderPass.setVertexBuffer(0, this.positionBuffer.buffer);
+        renderPass.setVertexBuffer(1, this.uvBuffer.buffer);
+        renderPass.setVertexBuffer(2, this.normalBuffer.buffer);
+        
+        renderPass.draw(subMesh.indexCount, 1, subMesh.indexOffset, 0);
     }
 
     public deleteGraphics(): void {

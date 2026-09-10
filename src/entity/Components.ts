@@ -27,3 +27,12 @@ export interface InteractableComponent {
 export interface UpdateComponent {
     onUpdate: (deltaTime: number) => void;
 }
+
+
+export interface SingularityComponent {
+    lifeTime: number;
+    epicenter: vec3;
+    pullRadius: number;
+    destructionRadius: number;
+    pullForce: number;
+}

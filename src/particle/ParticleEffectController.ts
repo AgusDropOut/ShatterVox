@@ -64,5 +64,49 @@ export class ParticleEffectsController {
                 vortex: true 
             });
         });
+
+        globalEventBus.on("VOID_IMPLOSION" as any, (data: any) => {
+            const explosionCenter = vec3.fromValues(data.x, data.y, data.z);
+            
+            ParticleSpawner.spawnExplosion(explosionCenter, {
+                count: 250,
+                baseSpeed: 0.35, 
+                speedVariance: 0.15,
+                lifetime: [30, 80], 
+                size: [0.04, 0.15],
+                gradient: {
+                    colors: [
+                        vec4.fromValues(0.0, 0.0, 0.0, 1.0),
+                        vec4.fromValues(0.2, 0.0, 0.4, 0.9),
+                        vec4.fromValues(0.1, 0.0, 0.2, 0.5),
+                        vec4.fromValues(0.0, 0.0, 0.0, 0.0)
+                    ],
+                    continuous: true
+                },
+                vortex: false 
+            });
+        });
+
+        globalEventBus.on("MAGIC_BURST" as any, (data: any) => {
+            const explosionCenter = vec3.fromValues(data.x, data.y, data.z);
+            
+            ParticleSpawner.spawnExplosion(explosionCenter, {
+                count: 400,
+                baseSpeed: 0.3,
+                speedVariance: 0.1,
+                lifetime: [150, 300], 
+                size: [0.08, 0.25],
+                gradient: {
+                    colors: [
+                        vec4.fromValues(0.8, 1.0, 0.8, 1.0),
+                        vec4.fromValues(0.2, 0.9, 0.4, 0.9),
+                        vec4.fromValues(0.0, 0.6, 0.2, 0.5),
+                        vec4.fromValues(0.0, 0.2, 0.0, 0.0)
+                    ],
+                    continuous: true
+                },
+                vortex: false 
+            });
+        });
     }
 }

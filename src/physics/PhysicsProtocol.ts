@@ -16,6 +16,7 @@ export type PhysicsCommand =
     | { type: 'APPLY_FORCE', id: number, x: number, y: number, z: number }
     | { type: 'CREATE_DYNAMIC_BOX', id: number, x: number, y: number, z: number, rot?: {x:number, y:number, z:number, w:number}, halfExtents: { x: number, y: number, z: number }, mass: number, restitution: number }
     | { type: 'APPLY_RADIAL_IMPULSE', epicenter: { x: number, y: number, z: number }, radius: number, force: number }
+    | { type: 'APPLY_RADIAL_PULL', epicenter: { x: number, y: number, z: number }, radius: number, force: number } 
     | { type: 'REMOVE_TERRAIN_BOX', id: number }
     | { type: 'DRAG_ENTITY', id: number, targetX: number, targetY: number, targetZ: number };
 

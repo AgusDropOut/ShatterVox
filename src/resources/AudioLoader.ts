@@ -14,6 +14,8 @@ export class AudioLoader {
             soundManager.loadSound("wood_crack-1", "/assets/sounds/wood_crack-1.ogg"),
             soundManager.loadSound("wood_crack-2", "/assets/sounds/wood_crack-2.ogg"),
             soundManager.loadSound("fire_chill", "/assets/sounds/fire_chill.ogg"),
+            soundManager.loadSound("blackhole", "/assets/sounds/blackhole.ogg"),
+            soundManager.loadSound("crystal_break", "/assets/sounds/crystal_break.ogg"),
             soundManager.loadImpulseResponse("/assets/sounds/cave_ir.ogg")
         ];
 

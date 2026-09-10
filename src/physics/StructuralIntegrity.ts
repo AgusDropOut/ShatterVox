@@ -14,8 +14,9 @@ export class StructuralIntegrity {
     private readonly physicsFacade: PhysicsFacade;
     private detachmentChecker: DetachmentChecker;
     private worker: Worker;
-    
-   
+
+    private readonly MAX_DEBRIS_THRESHOLD = 50; 
+    private readonly ABSOLUTE_MAX_DEBRIS = 80;
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, world: World, physicsFacade: PhysicsFacade) {
         this.world = world;
@@ -167,6 +168,8 @@ export class StructuralIntegrity {
         const maxZ = Math.ceil(cz + radius);
 
         const maxExplosionForce = radius * 20.0;
+        
+        let currentWorldDebrisCount = this.world.debri.length;
 
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
@@ -188,11 +191,25 @@ export class StructuralIntegrity {
 
                             if (forceAtPoint > fractureThreshold) {
                                 this.world.setBlock(x, y, z, 0);
-                              
                                 this.world.setChunkDirtyAt(x, y, z);
                                 
-                                const fragmentationChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.15; 
-                                if (Math.random() < fragmentationChance) {
+            
+                                let overloadMultiplier = 1.0;
+                                if (currentWorldDebrisCount > this.MAX_DEBRIS_THRESHOLD) {
+                                    if (currentWorldDebrisCount >= this.ABSOLUTE_MAX_DEBRIS) {
+                                        overloadMultiplier = 0.0;
+                                    } else {
+                                        const range = this.ABSOLUTE_MAX_DEBRIS - this.MAX_DEBRIS_THRESHOLD;
+                                        const excess = currentWorldDebrisCount - this.MAX_DEBRIS_THRESHOLD;
+                                        overloadMultiplier = 1.0 - (excess / range);
+                                    }
+                                }
+
+                                const baseFragChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.0;
+                                const finalFragChance = baseFragChance * overloadMultiplier;
+
+                                if (finalFragChance > 0.0 && Math.random() < finalFragChance) {
+                                    currentWorldDebrisCount++;
                                     const debriId = this.physicsFacade.generateId();
                                     const smallDebri = new Debri(this.device, this.layout, debriId, this.physicsFacade, [[x, y, z, blockId]], x, y, z);
                                     
@@ -268,16 +285,9 @@ export class StructuralIntegrity {
         const rSquared = radius * radius;
         const maxExplosionForce = radius * 20.0;
 
-        const minX = Math.floor(centerX - radius);
-        const maxX = Math.ceil(centerX + radius);
-        const minY = Math.floor(centerY - radius);
-        const maxY = Math.ceil(centerY + radius);
-        const minZ = Math.floor(centerZ - radius);
-        const maxZ = Math.ceil(centerZ + radius);
-
-        for (let x = minX; x <= maxX; x++) {
-            for (let y = minY; y <= maxY; y++) {
-                for (let z = minZ; z <= maxZ; z++) {
+        for (let x = Math.floor(centerX - radius); x <= Math.ceil(centerX + radius); x++) {
+            for (let y = Math.floor(centerY - radius); y <= Math.ceil(centerY + radius); y++) {
+                for (let z = Math.floor(centerZ - radius); z <= Math.ceil(centerZ + radius); z++) {
                     const dx = x - centerX;
                     const dy = y - centerY;
                     const dz = z - centerZ;

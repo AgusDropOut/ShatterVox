@@ -78,9 +78,9 @@ export class GeometryPass {
         return this.chunkPipeline.getBindGroupLayout(1);
     }
 
-    public async loadEntityAsset(id: string, objUrl: string, textureUrl: string): Promise<void> {
+    public async loadEntityAsset(id: string, objUrl: string, textureUrls: Record<string, string>): Promise<void> {
         const materialLayout = this.entityPipeline.getBindGroupLayout(1);
-        await AssetManager.loadAsset(id, objUrl, textureUrl, this.device, materialLayout);
+        await AssetManager.loadAsset(id, objUrl, textureUrls, this.device, materialLayout);
     }
 
     public updateCamera(viewMatrix: mat4, projectionMatrix: mat4, frameCounter: number): void {
@@ -207,7 +207,7 @@ export class GeometryPass {
             if (!pos || !rot) continue;
 
             const asset = AssetManager.getAsset(renderComp.modelId);
-            if (!asset || !asset.mesh || asset.mesh.vertexCount === 0 || !asset.materialBindGroup) {
+            if (!asset || !asset.mesh || asset.materialBindGroups.size === 0) {
                 continue;
             }
 
@@ -250,9 +250,15 @@ export class GeometryPass {
                 }
             }
 
-            renderPass.setBindGroup(1, asset.materialBindGroup);
             renderPass.setBindGroup(2, instanceData.bindGroup);
-            asset.mesh.draw(renderPass);
+
+            const defaultBindGroup = asset.materialBindGroups.values().next().value;
+
+            for (const subMesh of asset.mesh.subMeshes) {
+                const bindGroup = asset.materialBindGroups.get(subMesh.materialName) || defaultBindGroup;
+                renderPass.setBindGroup(1, bindGroup);
+                asset.mesh.drawSubMesh(renderPass, subMesh);
+            }
         }
     }
 }

@@ -23,6 +23,8 @@ export interface GameEvents {
     "SET_TOOL_SETTINGS": { destructionRadius?: number, buildCooldownMs?: number, mineCooldownMs?: number };
     "SHOW_OVERLAY": { data: any };
     "SET_THROWABLE": { id: string };
+    "VOID_IMPLOSION": { x: number, y: number, z: number, radius: number }; 
+    "MAGIC_BURST": { x: number, y: number, z: number, radius: number };   
 }
 
 class EventBus {

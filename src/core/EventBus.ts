@@ -22,6 +22,7 @@ export interface GameEvents {
     "SET_SPHERE_RADIUS": { radius: number };
     "SET_TOOL_SETTINGS": { destructionRadius?: number, buildCooldownMs?: number, mineCooldownMs?: number };
     "SHOW_OVERLAY": { data: any };
+    "SET_THROWABLE": { id: string };
 }
 
 class EventBus {

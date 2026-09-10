@@ -20,7 +20,8 @@ export class DebugGui {
         sphereRadius: 3,
         destructionRadius: 3,
         mineCooldownMs: 100,
-        buildCooldownMs: 100
+        buildCooldownMs: 100,
+        selectedThrowable: 'bomb'
     };
 
     constructor(
@@ -41,6 +42,7 @@ export class DebugGui {
 
         this.setupViews();
         if (player) this.setupPlayerInfo(player);
+        this.setupGameplay();
         this.setupBuildMode(world, entityRepo, physicsFacade);
         this.setupProfiler(renderer);
         this.setupSSGI(renderer);
@@ -77,6 +79,17 @@ export class DebugGui {
             } else {
                 this.state.physicsDebug = data.enabled;
             }
+        });
+    }
+
+    private setupGameplay(): void {
+        const folder = this.gui.addFolder('Gameplay');
+        const throwableOptions = {
+            'Standard Bomb': 'bomb'
+        };
+        
+        folder.add(this.state, 'selectedThrowable', throwableOptions).name('Throwable Item').onChange((value: string) => {
+            globalEventBus.emit("SET_THROWABLE", { id: value });
         });
     }
 

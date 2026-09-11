@@ -13,7 +13,7 @@ export class AssetManager {
     public static async loadAsset(
         id: string, 
         objUrl: string, 
-        textureUrls: Record<string, string>, 
+        textureUrls: string[],
         device: GPUDevice, 
         materialLayout: GPUBindGroupLayout
     ): Promise<void> {
@@ -28,7 +28,7 @@ export class AssetManager {
 
             const materialBindGroups = new Map<string, GPUBindGroup>();
 
-            const texturePromises = Object.entries(textureUrls).map(async ([matName, url]) => {
+            const texturePromises = textureUrls.map(async (url, index) => {
                 const texture = await WebGPUTexture.create(device, url);
                 const bindGroup = device.createBindGroup({
                     layout: materialLayout,
@@ -37,7 +37,7 @@ export class AssetManager {
                         { binding: 1, resource: texture.view }
                     ]
                 });
-                materialBindGroups.set(matName, bindGroup);
+                materialBindGroups.set(index.toString(), bindGroup);
             });
 
             await Promise.all(texturePromises);

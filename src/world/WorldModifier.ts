@@ -19,77 +19,94 @@ export class WorldModifier {
         const blockX = Math.round(data.x / Engine.voxelSize);
         const blockY = Math.round(data.y / Engine.voxelSize);
         const blockZ = Math.round(data.z / Engine.voxelSize);
-        const r = data.radius;
+        const maxRadius = data.radius;
+        const TARGET_BLOCK_ID = 21; 
+
+        let currentRadius = 0;
 
      
-        for (let dx = -r; dx <= r; dx++) {
-            for (let dy = -r; dy <= r; dy++) {
-                for (let dz = -r; dz <= r; dz++) {
-                    if (dx * dx + dy * dy + dz * dz <= r * r) {
-                        const bx = blockX + dx;
-                        const by = blockY + dy;
-                        const bz = blockZ + dz;
-                        
-                        const currentBlock = this.world.getBlock(bx, by, bz);
-                      
-                        if (currentBlock === 1 || currentBlock === 2 || currentBlock === 3 || currentBlock === 16) {
-                            this.world.setBlock(bx, by, bz, 7); 
-                            this.world.setChunkDirtyAt(bx, by, bz); 
-                        }
-                    }
-                }
+        const expandInterval = setInterval(() => {
+            if (currentRadius > maxRadius) {
+                clearInterval(expandInterval);
+                return;
             }
-        }
 
-     
-        const burstPos = vec3.fromValues(data.x, data.y, data.z);
-        const burstRadiusWorld = data.radius * Engine.voxelSize;
+            const rSq = currentRadius * currentRadius;
+            const innerRSq = Math.max(0, (currentRadius - 1) * (currentRadius - 1));
 
-        for (const debri of this.world.debri) {
-            const debriTransform = this.physicsFacade.transforms.get(debri.id);
-            const debriPos = debriTransform ? debriTransform.position : vec3.fromValues(
-                debri.offsetX * Engine.voxelSize, 
-                debri.offsetY * Engine.voxelSize, 
-                debri.offsetZ * Engine.voxelSize
-            );
-            
-           
-            if (vec3.distance(burstPos, debriPos) <= burstRadiusWorld + 10.0) {
-                
-                const localX = data.x - debriPos[0];
-                const localY = data.y - debriPos[1];
-                const localZ = data.z - debriPos[2];
-
-                const dCenterX = Math.round(localX / Engine.voxelSize);
-                const dCenterY = Math.round(localY / Engine.voxelSize);
-                const dCenterZ = Math.round(localZ / Engine.voxelSize);
-
-                let debriModified = false;
-
-                for (let dx = -r; dx <= r; dx++) {
-                    for (let dy = -r; dy <= r; dy++) {
-                        for (let dz = -r; dz <= r; dz++) {
-                            if (dx * dx + dy * dy + dz * dz <= r * r) {
-                                const bx = dCenterX + dx;
-                                const by = dCenterY + dy;
-                                const bz = dCenterZ + dz;
-                                
-                                const currentBlock = debri.getBlock(bx, by, bz);
-                                if (currentBlock === 1 || currentBlock === 2 || currentBlock === 3 || currentBlock === 16) {
-                                    debri.setBlock(bx, by, bz, 7);
-                                    debriModified = true;
-                                }
+        
+            for (let dx = -currentRadius; dx <= currentRadius; dx++) {
+                for (let dy = -currentRadius; dy <= currentRadius; dy++) {
+                    for (let dz = -currentRadius; dz <= currentRadius; dz++) {
+                        const distSq = dx * dx + dy * dy + dz * dz;
+                        
+                   
+                        if (distSq <= rSq && distSq >= innerRSq) {
+                            const bx = blockX + dx;
+                            const by = blockY + dy;
+                            const bz = blockZ + dz;
+                            
+                            const currentBlock = this.world.getBlock(bx, by, bz);
+                            
+                          
+                            if (currentBlock !== 0 && currentBlock !== TARGET_BLOCK_ID) {
+                                this.world.setBlock(bx, by, bz, TARGET_BLOCK_ID); 
+                                this.world.setChunkDirtyAt(bx, by, bz); 
                             }
                         }
                     }
                 }
+            }
 
-                if (debriModified) {
-                    this.world.updateDebriMesh(debri);
+       
+            const burstPos = vec3.fromValues(data.x, data.y, data.z);
+            for (const debri of this.world.debri) {
+                const debriTransform = this.physicsFacade.transforms.get(debri.id);
+                const debriPos = debriTransform ? debriTransform.position : vec3.fromValues(
+                    debri.offsetX * Engine.voxelSize, 
+                    debri.offsetY * Engine.voxelSize, 
+                    debri.offsetZ * Engine.voxelSize
+                );
+                
+                const distToDebri = vec3.distance(burstPos, debriPos);
+                
+                if (distToDebri <= (currentRadius * Engine.voxelSize) + 5.0) {
+                    let debriModified = false;
+                    
+                    const localX = data.x - debriPos[0];
+                    const localY = data.y - debriPos[1];
+                    const localZ = data.z - debriPos[2];
+
+                    const dCenterX = Math.round(localX / Engine.voxelSize);
+                    const dCenterY = Math.round(localY / Engine.voxelSize);
+                    const dCenterZ = Math.round(localZ / Engine.voxelSize);
+
+                    for (let dx = -currentRadius; dx <= currentRadius; dx++) {
+                        for (let dy = -currentRadius; dy <= currentRadius; dy++) {
+                            for (let dz = -currentRadius; dz <= currentRadius; dz++) {
+                                const distSq = dx * dx + dy * dy + dz * dz;
+                                if (distSq <= rSq && distSq >= innerRSq) {
+                                    const bx = dCenterX + dx;
+                                    const by = dCenterY + dy;
+                                    const bz = dCenterZ + dz;
+                                    
+                                    const currentBlock = debri.getBlock(bx, by, bz);
+                                    if (currentBlock !== 0 && currentBlock !== TARGET_BLOCK_ID) {
+                                        debri.setBlock(bx, by, bz, TARGET_BLOCK_ID);
+                                        debriModified = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (debriModified) {
+                        this.world.updateDebriMesh(debri);
+                    }
                 }
             }
-        }
-        
-      
+
+            currentRadius++;
+        }, 50); // Expande 1 bloque de radio cada 50ms
     }
 }

@@ -78,7 +78,7 @@ export class GeometryPass {
         return this.chunkPipeline.getBindGroupLayout(1);
     }
 
-    public async loadEntityAsset(id: string, objUrl: string, textureUrls: Record<string, string>): Promise<void> {
+    public async loadEntityAsset(id: string, objUrl: string, textureUrls: string[]): Promise<void> {
         const materialLayout = this.entityPipeline.getBindGroupLayout(1);
         await AssetManager.loadAsset(id, objUrl, textureUrls, this.device, materialLayout);
     }

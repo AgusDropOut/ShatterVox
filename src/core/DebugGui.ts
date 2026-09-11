@@ -86,7 +86,8 @@ export class DebugGui {
         const folder = this.gui.addFolder('Gameplay');
         const throwableOptions = {
             'Standard Bomb': 'bomb',
-            'Blackhole Bomb': 'blackhole'
+            'Blackhole Bomb': 'blackhole',
+            'Magic Crystal': 'magic_crystal'
         };
         
         folder.add(this.state, 'selectedThrowable', throwableOptions).name('Throwable Item').onChange((value: string) => {

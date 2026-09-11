@@ -23,7 +23,9 @@ export class ObjLoader {
         const outNormals: number[] = [];
         
         const subMeshes: SubMeshData[] = [];
-        let currentMaterial = "default";
+        const materialMap = new Map<string, string>();
+        
+        let currentMaterial = "0"; 
         let currentIndexOffset = 0;
         let currentVertexCount = 0;
 
@@ -31,8 +33,8 @@ export class ObjLoader {
 
         for (let line of lines) {
             line = line.trim();
-            if (line === '' || line.startsWith('#') || line.startsWith('mtllib') || line.startsWith('o') || line.startsWith('s')) {
-                continue;
+            if (line === '' || line.startsWith('#') || line.startsWith('mtllib') || line.startsWith('s') || line.startsWith('o')) {
+                continue; 
             }
 
             const parts = line.split(/\s+/);
@@ -48,7 +50,13 @@ export class ObjLoader {
                     currentIndexOffset += currentVertexCount;
                     currentVertexCount = 0;
                 }
-                currentMaterial = parts[1] || "default";
+                
+                const rawMat = parts[1] || "default";
+                if (!materialMap.has(rawMat)) {
+                    materialMap.set(rawMat, materialMap.size.toString());
+                }
+                currentMaterial = materialMap.get(rawMat)!;
+                
             } else if (type === 'v') {
                 positions.push([parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])]);
             } else if (type === 'vt') {

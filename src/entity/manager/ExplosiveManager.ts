@@ -3,6 +3,7 @@ import type { PhysicsFacade } from "../../physics/PhysicsFacade";
 import type { EntityRepository } from "../EntityRepository";
 import type { World } from "../../world/World";
 import { ExplosiveRegistry } from "../data/ExplosiveRegistry";
+import { vec3 } from "gl-matrix";
 
 export class ExplosiveManager {
     private repository: EntityRepository; 
@@ -41,7 +42,7 @@ export class ExplosiveManager {
             id: bodyId,
             x: data.x, y: data.y, z: data.z,
             rot: data.rot, 
-            halfExtents: { x: 0.1, y: 0.1, z: 0.1 },
+            halfExtents: { x: config.halfExtents[0], y: config.halfExtents[1], z: config.halfExtents[2] },
             mass: config.mass,
             restitution: config.restitution 
         });
@@ -55,7 +56,14 @@ export class ExplosiveManager {
         }
       
         this.repository.physics.set(entityId, { bodyId });
-        this.repository.renders.set(entityId, { modelId: data.modelId, scale: config.scale, color: [1,1,1], visualOffset: config.visualOffset });
+
+        this.repository.renders.set(entityId, { 
+            modelId: data.modelId, 
+            scale: vec3.clone(config.scale), 
+            color: [1,1,1], 
+            visualOffset: vec3.clone(config.visualOffset) 
+        });
+        
         this.repository.explosives.set(entityId, { timer: config.timer, radius: config.radius, fuseActive: false });
         
         if (config.behavior.onInteract) {

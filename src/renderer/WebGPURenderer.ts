@@ -161,7 +161,7 @@ export class WebGPURenderer {
         return this.geometryPass.getModelLayout();
     }
 
-    public async loadEntityAsset(id: string, objUrl: string, textureUrls: Record<string, string>): Promise<void> {
+    public async loadEntityAsset(id: string, objUrl: string, textureUrls: string[]): Promise<void> {
         await this.geometryPass.loadEntityAsset(id, objUrl, textureUrls);
     }
 

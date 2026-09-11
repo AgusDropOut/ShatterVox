@@ -1,7 +1,7 @@
 import { Engine } from "../core/Engine";
 import { globalEventBus } from "../core/EventBus";
 import type { IBlockBehavior } from "./BlockBehaviors";
-import { RadioactiveBehavior, SlimeBehavior, MagicOreBehavior, FireBehavior } from "./BlockBehaviors";
+import { RadioactiveBehavior, SlimeBehavior, MagicOreBehavior, FireBehavior, AmbarBehavior } from "./BlockBehaviors";
 
 export interface BlockDef {
     id: number;
@@ -120,6 +120,7 @@ export class BlockRegistry {
         this.create(18).name("Wood_planks").texture(16).color(0.55, 0.4, 0.25).material(0.7, 0.0).fragmentation(0.05).sound("wood_crack").register();
         this.create(19).name("Stone_pattern_1").texture(17).color(0.2, 0.2, 0.2).material(0.8, 0.0).fragmentation(0.02).sound("stone_collision").register();
         this.create(20).name("metal").texture(18).color(0.35, 0.37, 0.4).material(0.25, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("metal_collision").fragmentation(0.05).toughness(90).register();
+        this.create(21).name("Ambar").texture(19).color(0.8, 0.8, 0.3).material(0.4, 0.0).fragmentation(0.12).sound("glass_collision").behavior(AmbarBehavior).register();
     }
 
     public static create(id: number): BlockBuilder {

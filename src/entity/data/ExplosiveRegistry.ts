@@ -24,9 +24,6 @@ export interface ExplosiveData {
     behavior: ExplosiveBehavior;
 }
 
-
-const blackHoleStates = new Map<number, { phase: 'fusing' | 'imploding', timer: number, epicenter: vec3 }>();
-
 export const ExplosiveRegistry: Record<string, ExplosiveData> = {
     "bomb": {
         scale: vec3.fromValues(0.4, 0.4, 0.4),
@@ -140,7 +137,7 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
     "blackhole": {
         scale: vec3.fromValues(0.15, 0.15, 0.15),
         visualOffset: vec3.fromValues(0, -0.075, 0),
-        halfExtents: vec3.fromValues(0.2, 0.2, 0.2),
+        halfExtents: vec3.fromValues(0.10, 0.10, 0.10),
         mass: 20.0,
         restitution: 0.1,
         timer: 4.0,
@@ -163,13 +160,11 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
                 const transform = phys ? physics.transforms.get(phys.bodyId) : null;
                 const epicenter = transform ? vec3.clone(transform.position) : vec3.create();
 
-              
                 if (phys) {
                     globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: phys.bodyId });
                     repo.physics.delete(entityId);
                 }
 
-              
                 exp.fuseActive = false;
 
                 const blockX = Math.round(epicenter[0] / Engine.voxelSize);
@@ -183,27 +178,27 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
                     pitch: 1.0
                 });
 
-
                 globalEventBus.emit("BLOCK_MINED_STATIC", {
                     x: blockX,
                     y: blockY,
                     z: blockZ,
-                    radius: exp.radius
+                    radius: exp.radius * 0.5
                 });
+
                 repo.singularities.set(entityId, {
                     lifeTime: 2.5,
                     epicenter: epicenter,
                     pullRadius: exp.radius * Engine.voxelSize,
                     destructionRadius: exp.radius,
-                    pullForce: 2.0
+                    pullForce: 2.0 
                 });
             }
         }
     },
     "magic_crystal": {
         scale: vec3.fromValues(0.3, 0.4, 0.3),
-        visualOffset: vec3.fromValues(0, -0.1, 0),
-        halfExtents: vec3.fromValues(0.15, 0.2, 0.15),
+        visualOffset: vec3.fromValues(0, -0.25, 0),
+        halfExtents: vec3.fromValues(0.10, 0.20, 0.10),
         mass: 2.0,
         restitution: 0.2,
         timer: 2.0,

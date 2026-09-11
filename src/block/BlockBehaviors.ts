@@ -113,3 +113,51 @@ export const FireBehavior: IBlockBehavior = {
         }
     }
 };
+
+export const AmbarBehavior: IBlockBehavior = {
+    onRandomTick: (x, y, z, world) => {
+        const s = Engine.voxelSize;
+        const px = (x * s) + (s / 2);
+        const py = (y * s) + (s / 2);
+        const pz = (z * s) + (s / 2);
+
+        if (world.getBlock(x, y + 1, z) === 0 || world.getBlock(x, y - 1, z) === 0 || world.getBlock(x + 1, y, z) === 0 || world.getBlock(x - 1, y, z) === 0) {
+            
+       
+            if (Math.random() > 0.5) {
+                globalEventBus.emit("SPAWN_PARTICLE", {
+                    position: [px + (Math.random() - 0.5) * s, py + (Math.random() - 0.5) * s, pz + (Math.random() - 0.5) * s],
+                    velocity: [0, 0.005 + Math.random() * 0.01, 0],
+                    color: [1.0, 0.8, 0.2, 0.8], 
+                    lifetime: 120,
+                    size: 0.05,
+                    gravity: false
+                });
+            }
+
+            if (Math.random() < 0.05) { 
+                world.setBlock(x, y, z, 0);
+                world.setChunkDirtyAt(x, y, z);
+                
+                ParticleSpawner.spawnAura(vec3.fromValues(px, py, pz), vec4.fromValues(1.0, 0.8, 0.2, 1.0), 3);
+            }
+        }
+
+        for (const debri of world.debri) {
+            const lx = x - Math.round(debri.offsetX);
+            const ly = y - Math.round(debri.offsetY);
+            const lz = z - Math.round(debri.offsetZ);
+            
+            if (debri.getBlock(lx, ly, lz) === 21) {
+                globalEventBus.emit("PHYSICS_COMMAND", {
+                    type: 'APPLY_FORCE',
+                    id: debri.id,
+                    x: 0, 
+                    y: 1.5, 
+                    z: 0
+                });
+                break; 
+            }
+        }
+    }
+};

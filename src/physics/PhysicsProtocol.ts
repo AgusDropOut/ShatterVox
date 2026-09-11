@@ -18,6 +18,7 @@ export type PhysicsCommand =
     | { type: 'APPLY_RADIAL_IMPULSE', epicenter: { x: number, y: number, z: number }, radius: number, force: number }
     | { type: 'APPLY_RADIAL_PULL', epicenter: { x: number, y: number, z: number }, radius: number, force: number } 
     | { type: 'REMOVE_TERRAIN_BOX', id: number }
+    | { type: 'QUERY_INTERSECTIONS', reqId: number, x: number, y: number, z: number, radius: number }
     | { type: 'DRAG_ENTITY', id: number, targetX: number, targetY: number, targetZ: number };
 
 export type WorkerToMainMsg = 
@@ -25,4 +26,5 @@ export type WorkerToMainMsg =
     | { type: 'SYNC_TRANSFORMS', buffer: Float32Array }
     | { type: 'SYNC_DEBUG', vertices: Float32Array, colors: Float32Array }
     | { type: 'PLAY_SPATIAL_SOUND', id: string, position: vec3, volume?: number, pitch?: number }
+    | { type: 'INTERSECTIONS_RESULT', reqId: number, hitIds: number[] }
     | { type: 'RAYCAST_RESULT', reqId: number, hit: boolean, distance: number, hitId?: number, localX?: number, localY?: number, localZ?: number };

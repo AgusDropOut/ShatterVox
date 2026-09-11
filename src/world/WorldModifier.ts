@@ -15,16 +15,20 @@ export class WorldModifier {
         globalEventBus.on("MAGIC_BURST", (data) => this.handleMagicBurst(data));
     }
 
-    private handleMagicBurst(data: { x: number; y: number; z: number; radius: number }): void {
+    private async handleMagicBurst(data: { x: number; y: number; z: number; radius: number }): Promise<void> {
         const blockX = Math.round(data.x / Engine.voxelSize);
         const blockY = Math.round(data.y / Engine.voxelSize);
         const blockZ = Math.round(data.z / Engine.voxelSize);
         const maxRadius = data.radius;
         const TARGET_BLOCK_ID = 21; 
 
+        const totalRadiusWorld = maxRadius * Engine.voxelSize;
+        const candidateBodyIds = await this.physicsFacade.queryIntersections(data.x, data.y, data.z, totalRadiusWorld);
+
+        const nearbyDebri = this.world.debri.filter(debri => debri && candidateBodyIds.includes(debri.id));
+
         let currentRadius = 0;
 
-     
         const expandInterval = setInterval(() => {
             if (currentRadius > maxRadius) {
                 clearInterval(expandInterval);
@@ -34,13 +38,11 @@ export class WorldModifier {
             const rSq = currentRadius * currentRadius;
             const innerRSq = Math.max(0, (currentRadius - 1) * (currentRadius - 1));
 
-        
             for (let dx = -currentRadius; dx <= currentRadius; dx++) {
                 for (let dy = -currentRadius; dy <= currentRadius; dy++) {
                     for (let dz = -currentRadius; dz <= currentRadius; dz++) {
                         const distSq = dx * dx + dy * dy + dz * dz;
                         
-                   
                         if (distSq <= rSq && distSq >= innerRSq) {
                             const bx = blockX + dx;
                             const by = blockY + dy;
@@ -48,7 +50,6 @@ export class WorldModifier {
                             
                             const currentBlock = this.world.getBlock(bx, by, bz);
                             
-                          
                             if (currentBlock !== 0 && currentBlock !== TARGET_BLOCK_ID) {
                                 this.world.setBlock(bx, by, bz, TARGET_BLOCK_ID); 
                                 this.world.setChunkDirtyAt(bx, by, bz); 
@@ -58,9 +59,11 @@ export class WorldModifier {
                 }
             }
 
-       
             const burstPos = vec3.fromValues(data.x, data.y, data.z);
-            for (const debri of this.world.debri) {
+
+            for (const debri of nearbyDebri) {
+                if (!debri) continue;
+
                 const debriTransform = this.physicsFacade.transforms.get(debri.id);
                 const debriPos = debriTransform ? debriTransform.position : vec3.fromValues(
                     debri.offsetX * Engine.voxelSize, 
@@ -107,6 +110,6 @@ export class WorldModifier {
             }
 
             currentRadius++;
-        }, 50); // Expande 1 bloque de radio cada 50ms
+        }, 50);
     }
 }

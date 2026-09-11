@@ -15,6 +15,7 @@ export class PhysicsFacade {
     public debugVertices: Float32Array | null = null;
     public debugColors: Float32Array | null = null;
     private pendingRaycasts: Map<number, (res: any) => void> = new Map();
+    private pendingIntersections: Map<number, (hitIds: number[]) => void> = new Map();
     private nextReqId: number = 1;
     
 
@@ -85,6 +86,12 @@ export class PhysicsFacade {
                 volume: msg.volume, 
                 pitch: msg.pitch 
             });
+        } else if (msg.type === 'INTERSECTIONS_RESULT') {
+            const resolve = this.pendingIntersections.get(msg.reqId);
+            if (resolve) {
+                resolve(msg.hitIds);
+                this.pendingIntersections.delete(msg.reqId);
+            }
         }
     }
 
@@ -117,4 +124,21 @@ export class PhysicsFacade {
             else this.worker.postMessage(cmd);
         });
     }
+
+    public async queryIntersections(x: number, y: number, z: number, radius: number): Promise<number[]> {
+    return new Promise((resolve) => {
+        const reqId = this.nextReqId++;
+        this.pendingIntersections.set(reqId, resolve);
+
+        const cmd: PhysicsCommand = {
+            type: 'QUERY_INTERSECTIONS',
+            reqId,
+            x, y, z,
+            radius
+        };
+
+        if (!this.isReady) this.commandQueue.push(cmd);
+        else this.worker.postMessage(cmd);
+    });
+}
 }

@@ -63,7 +63,7 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
                     }
                 }
             },
-            onDetonate: (entityId, repo, physics, world, exp) => {
+           onDetonate: async (entityId, repo, physics, world, exp) => {
                 const phys = repo.physics.get(entityId);
                 if (!phys) {
                     repo.destroyEntity(entityId);
@@ -72,18 +72,22 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
 
                 const transform = physics.transforms.get(phys.bodyId);
                 if (transform) {
-                    const blockX = Math.round(transform.position[0] / Engine.voxelSize);
-                    const blockY = Math.round(transform.position[1] / Engine.voxelSize);
-                    const blockZ = Math.round(transform.position[2] / Engine.voxelSize);
+                    const blastX = transform.position[0];
+                    const blastY = transform.position[1];
+                    const blastZ = transform.position[2];
+
+                    const blockX = Math.round(blastX / Engine.voxelSize);
+                    const blockY = Math.round(blastY / Engine.voxelSize);
+                    const blockZ = Math.round(blastZ / Engine.voxelSize);
 
                     setTimeout(() => {
                         globalEventBus.emit("BOMB_DETONATED", {
-                            x: transform.position[0],
-                            y: transform.position[1],
-                            z: transform.position[2],
+                            x: blastX,
+                            y: blastY,
+                            z: blastZ,
                             radius: exp.radius
                         });
-                    }, 100);
+                    }, 50);
 
                     globalEventBus.emit("BLOCK_MINED_STATIC", {
                         x: blockX,
@@ -91,19 +95,20 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
                         z: blockZ,
                         radius: exp.radius
                     });
-                
-                    for (const debri of world.debri) {
-                        const debriTransform = physics.transforms.get(debri.id);
-                        const debriWorldX = debriTransform ? debriTransform.position[0] : (debri.offsetX * Engine.voxelSize);
-                        const debriWorldY = debriTransform ? debriTransform.position[1] : (debri.offsetY * Engine.voxelSize);
-                        const debriWorldZ = debriTransform ? debriTransform.position[2] : (debri.offsetZ * Engine.voxelSize);
 
-                        const localX = transform.position[0] - debriWorldX;
-                        const localY = transform.position[1] - debriWorldY;
-                        const localZ = transform.position[2] - debriWorldZ;
+                    const blastRadiusWorld = exp.radius * Engine.voxelSize;
+                    const nearbyDebriIds = await physics.queryIntersections(blastX, blastY, blastZ, blastRadiusWorld);
+
+                    for (const debriId of nearbyDebriIds) {
+                        const debriTransform = physics.transforms.get(debriId);
+                        if (!debriTransform) continue;
+
+                        const localX = blastX - debriTransform.position[0];
+                        const localY = blastY - debriTransform.position[1];
+                        const localZ = blastZ - debriTransform.position[2];
 
                         globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
-                            debriId: debri.id,
+                            debriId: debriId,
                             localX: localX,
                             localY: localY,
                             localZ: localZ,
@@ -115,7 +120,7 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
 
                     globalEventBus.emit("PLAY_SPATIAL_SOUND", {
                         id: "nade_explosion",
-                        position: vec3.fromValues(transform.position[0], transform.position[1], transform.position[2]),
+                        position: vec3.fromValues(blastX, blastY, blastZ),
                         volume: 1.0,
                         pitch: 1.0
                     });
@@ -123,7 +128,7 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
                     setTimeout(() => {
                         globalEventBus.emit("PHYSICS_COMMAND", {
                             type: 'APPLY_RADIAL_IMPULSE',
-                            epicenter: { x: transform.position[0], y: transform.position[1], z: transform.position[2] }, 
+                            epicenter: { x: blastX, y: blastY, z: blastZ }, 
                             radius: exp.radius * Engine.voxelSize * 1.5,
                             force: 25.0 
                         });

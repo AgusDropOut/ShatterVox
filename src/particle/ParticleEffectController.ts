@@ -98,10 +98,10 @@ export class ParticleEffectsController {
                 size: [0.08, 0.25],
                 gradient: {
                     colors: [
-                        vec4.fromValues(0.8, 1.0, 0.8, 1.0),
-                        vec4.fromValues(0.2, 0.9, 0.4, 0.9),
-                        vec4.fromValues(0.0, 0.6, 0.2, 0.5),
-                        vec4.fromValues(0.0, 0.2, 0.0, 0.0)
+                        vec4.fromValues(1.0, 0.95, 0.6, 1.0),  
+                        vec4.fromValues(1.0, 0.75, 0.1, 0.95), 
+                        vec4.fromValues(0.9, 0.45, 0.0, 0.6),  
+                        vec4.fromValues(0.4, 0.15, 0.0, 0.0)   
                     ],
                     continuous: true
                 },

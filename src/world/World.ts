@@ -15,8 +15,8 @@ export class World {
     public terrainPhysics: TerrainPhysics | null = null;
 
     private randomTickAccumulator: number = 0;
-    private readonly RANDOM_TICK_INTERVAL: number = 0.001; 
-    private readonly TICKS_PER_CHUNK: number =32; 
+    private readonly RANDOM_TICK_INTERVAL: number = 0.0001; 
+    private readonly TICKS_PER_CHUNK: number =16; 
     private modelLayout: GPUBindGroupLayout;
 
     constructor(device: GPUDevice, modelLayout: GPUBindGroupLayout, terrainPhysics: TerrainPhysics | null = null) {

@@ -97,7 +97,7 @@ export class BlockRegistry {
     public static init(): void {
         this.create(0).name("Air").texture(0).color(0.0, 0.0, 0.0).transparent().register();
         
-        this.create(1).name("Stone").texture(1).color(0.25, 0.25, 0.25).material(0.85, 0.0).fragmentation(0.04).sound("stone_collision").register();
+        this.create(1).name("Stone").texture(1).color(0.25, 0.25, 0.25).material(0.85, 0.0).fragmentation(0.10).sound("stone_collision").register();
         this.create(2).name("Grass").texture(2).color(0.15, 0.5, 0.15).material(0.9, 0.0).fragmentation(0.08).sound("grass_collision").register();
         this.create(3).name("Wood").texture(3).color(0.48, 0.32, 0.2).material(0.8, 0.0).fragmentation(0.05).sound("wood_crack").register();
         this.create(4).name("Leaves").texture(4).color(0.1, 0.4, 0.1).material(0.9, 0.0).fragmentation(0.3).transparent().sound("leaves_collision").register();

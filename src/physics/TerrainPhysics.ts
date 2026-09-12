@@ -37,38 +37,28 @@ export class TerrainPhysics {
 
     public rebuildChunkColliders(chunk: Chunk): void {
         const key = `${chunk.chunkX},${chunk.chunkY},${chunk.chunkZ}`;
-        
-        const existingIds = this.chunkColliderIds.get(key);
-        if (existingIds) {
-            for (let i = 0; i < existingIds.length; i++) {
-                globalEventBus.emit("PHYSICS_COMMAND", {
-                    type: 'REMOVE_TERRAIN_BOX',
-                    id: existingIds[i]
-                });
-            }
-        }
-
         const boxes = this.computeGreedyMeshingForChunk(chunk);
-        const newIds = new Array(boxes.length);
         
+    
+        const bufferData = new Float32Array(boxes.length * 6);
+        
+        let offset = 0;
         for (let i = 0; i < boxes.length; i++) {
             const box = boxes[i];
-            const newId = this.globalIdCounter++;
-            newIds[i] = newId;
-
-            globalEventBus.emit("PHYSICS_COMMAND", {
-                type: 'CREATE_STATIC_BOX',
-                id: newId,
-                halfW: box.halfW,
-                halfH: box.halfH,
-                halfD: box.halfD,
-                x: box.x,
-                y: box.y,
-                z: box.z
-            });
+            bufferData[offset++] = box.x;
+            bufferData[offset++] = box.y;
+            bufferData[offset++] = box.z;
+            bufferData[offset++] = box.halfW;
+            bufferData[offset++] = box.halfH;
+            bufferData[offset++] = box.halfD;
         }
 
-        this.chunkColliderIds.set(key, newIds);
+        
+        globalEventBus.emit("PHYSICS_COMMAND", {
+            type: 'UPDATE_CHUNK_COLLIDERS',
+            chunkKey: key,
+            colliderData: bufferData
+        });
     }
 
     private computeGreedyMeshingForChunk(chunk: Chunk): { x: number; y: number; z: number; halfW: number; halfH: number; halfD: number }[] {

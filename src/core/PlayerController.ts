@@ -120,15 +120,7 @@ export class PlayerController {
     }
 
     public spawn(): void {
-        globalEventBus.emit("PHYSICS_COMMAND", {
-            type: 'CREATE_PLAYER',
-            id: this.playerId,
-            x: this.targetPosition[0], 
-            y: this.targetPosition[1], 
-            z: this.targetPosition[2],
-            radius: 0.2,
-            halfHeight: 0.3
-        });
+        
     }
 
     public getCameraPosition(): vec3 {

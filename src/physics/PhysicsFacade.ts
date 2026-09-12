@@ -17,6 +17,11 @@ export class PhysicsFacade {
     private pendingRaycasts: Map<number, (res: any) => void> = new Map();
     private pendingIntersections: Map<number, (hitIds: number[]) => void> = new Map();
     private nextReqId: number = 1;
+
+    public physicsTimings = {
+        stepTimeMs: 0
+    };
+    public physicsHistory: number[] = [];
     
 
     private commandQueue: PhysicsCommand[] = []; 
@@ -92,6 +97,9 @@ export class PhysicsFacade {
                 resolve(msg.hitIds);
                 this.pendingIntersections.delete(msg.reqId);
             }
+        } else if (msg.type === 'PHYSICS_PROFILE_DATA') {
+            this.physicsTimings.stepTimeMs = msg.stepTimeMs;
+            this.physicsHistory = msg.history;
         }
     }
 

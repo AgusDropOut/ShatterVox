@@ -32,7 +32,7 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
         mass: 5.0,
         restitution: 0.5,
         timer: 3.0,
-        radius: 8, 
+        radius: 14, 
         behavior: {
             onInteract: (entityId, repo, physics) => {
                 const exp = repo.explosives.get(entityId);
@@ -66,76 +66,90 @@ export const ExplosiveRegistry: Record<string, ExplosiveData> = {
            onDetonate: async (entityId, repo, physics, world, exp) => {
                 const phys = repo.physics.get(entityId);
                 if (!phys) {
+
+                    console.warn(`[ExplosiveRegistry] No physics component found for entity ${entityId}. Detonation aborted.`);
                     repo.destroyEntity(entityId);
                     return;
                 }
 
                 const transform = physics.transforms.get(phys.bodyId);
-                if (transform) {
-                    const blastX = transform.position[0];
-                    const blastY = transform.position[1];
-                    const blastZ = transform.position[2];
-
-                    const blockX = Math.round(blastX / Engine.voxelSize);
-                    const blockY = Math.round(blastY / Engine.voxelSize);
-                    const blockZ = Math.round(blastZ / Engine.voxelSize);
-
-                    setTimeout(() => {
-                        globalEventBus.emit("BOMB_DETONATED", {
-                            x: blastX,
-                            y: blastY,
-                            z: blastZ,
-                            radius: exp.radius
-                        });
-                    }, 50);
-
-                    globalEventBus.emit("BLOCK_MINED_STATIC", {
-                        x: blockX,
-                        y: blockY,
-                        z: blockZ,
-                        radius: exp.radius
-                    });
-
-                    const blastRadiusWorld = exp.radius * Engine.voxelSize;
-                    const nearbyDebriIds = await physics.queryIntersections(blastX, blastY, blastZ, blastRadiusWorld);
-
-                    for (const debriId of nearbyDebriIds) {
-                        const debriTransform = physics.transforms.get(debriId);
-                        if (!debriTransform) continue;
-
-                        const localX = blastX - debriTransform.position[0];
-                        const localY = blastY - debriTransform.position[1];
-                        const localZ = blastZ - debriTransform.position[2];
-
-                        globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
-                            debriId: debriId,
-                            localX: localX,
-                            localY: localY,
-                            localZ: localZ,
-                            radius: exp.radius
-                        });
-                    }
-
-                    globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: phys.bodyId });
-
-                    globalEventBus.emit("PLAY_SPATIAL_SOUND", {
-                        id: "nade_explosion",
-                        position: vec3.fromValues(blastX, blastY, blastZ),
-                        volume: 1.0,
-                        pitch: 1.0
-                    });
-
-                    setTimeout(() => {
-                        globalEventBus.emit("PHYSICS_COMMAND", {
-                            type: 'APPLY_RADIAL_IMPULSE',
-                            epicenter: { x: blastX, y: blastY, z: blastZ }, 
-                            radius: exp.radius * Engine.voxelSize * 1.5,
-                            force: 25.0 
-                        });
-                    }, 50);
+                if (!transform) {
+                    console.warn(`[ExplosiveRegistry] No transform found for entity ${entityId}. Detonation aborted.`);
+                    repo.destroyEntity(entityId);
+                    return;
                 }
 
+             
+                const blastX = transform.position[0];
+                const blastY = transform.position[1];
+                const blastZ = transform.position[2];
+                const bodyIdToDestroy = phys.bodyId;
+
+                const blockX = Math.round(blastX / Engine.voxelSize);
+                const blockY = Math.round(blastY / Engine.voxelSize);
+                const blockZ = Math.round(blastZ / Engine.voxelSize);
+
+                
                 repo.destroyEntity(entityId);
+                globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: bodyIdToDestroy });
+
+                console.log(`[ExplosiveRegistry] Bomb detonated at (${blastX.toFixed(2)}, ${blastY.toFixed(2)}, ${blastZ.toFixed(2)}) with radius ${exp.radius}.`);
+
+            
+                globalEventBus.emit("BOMB_DETONATED", {
+                    x: blastX,
+                    y: blastY,
+                    z: blastZ,
+                    radius: exp.radius
+                });
+
+                globalEventBus.emit("PLAY_SPATIAL_SOUND", {
+                    id: "nade_explosion",
+                    position: vec3.fromValues(blastX, blastY, blastZ),
+                    volume: 1.0,
+                    pitch: 1.0
+                });
+
+                setTimeout(() => {
+                globalEventBus.emit("BLOCK_MINED_STATIC", {
+                    x: blockX,
+                    y: blockY,
+                    z: blockZ,
+                    radius: exp.radius
+                });
+                }, 50);
+
+            
+                const blastRadiusWorld = exp.radius * Engine.voxelSize;
+                const nearbyDebriIds = await physics.queryIntersections(blastX, blastY, blastZ, blastRadiusWorld);
+
+     
+                for (const debriId of nearbyDebriIds) {
+                    const debriTransform = physics.transforms.get(debriId);
+                    if (!debriTransform) continue;
+
+                    const localX = blastX - debriTransform.position[0];
+                    const localY = blastY - debriTransform.position[1];
+                    const localZ = blastZ - debriTransform.position[2];
+
+                    globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
+                        debriId: debriId,
+                        localX: localX,
+                        localY: localY,
+                        localZ: localZ,
+                        radius: exp.radius
+                    });
+                }
+
+              
+                setTimeout(() => {
+                    globalEventBus.emit("PHYSICS_COMMAND", {
+                        type: 'APPLY_RADIAL_IMPULSE',
+                        epicenter: { x: blastX, y: blastY, z: blastZ }, 
+                        radius: exp.radius * Engine.voxelSize * 1.5,
+                        force: 25.0 
+                    });
+                }, 150);
             }
         }
     },

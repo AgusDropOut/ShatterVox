@@ -6,6 +6,8 @@ type SpatialSoundMsg = Extract<WorkerToMainMsg, { type: 'PLAY_SPATIAL_SOUND' }>;
 
 export class PhysicsSimulationLoop {
     private context: PhysicsContext;
+    private lastReportTime: number = performance.now();
+    private historyBuffer: number[] = [];
 
     constructor(context: PhysicsContext) {
         this.context = context;
@@ -17,21 +19,55 @@ export class PhysicsSimulationLoop {
 
     private tick(): void {
         if (!this.context.isInitialized || !this.context.world || !this.context.rapierEventQueue) return;
-        
+
+        const start = performance.now();
         this.context.world.step(this.context.rapierEventQueue);
-        
+        const elapsed = performance.now() - start;
+
+        this.historyBuffer.push(elapsed);
+        if (this.historyBuffer.length > 60) {
+            this.historyBuffer.shift();
+        }
+
+        const now = performance.now();
+        if (now - this.lastReportTime >= 100) {
+            (self as any).postMessage({
+                type: 'PHYSICS_PROFILE_DATA',
+                stepTimeMs: elapsed,
+                history: [...this.historyBuffer]
+            });
+            this.lastReportTime = now;
+        }
+
         this.syncTransforms();
         this.processCollisions();
-        this.syncDebugLines();
+        
+  
+        if (this.context.debugEnabled) {
+            this.syncDebugLines();
+        }
     }
 
     private syncTransforms(): void {
         if (this.context.dynamicBodies.size === 0) return; 
 
-        const buffer = new Float32Array(this.context.dynamicBodies.size * 8);
+       
+        let activeCount = 0;
+        for (const body of this.context.dynamicBodies.values()) {
+            if (!body.isSleeping()) {
+                activeCount++;
+            }
+        }
+
+        if (activeCount === 0) return;
+
+   
+        const buffer = new Float32Array(activeCount * 8);
         let offset = 0;
 
         for (const [id, body] of this.context.dynamicBodies.entries()) {
+            if (body.isSleeping()) continue; 
+
             const pos = body.translation();
             const rot = body.rotation();
             buffer[offset++] = id;

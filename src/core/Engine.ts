@@ -85,6 +85,7 @@ export class Engine {
 
         globalEventBus.on("TOGGLE_PHYSICS_DEBUG", (data) => {
             this.showPhysicsDebug = data.enabled !== undefined ? data.enabled : !this.showPhysicsDebug;
+            globalEventBus.emit("PHYSICS_COMMAND", { type: 'ENABLE_DEBUG' });
         });
 
         globalEventBus.on("CHANGE_DEBUG_VIEW", (data) => {

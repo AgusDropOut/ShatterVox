@@ -19,7 +19,9 @@ export type PhysicsCommand =
     | { type: 'APPLY_RADIAL_PULL', epicenter: { x: number, y: number, z: number }, radius: number, force: number } 
     | { type: 'REMOVE_TERRAIN_BOX', id: number }
     | { type: 'QUERY_INTERSECTIONS', reqId: number, x: number, y: number, z: number, radius: number }
-    | { type: 'DRAG_ENTITY', id: number, targetX: number, targetY: number, targetZ: number };
+    | {  type: 'UPDATE_CHUNK_COLLIDERS'; chunkKey: string; colliderData: Float32Array; }
+    | { type: 'DRAG_ENTITY', id: number, targetX: number, targetY: number, targetZ: number }
+    | { type: 'ENABLE_DEBUG'};
 
 export type WorkerToMainMsg = 
     | { type: 'INIT_DONE' }
@@ -27,4 +29,5 @@ export type WorkerToMainMsg =
     | { type: 'SYNC_DEBUG', vertices: Float32Array, colors: Float32Array }
     | { type: 'PLAY_SPATIAL_SOUND', id: string, position: vec3, volume?: number, pitch?: number }
     | { type: 'INTERSECTIONS_RESULT', reqId: number, hitIds: number[] }
+    | { type: 'PHYSICS_PROFILE_DATA', stepTimeMs: number, history: number[] }
     | { type: 'RAYCAST_RESULT', reqId: number, hit: boolean, distance: number, hitId?: number, localX?: number, localY?: number, localZ?: number };

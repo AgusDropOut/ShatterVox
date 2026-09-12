@@ -15,8 +15,7 @@ export class StructuralIntegrity {
     private detachmentChecker: DetachmentChecker;
     private worker: Worker;
 
-    private readonly MAX_DEBRIS_THRESHOLD = 50; 
-    private readonly ABSOLUTE_MAX_DEBRIS = 80;
+    private readonly ABSOLUTE_MAX_DEBRIS = 200;
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, world: World, physicsFacade: PhysicsFacade) {
         this.world = world;
@@ -117,7 +116,9 @@ export class StructuralIntegrity {
         if (!detachedBlocks || detachedBlocks.length === 0) return;
 
         for (const island of detachedBlocks) {
-            const islandBlocksFormatted: number[][] = [];
+            const worldBlocks: number[][] = [];
+            let sumX = 0, sumY = 0, sumZ = 0;
+
             for (const [lx, ly, lz, blockId] of island) {
                 const worldX = lx + minX;
                 const worldY = ly + minY;
@@ -126,32 +127,33 @@ export class StructuralIntegrity {
                 this.world.setBlock(worldX, worldY, worldZ, 0);
                 this.world.setChunkDirtyAt(worldX, worldY, worldZ);
                 
-                const cx = Math.floor(worldX / Chunk.WIDTH);
-                const cy = Math.floor(worldY / Chunk.HEIGHT);
-                const cz = Math.floor(worldZ / Chunk.DEPTH);
-                this.detachmentChecker.flagChunkForChecking(cx, cy, cz);
+                const cChunkX = Math.floor(worldX / Chunk.WIDTH);
+                const cChunkY = Math.floor(worldY / Chunk.HEIGHT);
+                const cChunkZ = Math.floor(worldZ / Chunk.DEPTH);
+                this.detachmentChecker.flagChunkForChecking(cChunkX, cChunkY, cChunkZ);
 
-                islandBlocksFormatted.push([worldX, worldY, worldZ, blockId]);
+                worldBlocks.push([worldX, worldY, worldZ, blockId]);
+                sumX += worldX;
+                sumY += worldY;
+                sumZ += worldZ;
             }
 
-            if (islandBlocksFormatted.length > 0) {
-                let cx = 0, cy = 0, cz = 0;
-                for (const [x, y, z] of islandBlocksFormatted) {
-                    cx += x; cy += y; cz += z;
-                }
-                cx /= islandBlocksFormatted.length;
-                cy /= islandBlocksFormatted.length;
-                cz /= islandBlocksFormatted.length;
+            if (worldBlocks.length > 0) {
+                const cx = Math.round(sumX / worldBlocks.length);
+                const cy = Math.round(sumY / worldBlocks.length);
+                const cz = Math.round(sumZ / worldBlocks.length);
 
                 const debriId = this.physicsFacade.generateId();
+                
+            
                 globalEventBus.emit("PHYSICS_COMMAND", {
                     type: 'CREATE_DEBRI',
                     id: debriId,
                     cx: cx, cy: cy, cz: cz,
-                    blocks: islandBlocksFormatted
+                    blocks: worldBlocks
                 });
 
-                const debri = new Debri(this.device, this.layout, debriId, this.physicsFacade, islandBlocksFormatted, cx, cy, cz);
+                const debri = new Debri(this.device, this.layout, debriId, this.physicsFacade, worldBlocks, cx, cy, cz);
                 this.world.addDebri(debri);
                 this.world.updateDebriMesh(debri);
             }
@@ -169,7 +171,8 @@ export class StructuralIntegrity {
 
         const maxExplosionForce = radius * 20.0;
         
-        let currentWorldDebrisCount = this.world.debri.length;
+        let localCreatedDebrisCount = 0;
+        let limitWarned = false;
 
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
@@ -193,34 +196,29 @@ export class StructuralIntegrity {
                                 this.world.setBlock(x, y, z, 0);
                                 this.world.setChunkDirtyAt(x, y, z);
                                 
-            
-                                let overloadMultiplier = 1.0;
-                                if (currentWorldDebrisCount > this.MAX_DEBRIS_THRESHOLD) {
-                                    if (currentWorldDebrisCount >= this.ABSOLUTE_MAX_DEBRIS) {
-                                        overloadMultiplier = 0.0;
-                                    } else {
-                                        const range = this.ABSOLUTE_MAX_DEBRIS - this.MAX_DEBRIS_THRESHOLD;
-                                        const excess = currentWorldDebrisCount - this.MAX_DEBRIS_THRESHOLD;
-                                        overloadMultiplier = 1.0 - (excess / range);
+                                const fragChance = blockDef.fragmentationChance ?? 0.0;
+
+                                if (fragChance > 0.0 && Math.random() < fragChance) {
+                                    if (localCreatedDebrisCount < this.ABSOLUTE_MAX_DEBRIS) {
+                                        localCreatedDebrisCount++;
+                                        const debriId = this.physicsFacade.generateId();
+                                        
+                                 
+                                        const worldBlocks = [[x, y, z, blockId]];
+                                        const smallDebri = new Debri(this.device, this.layout, debriId, this.physicsFacade, worldBlocks, x, y, z);
+                                        
+                                        this.world.addDebri(smallDebri);
+                                        this.world.updateDebriMesh(smallDebri);
+                                        
+                                        globalEventBus.emit("PHYSICS_COMMAND", { 
+                                            type: 'CREATE_DEBRI', id: debriId, 
+                                            cx: x, cy: y, cz: z, 
+                                            blocks: worldBlocks 
+                                        });
+                                    } else if (!limitWarned) {
+                                        console.warn(`[StructuralIntegrity] Maximum debris limit (${this.ABSOLUTE_MAX_DEBRIS}) reached. No more debris will be created for this event.`);
+                                        limitWarned = true;
                                     }
-                                }
-
-                                const baseFragChance = blockDef.fragmentationChance !== undefined ? blockDef.fragmentationChance : 0.0;
-                                const finalFragChance = baseFragChance * overloadMultiplier;
-
-                                if (finalFragChance > 0.0 && Math.random() < finalFragChance) {
-                                    currentWorldDebrisCount++;
-                                    const debriId = this.physicsFacade.generateId();
-                                    const smallDebri = new Debri(this.device, this.layout, debriId, this.physicsFacade, [[x, y, z, blockId]], x, y, z);
-                                    
-                                    this.world.addDebri(smallDebri);
-                                    this.world.updateDebriMesh(smallDebri);
-                                    
-                                    globalEventBus.emit("PHYSICS_COMMAND", { 
-                                        type: 'CREATE_DEBRI', id: debriId, 
-                                        cx: x, cy: y, cz: z, 
-                                        blocks: [[x, y, z, blockId]] 
-                                    });
                                 }
                             }
                         }
@@ -277,20 +275,20 @@ export class StructuralIntegrity {
             return;
         }
 
-        const centerX = Math.round((data.localX / Engine.voxelSize) + targetDebri.offsetX);
-        const centerY = Math.round((data.localY / Engine.voxelSize) + targetDebri.offsetY);
-        const centerZ = Math.round((data.localZ / Engine.voxelSize) + targetDebri.offsetZ);
+        const localCenterX = Math.round(data.localX / Engine.voxelSize) + targetDebri.offsetX;
+        const localCenterY = Math.round(data.localY / Engine.voxelSize) + targetDebri.offsetY;
+        const localCenterZ = Math.round(data.localZ / Engine.voxelSize) + targetDebri.offsetZ;
 
         const radius = data.radius || 1;
         const rSquared = radius * radius;
         const maxExplosionForce = radius * 20.0;
 
-        for (let x = Math.floor(centerX - radius); x <= Math.ceil(centerX + radius); x++) {
-            for (let y = Math.floor(centerY - radius); y <= Math.ceil(centerY + radius); y++) {
-                for (let z = Math.floor(centerZ - radius); z <= Math.ceil(centerZ + radius); z++) {
-                    const dx = x - centerX;
-                    const dy = y - centerY;
-                    const dz = z - centerZ;
+        for (let x = Math.floor(localCenterX - radius); x <= Math.ceil(localCenterX + radius); x++) {
+            for (let y = Math.floor(localCenterY - radius); y <= Math.ceil(localCenterY + radius); y++) {
+                for (let z = Math.floor(localCenterZ - radius); z <= Math.ceil(localCenterZ + radius); z++) {
+                    const dx = x - localCenterX;
+                    const dy = y - localCenterY;
+                    const dz = z - localCenterZ;
                     const distanceSq = dx * dx + dy * dy + dz * dz;
 
                     if (distanceSq <= rSquared) {
@@ -306,6 +304,7 @@ export class StructuralIntegrity {
                             if (forceAtPoint > fractureThreshold) {
                                 targetDebri.setBlock(x, y, z, 0);
 
+                               
                                 const lX = (x - targetDebri.offsetX) * Engine.voxelSize;
                                 const lY = (y - targetDebri.offsetY) * Engine.voxelSize;
                                 const lZ = (z - targetDebri.offsetZ) * Engine.voxelSize;
@@ -328,7 +327,7 @@ export class StructuralIntegrity {
             type: 'EVALUATE_SHATTER',
             debriId: targetDebri.id,
             blocks: targetDebri['blocks'].slice(),
-            rx: centerX, ry: centerY, rz: centerZ
+            rx: targetDebri.offsetX, ry: targetDebri.offsetY, rz: targetDebri.offsetZ
         });
     }
 

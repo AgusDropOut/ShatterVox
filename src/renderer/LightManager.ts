@@ -35,12 +35,20 @@ export class LightManager {
     private readonly lightBindGroup: GPUBindGroup;
     private readonly lightBindGroupLayout: GPUBindGroupLayout;
 
+    private lightDataArray: Float32Array;
+    private amountDataArray: Float32Array;
+    private tempMatrix: mat4;
+
     constructor(device: GPUDevice, layout: GPUBindGroupLayout) {
         this.device = device;
         this.lightBindGroupLayout = layout;
         
-        this.lightBuffer = new WebGPUStorageBuffer(device, new Float32Array(this.maxLights * this.floatsPerLight));
-        this.lightAmountBuffer = new WebGPUUniformBuffer(device, new Float32Array([0.0, 0.0, 0.0, 0.0])); 
+        this.lightDataArray = new Float32Array(this.maxLights * this.floatsPerLight);
+        this.amountDataArray = new Float32Array(4);
+        this.tempMatrix = mat4.create();
+
+        this.lightBuffer = new WebGPUStorageBuffer(device, this.lightDataArray);
+        this.lightAmountBuffer = new WebGPUUniformBuffer(device, this.amountDataArray); 
 
         this.lightBindGroup = device.createBindGroup({
             layout: this.lightBindGroupLayout,
@@ -91,34 +99,34 @@ export class LightManager {
                 const transform = physicsFacade.transforms.get(light.debriId);
                 
                 if (transform) {
-                    const modelMatrix = mat4.create();
-                    mat4.fromRotationTranslation(modelMatrix, transform.rotation, transform.position);
-                    vec3.transformMat4(light.position, light.localPos, modelMatrix);
+                    mat4.fromRotationTranslation(this.tempMatrix, transform.rotation, transform.position);
+                    vec3.transformMat4(light.position, light.localPos, this.tempMatrix);
                 }
             }
         }
     }
 
     public updateLightBuffer(): void {
-        const lightData = new Float32Array(this.maxLights * this.floatsPerLight);
         let index = 0;
         this.lightAmount = 0;
         
         for (const light of this.lights.values()) {
-            lightData[index++] = light.position[0];
-            lightData[index++] = light.position[1];
-            lightData[index++] = light.position[2];
-            lightData[index++] = light.radius;
-            lightData[index++] = light.color[0];
-            lightData[index++] = light.color[1];
-            lightData[index++] = light.color[2]; 
-            lightData[index++] = 0.0;
+            this.lightDataArray[index++] = light.position[0];
+            this.lightDataArray[index++] = light.position[1];
+            this.lightDataArray[index++] = light.position[2];
+            this.lightDataArray[index++] = light.radius;
+            this.lightDataArray[index++] = light.color[0];
+            this.lightDataArray[index++] = light.color[1];
+            this.lightDataArray[index++] = light.color[2]; 
+            this.lightDataArray[index++] = 0.0;
             
             this.lightAmount++;
         }
 
-        this.lightBuffer.update(lightData);
-        this.lightAmountBuffer.update(new Float32Array([this.lightAmount, 0.0, 0.0, 0.0])); 
+        this.amountDataArray[0] = this.lightAmount;
+
+        this.lightBuffer.update(this.lightDataArray);
+        this.lightAmountBuffer.update(this.amountDataArray); 
     }
 
     private removeLight(position: { x: number, y: number, z: number }, debriId?: number): void {

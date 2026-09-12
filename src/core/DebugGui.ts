@@ -11,6 +11,7 @@ import { ProjectRegistry } from '../entity/data/ProjectRegistry';
 
 export class DebugGui {
     private gui: GUI;
+    private profilerPanel: HTMLDivElement;
 
     public state = {
         activeView: 'None',
@@ -34,9 +35,19 @@ export class DebugGui {
         this.gui = new GUI({ title: 'Engine Debug Settings' });
         this.gui.hide();
 
+        this.profilerPanel = this.createDedicatedProfilerWindow(physicsFacade);
+        this.profilerPanel.style.display = 'none';
+
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Backquote' || e.code === 'IntlBackslash') {
-                this.gui._hidden ? this.gui.show() : this.gui.hide();
+                const shouldShow = this.gui._hidden;
+                if (shouldShow) {
+                    this.gui.show();
+                    this.profilerPanel.style.display = 'flex';
+                } else {
+                    this.gui.hide();
+                    this.profilerPanel.style.display = 'none';
+                }
             }
         });
 
@@ -44,11 +55,118 @@ export class DebugGui {
         if (player) this.setupPlayerInfo(player);
         this.setupGameplay();
         this.setupBuildMode(world, entityRepo, physicsFacade);
-        this.setupProfiler(renderer);
+        this.setupProfiler(renderer, physicsFacade);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
         this.setupTAA(renderer);
         this.setupPostProcess(renderer);
+    }
+
+    private createDedicatedProfilerWindow(physicsFacade: PhysicsFacade): HTMLDivElement {
+        const panel = document.createElement('div');
+        panel.style.position = 'fixed';
+        panel.style.top = '10px';
+        panel.style.right = '265px';
+        panel.style.width = '140px';
+        panel.style.boxSizing = 'border-box';
+        panel.style.zIndex = '10001';
+        panel.style.background = 'rgba(15, 15, 15, 0.9)';
+        panel.style.border = '1px solid #333';
+        panel.style.borderRadius = '4px';
+        panel.style.padding = '6px';
+        panel.style.display = 'flex';
+        panel.style.flexDirection = 'column';
+        panel.style.gap = '4px';
+        panel.style.boxShadow = '0 2px 6px rgba(0,0,0,0.5)';
+        panel.style.fontFamily = 'monospace';
+        panel.style.userSelect = 'none';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.alignItems = 'center';
+        header.style.fontSize = '9px';
+        header.style.lineHeight = '10px';
+
+        const title = document.createElement('span');
+        title.style.color = '#888';
+        title.innerText = 'PHYSICS';
+        
+        const readout = document.createElement('span');
+        readout.style.color = '#39ff14';
+        readout.innerText = '0.0 ms';
+
+        header.appendChild(title);
+        header.appendChild(readout);
+        panel.appendChild(header);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 32;
+        canvas.style.cssText = `
+            width: 128px !important;
+            height: 32px !important;
+            min-width: 128px !important;
+            max-width: 128px !important;
+            min-height: 32px !important;
+            max-height: 32px !important;
+            display: block !important;
+            background: #0a0a0a;
+            border-radius: 2px;
+            box-sizing: border-box;
+        `;
+        panel.appendChild(canvas);
+
+        document.body.appendChild(panel);
+
+        const ctx = canvas.getContext('2d')!;
+
+        const renderGraph = () => {
+            if (panel.style.display !== 'none') {
+                const history = physicsFacade.physicsHistory;
+                const currentMs = physicsFacade.physicsTimings.stepTimeMs;
+                
+                readout.innerText = `${currentMs.toFixed(1)} ms`;
+                readout.style.color = currentMs > 16.67 ? '#ff3b30' : (currentMs > 8.0 ? '#ffcc00' : '#39ff14');
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                const maxScale = 33.33;
+                const yTarget = canvas.height - (16.67 / maxScale) * canvas.height;
+
+                ctx.strokeStyle = '#262626';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+                ctx.beginPath();
+                ctx.moveTo(0, yTarget);
+                ctx.lineTo(canvas.width, yTarget);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                if (history.length > 1) {
+                    ctx.strokeStyle = '#39ff14';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+
+                    const stepX = canvas.width / (60 - 1);
+                    for (let i = 0; i < history.length; i++) {
+                        const val = Math.min(history[i], maxScale);
+                        const y = canvas.height - (val / maxScale) * canvas.height;
+                        const x = i * stepX;
+
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            requestAnimationFrame(renderGraph);
+        };
+
+        requestAnimationFrame(renderGraph);
+
+        return panel;
     }
 
     private setupPlayerInfo(player: PlayerController): void {
@@ -164,8 +282,16 @@ export class DebugGui {
         } as any); 
     }
 
-    private setupProfiler(renderer: WebGPURenderer): void {
-        const folder = this.gui.addFolder('GPU Profiler (ms)');
+    private setupProfiler(renderer: WebGPURenderer, physicsFacade?: PhysicsFacade): void {
+        const folder = this.gui.addFolder('Profiler');
+
+        if (physicsFacade) {
+            folder.add(physicsFacade.physicsTimings, 'stepTimeMs')
+                .name('Physics Step (ms)')
+                .listen()
+                .disable();
+        }
+
         folder.add(renderer.gpuTimings, 'Total').listen().disable();
         folder.add(renderer.gpuTimings, 'Geometry').listen().disable();
         folder.add(renderer.gpuTimings, 'GTAO').listen().disable();

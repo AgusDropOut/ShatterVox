@@ -143,21 +143,6 @@ export const AmbarBehavior: IBlockBehavior = {
             }
         }
 
-        for (const debri of world.debri) {
-            const lx = x - Math.round(debri.offsetX);
-            const ly = y - Math.round(debri.offsetY);
-            const lz = z - Math.round(debri.offsetZ);
-            
-            if (debri.getBlock(lx, ly, lz) === 21) {
-                globalEventBus.emit("PHYSICS_COMMAND", {
-                    type: 'APPLY_FORCE',
-                    id: debri.id,
-                    x: 0, 
-                    y: 1.5, 
-                    z: 0
-                });
-                break; 
-            }
-        }
+       
     }
 };

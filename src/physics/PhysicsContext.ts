@@ -10,4 +10,6 @@ export class PhysicsContext {
     public blockDefs: Record<number, { density: number, friction: number, restitution: number, soundId?: string }> = {};
     public terrainCollidersMap: Map<number, RAPIER.Collider> | null = null;
     public colliderMaterials: Map<number, number> = new Map(); 
+    public chunkCollidersMap: Map<string, RAPIER.Collider[]> = new Map();
+    public debugEnabled: boolean = false;
 }

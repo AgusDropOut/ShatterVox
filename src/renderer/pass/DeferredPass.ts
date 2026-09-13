@@ -3,7 +3,7 @@ import { deferredShader } from "../shaders/DeferredShader.wgsl";
 import { LightManager } from "../LightManager";
 import { ClusteredShading } from "../ClusteredShading";
 import { PhysicsFacade } from "../../physics/PhysicsFacade";
-import { vec3 } from "gl-matrix";
+import { mat4, vec3 } from "gl-matrix";
 
 export class DeferredPass {
     private device: GPUDevice;
@@ -19,10 +19,27 @@ export class DeferredPass {
     private cameraBindGroup!: GPUBindGroup;
     private clusteredShadingBindGroup!: GPUBindGroup;
 
+
+    private sunParamsBuffer!: GPUBuffer;
+
     constructor(device: GPUDevice) {
         this.device = device;
         this.pipeline = WebGPUPipelineFactory.createPipeline(this.device, 'DEFERRED', deferredShader, "rgba16float", false, false);
         this.lightManager = new LightManager(this.device, this.pipeline.getBindGroupLayout(2));
+
+      
+        this.sunParamsBuffer = this.device.createBuffer({
+            size: 112,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+    }
+
+    public updateSunParams(viewProjMatrix: mat4, sunDirection: vec3, sunColor: vec3): void {
+        const data = new Float32Array(24);
+        data.set(viewProjMatrix, 0);      
+        data.set(sunDirection, 16);       
+        data.set(sunColor, 20);           
+        this.device.queue.writeBuffer(this.sunParamsBuffer, 0, data);
     }
 
     public resize(
@@ -32,6 +49,8 @@ export class DeferredPass {
         normalView: GPUTextureView, 
         depthView: GPUTextureView, 
         gtaoView: GPUTextureView, 
+        shadowView: GPUTextureView,     
+        shadowSampler: GPUSampler,       
         linearSampler: GPUSampler, 
         nearestSampler: GPUSampler, 
         viewBuffer: GPUBuffer, 
@@ -46,6 +65,7 @@ export class DeferredPass {
         });
         this.deferredView = this.deferredTexture.createView();
 
+      
         this.gBufferBindGroup = this.device.createBindGroup({
             layout: this.pipeline.getBindGroupLayout(0),
             entries: [
@@ -54,13 +74,19 @@ export class DeferredPass {
                 { binding: 2, resource: albedoView },
                 { binding: 3, resource: normalView },
                 { binding: 4, resource: depthView },
-                { binding: 5, resource: gtaoView }
+                { binding: 5, resource: gtaoView },
+                { binding: 6, resource: shadowView },
+                { binding: 7, resource: shadowSampler }
             ]
         });
 
+      
         this.cameraBindGroup = this.device.createBindGroup({
             layout: this.pipeline.getBindGroupLayout(1),
-            entries: [{ binding: 0, resource: { buffer: cameraBufferPlus } }]
+            entries: [
+                { binding: 0, resource: { buffer: cameraBufferPlus } },
+                { binding: 1, resource: { buffer: this.sunParamsBuffer } }
+            ]
         });
 
         if (!this.clusteredShading) {

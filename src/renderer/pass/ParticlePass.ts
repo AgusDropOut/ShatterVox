@@ -10,6 +10,7 @@ import { mat4 } from "gl-matrix";
 export class ParticlePass {
     private computePipeline!: GPUComputePipeline;
     private renderPipeline!: GPURenderPipeline;
+    private shadowPipeline!: GPURenderPipeline;
 
     private readonly device: GPUDevice;
     private particleRenderBindGroup!: GPUBindGroup;
@@ -17,6 +18,8 @@ export class ParticlePass {
     private computeParamsBindGroup!: GPUBindGroup;
     private renderParamsBindGroup!: GPUBindGroup;
     private computeBindGroup!: GPUBindGroup;
+    private particleShadowBindGroup!: GPUBindGroup;
+    private particleShadowParamsBindGroup!: GPUBindGroup;
 
     private paramsBuffer!: GPUBuffer;
     private paramsView!: StructuredView;
@@ -80,6 +83,31 @@ export class ParticlePass {
             },
             primitive: { topology: 'triangle-list' }
         });
+
+        this.shadowPipeline = this.device.createRenderPipeline({
+            label: "Particle Shadow Pipeline",
+            layout: 'auto',
+            vertex: {
+                module: this.device.createShaderModule({ code: ParticleShaderWGSL }),
+                entryPoint: 'vs_main',
+                buffers: [
+                    {
+                        arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                        attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }]
+                    },
+                    {
+                        arrayStride: 3 * Float32Array.BYTES_PER_ELEMENT,
+                        attributes: [{ shaderLocation: 1, offset: 0, format: 'float32x3' }]
+                    }
+                ]
+            },
+            primitive: { topology: 'triangle-list', cullMode: 'back' },
+            depthStencil: {
+                format: "depth32float",
+                depthWriteEnabled: true,
+                depthCompare: "less"
+            }
+        });
     }
 
     private initBindGroups(): void {
@@ -93,6 +121,17 @@ export class ParticlePass {
             label: "Particle Compute Bind Group",
             layout: this.computePipeline.getBindGroupLayout(2),
             entries: [{ binding: 0, resource: { buffer: this.particleManager.getParticleBuffer() } }]
+        });
+
+        this.particleShadowBindGroup = this.device.createBindGroup({
+            label: "Particle Shadow Bind Group",
+            layout: this.shadowPipeline.getBindGroupLayout(0),
+            entries: [{ binding: 0, resource: { buffer: this.particleManager.getParticleBuffer() } }]
+        });
+        this.particleShadowParamsBindGroup = this.device.createBindGroup({
+            label: "Particle Shadow Params Bind Group",
+            layout: this.shadowPipeline.getBindGroupLayout(1),
+            entries: [{ binding: 0, resource: { buffer: this.paramsBuffer } }]
         });
     }
 
@@ -230,6 +269,15 @@ export class ParticlePass {
         passEncoder.setVertexBuffer(1, this.normalBuffer);
         passEncoder.draw(36, this.particleManager.maxParticles, 0, 0);
         passEncoder.end();
+    }
+
+    public drawShadows(passEncoder: GPURenderPassEncoder): void {
+        passEncoder.setPipeline(this.shadowPipeline);
+        passEncoder.setBindGroup(0, this.particleShadowBindGroup); 
+        passEncoder.setBindGroup(1, this.particleShadowParamsBindGroup);
+        passEncoder.setVertexBuffer(0, this.vertexBuffer);
+        passEncoder.setVertexBuffer(1, this.normalBuffer);
+        passEncoder.draw(36, this.particleManager.maxParticles, 0, 0);
     }
 
 

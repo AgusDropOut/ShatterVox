@@ -31,7 +31,16 @@ export const deferredShader = `
     @group(0) @binding(3) var normalTex: texture_2d<f32>;
     @group(0) @binding(4) var depthTex: texture_depth_2d;
     @group(0) @binding(5) var gtaoTexture: texture_2d<f32>;
+    @group(0) @binding(6) var shadowMap: texture_depth_2d;
+    @group(0) @binding(7) var shadowSampler: sampler_comparison;
     @group(1) @binding(0) var<uniform> camera: Camera;
+
+    struct SunParams {
+        viewProj: mat4x4<f32>,
+        direction: vec3<f32>,
+        color: vec3<f32>,
+    };
+    @group(1) @binding(1) var<uniform> sun: SunParams;
 
     struct Light {
         position: vec3<f32>,
@@ -94,6 +103,8 @@ export const deferredShader = `
         let tileIndex: u32 = u32(tile.x + (tile.y * clusterParams.gridSize.x) + (tile.z * clusterParams.gridSize.x * clusterParams.gridSize.y));
         let lightCount = i32(clusterBuffer[tileIndex].lightCount);
 
+        let shadowVisibility = calculateShadow(worldPos, normalizedNormal);
+
         var lightAccum: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
         let viewDir = normalize(clusterParams.cameraPosition.xyz - worldPos);
         let F0 = mix(vec3<f32>(0.04, 0.04, 0.04), albedo.xyz, metallic);
@@ -117,17 +128,36 @@ export const deferredShader = `
                 let diffuseTerm = kd * (albedo.xyz / 3.14159265359);
                 let specularTerm = calculateSpecular(normalizedNormal, viewDir, ndir, roughness, metallic, albedo, F0);
 
-                lightAccum = lightAccum + ((diffuseTerm + specularTerm) * (light.color * 8.0) * diff * attenuation);
+                lightAccum += ((diffuseTerm + specularTerm) * (light.color * 8.0) * diff * attenuation);
             }
         }
         
-        let ambient = vec3<f32>(1.0, 1.0, 1.0);
+        let NdotL = max(dot(normalizedNormal, -sun.direction), 0.0);
+      
+        let sunDirectLight = sun.color * 6.0 * shadowVisibility * NdotL * albedo.xyz;
+
+        let ambient = vec3<f32>(0.4, 0.4, 0.4);
         let gtao = textureSample(gtaoTexture, texSamplerLinear, in.uv).r;
         let occludedAmbient = ambient * gtao * albedo.xyz;
         
-        let finalColor = lightAccum + occludedAmbient;
+        let finalColor = lightAccum + sunDirectLight + occludedAmbient;
 
         return vec4<f32>(finalColor, 1.0);
+    }
+
+    fn calculateShadow(worldPos: vec3<f32>, normal: vec3<f32>) -> f32 {
+        let sunPos = sun.viewProj * vec4<f32>(worldPos, 1.0);
+        let projCoords = sunPos.xyz / sunPos.w;
+        let uv = vec2<f32>(projCoords.x * 0.5 + 0.5, 1.0 - (projCoords.y * 0.5 + 0.5));
+        
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || projCoords.z > 1.0 || projCoords.z < 0.0) {
+            return 0.0; 
+        }
+
+        let bias = max(0.001 * (1.0 - dot(normal, normalize(-sun.direction))), 0.0001);
+        let currentDepth = projCoords.z - bias;
+
+        return textureSampleCompare(shadowMap, shadowSampler, uv, currentDepth);
     }
 
     fn calculateSpecular(normal: vec3<f32>, viewDir: vec3<f32>, lightDir: vec3<f32>, roughness: f32, metallic: f32, albedo: vec4<f32>, F0: vec3<f32>) -> vec3<f32> {

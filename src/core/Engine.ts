@@ -256,17 +256,43 @@ export class Engine {
     }
 
     private render(): void {
-        const view = this.player.camera.getViewMatrix(); 
+        let view = this.player.camera.getViewMatrix(); 
+        let proj = Engine.projectionMatrix;
+        let camPos = this.player.getCameraPosition(); 
+
+        const currentSunDir = vec3.fromValues(this.renderer.sunConfig.dirX, this.renderer.sunConfig.dirY, this.renderer.sunConfig.dirZ);
+        vec3.normalize(currentSunDir, currentSunDir);
+        const currentTarget = vec3.fromValues(this.renderer.sunConfig.targetX, this.renderer.sunConfig.targetY, this.renderer.sunConfig.targetZ);
+
+        if (this.renderer.sunConfig.debugSunCamera) {
+            view = this.renderer.shadowPass.sunViewMatrix;
+            proj = this.renderer.shadowPass.sunProjectionMatrix;
+            
+            const invSunView = mat4.create();
+            mat4.invert(invSunView, view);
+            camPos = vec3.fromValues(invSunView[12], invSunView[13], invSunView[14]);
+        }
+
+        this.renderer.shadowPass.updateSunMatrix(
+            currentSunDir, 
+            currentTarget,
+            this.renderer.sunConfig.frustumSize,
+            this.renderer.sunConfig.distance,
+            this.renderer.sunConfig.near,
+            this.renderer.sunConfig.far
+        );
+
         const invViewProj = mat4.create();
         const viewProj = mat4.create();
-        mat4.multiply(viewProj, Engine.projectionMatrix, view);
+        mat4.multiply(viewProj, proj, view);
         mat4.invert(invViewProj, viewProj);
 
-        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array, this.totalFrames, this.player.getCameraPosition());
+        this.renderer.beginFrame(viewProj as Float32Array, invViewProj as Float32Array, view as Float32Array, this.totalFrames, camPos);
         
         this.renderer.drawGeometry(this.world, this.entityRepository, this.physicsFacade);
         this.renderer.computeParticles();
         this.renderer.drawParticles();
+        this.renderer.drawShadowMap(this.world, this.entityRepository, this.physicsFacade);
         this.renderer.computeGTAO();
         this.renderer.drawDeferred(this.physicsFacade);
         this.renderer.computeSSGI();
@@ -298,6 +324,9 @@ export class Engine {
                 break;
             case 'SSGI (Blurred)':
                 this.renderer.debugDrawTexture(this.renderer.blurredSSGIView);
+                break;
+            case 'Shadow Map':
+                this.renderer.debugDrawTexture(this.renderer.shadowMapView, true);
                 break;
         }
 

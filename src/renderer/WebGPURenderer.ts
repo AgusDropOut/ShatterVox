@@ -18,6 +18,7 @@ import { PostProcessPass } from "./pass/PostProcessPass";
 import { GPUTimer } from "./GPUTimer";
 import { ParticlePass } from "./pass/ParticlePass";
 import { ParticleManager } from "./ParticleManager";
+import { ShadowPass } from "./pass/ShadowPass";
 
 export class WebGPURenderer {
     public canvas: HTMLCanvasElement;
@@ -61,6 +62,7 @@ export class WebGPURenderer {
     private geometryPass!: GeometryPass;
     private particlePass!: ParticlePass;
     private deferredPass!: DeferredPass;
+    public shadowPass!: ShadowPass;
     private gtaoPass!: GTAOPass;
     private ssgiPass!: SSGIPass;
     private compositionPass!: CompositionPass;
@@ -70,8 +72,28 @@ export class WebGPURenderer {
     private timer!: GPUTimer;
     private isTimerSupported: boolean = false;
 
+    private sunColor: vec3 = vec3.fromValues(251.0 / 255.0, 234.0 / 255.0, 202.0 / 255.0);
+
+    public sunConfig = {
+        dirX: 0.5,
+        dirY: -0.89,
+        dirZ: -0.03,
+        targetX: -10.0,
+        targetY: 20.0,
+        targetZ: 30.0,
+        frustumSize: 38.0,
+        distance: 400.0,
+        near: 0.1,
+        far: 760.0,
+        colorR: 251,
+        colorG: 234,
+        colorB: 202,
+        debugSunCamera: false
+    };
+
     public gpuTimings = {
         Geometry: '0.00',
+        Shadow: '0.00',
         GTAO: '0.00',
         Deferred: '0.00',
         SSGI: '0.00',
@@ -116,6 +138,9 @@ export class WebGPURenderer {
         this.geometryPass.init(this.atlas, this.normalAtlas);
         this.particleManager = new ParticleManager(this.device, 1000);
         this.particlePass = new ParticlePass(this.device, this.presentationFormat, this.particleManager);
+
+        this.shadowPass = new ShadowPass(this.device);
+        this.shadowPass.init(this.atlas);
         
         this.deferredPass = new DeferredPass(this.device);
         this.gtaoPass = new GTAOPass(this.device);
@@ -136,7 +161,7 @@ export class WebGPURenderer {
         this.debugCameraBindGroup = this.device.createBindGroup({ layout: this.debugPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: this.cameraBufferPlus } }] });
 
         if (this.isTimerSupported) {
-            this.timer = new GPUTimer(this.device, ['Geometry', 'GTAO', 'Deferred', 'SSGI', 'Composition', 'TAA', 'PostProcess']);
+            this.timer = new GPUTimer(this.device, ['Geometry', 'Shadow', 'GTAO', 'Deferred', 'SSGI', 'Composition', 'TAA', 'PostProcess']);
         }
 
         this.resize(this.canvas.width, this.canvas.height);
@@ -191,7 +216,7 @@ export class WebGPURenderer {
 
         this.particlePass.resize(this.depthView, this.normalView);
         this.gtaoPass.resize(width, height, this.depthView, this.normalView, this.nearestSampler);
-        this.deferredPass.resize(width, height, this.albedoView, this.normalView, this.depthView, this.gtaoPass.getResultView(), this.linearSampler, this.nearestSampler, this.viewBuffer, this.cameraBufferPlus);
+        this.deferredPass.resize(width, height, this.albedoView, this.normalView, this.depthView, this.gtaoPass.getResultView(), this.shadowPass.shadowView, this.shadowPass.shadowSampler,  this.linearSampler, this.nearestSampler, this.viewBuffer, this.cameraBufferPlus);
         this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredPass.getResultView(), this.linearSampler, this.nearestSampler);
         this.compositionPass.resize(width, height, this.deferredPass.getResultView(), this.albedoView, this.ssgiPass.getResultView(), this.linearSampler);
         this.taaPass.resize(width, height, this.compositionPass.getResultView(), this.linearSampler);
@@ -201,10 +226,18 @@ export class WebGPURenderer {
     public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number, cameraPosition: vec3): void {
         this.geometryPass.updateCamera(viewMatrix as mat4, Engine.projectionMatrix, frameCounter);
 
+        const currentSunDir = vec3.fromValues(this.sunConfig.dirX, this.sunConfig.dirY, this.sunConfig.dirZ);
+        vec3.normalize(currentSunDir, currentSunDir);
+
         const combinedCameraData = new Float32Array(32);
         combinedCameraData.set(viewProjMatrix, 0);       
         combinedCameraData.set(invViewProjMatrix, 16);   
         this.deferredPass.updateCameraPosition(cameraPosition);
+        this.deferredPass.updateSunParams(
+            this.shadowPass.sunViewProjMatrix, 
+            currentSunDir, 
+            this.sunColor  
+        );
         
         this.device.queue.writeBuffer(this.viewBuffer, 0, viewMatrix);
         this.device.queue.writeBuffer(this.cameraBufferPlus, 0, combinedCameraData);
@@ -255,6 +288,11 @@ export class WebGPURenderer {
     public drawParticles(): void {
         if (!this.commandEncoder) return;
         this.particlePass.drawParticles(this.commandEncoder, this.albedoView, this.normalView, this.taaPass.motionVectorView, this.depthView, this.isTimerSupported ? this.timer.getTimestampWrites('Particles') : undefined);
+    }
+
+    public drawShadowMap(world: World, entityRepository: EntityRepository, physicsFacade: PhysicsFacade ): void {
+        if (!this.commandEncoder) return;
+        this.shadowPass.draw(this.commandEncoder, world, entityRepository, physicsFacade, this.particlePass, this.isTimerSupported ? this.timer.getTimestampWrites('Shadow') : undefined);
     }
 
     public computeGTAO(): void {
@@ -377,7 +415,33 @@ export class WebGPURenderer {
     public get blurredGTAOView() { return this.gtaoPass.blurredView; }
     public get noisySSGIView() { return this.ssgiPass.noisyView; }
     public get blurredSSGIView() { return this.ssgiPass.blurredView; }
+    public get shadowMapView() { return this.shadowPass.shadowView; }
 
     public get ssgiConfig(){ return this.ssgiPass.config; }
     public get gtaoConfig(){ return this.gtaoPass.config; }
+
+    public setSunDirection(x: number, y: number, z: number): void {
+        this.sunConfig.dirX = x;
+        this.sunConfig.dirY = y;
+        this.sunConfig.dirZ = z;
+    }
+
+    public setSunTarget(x: number, y: number, z: number): void {
+        this.sunConfig.targetX = x;
+        this.sunConfig.targetY = y;
+        this.sunConfig.targetZ = z;
+    }
+
+    public updateSunColorFromGUI(): void {
+        vec3.set(
+            this.sunColor, 
+            this.sunConfig.colorR / 255.0, 
+            this.sunConfig.colorG / 255.0, 
+            this.sunConfig.colorB / 255.0
+        );
+    }
+
+    public setDebugSunCamera(enabled: boolean): void {
+        this.sunConfig.debugSunCamera = enabled;
+    }
 }

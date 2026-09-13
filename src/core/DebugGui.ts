@@ -55,6 +55,7 @@ export class DebugGui {
         if (player) this.setupPlayerInfo(player);
         this.setupGameplay();
         this.setupBuildMode(world, entityRepo, physicsFacade);
+        this.setupSunControls(renderer);
         this.setupProfiler(renderer, physicsFacade);
         this.setupSSGI(renderer);
         this.setupGTAO(renderer);
@@ -160,12 +161,10 @@ export class DebugGui {
                     ctx.stroke();
                 }
             }
-
             requestAnimationFrame(renderGraph);
         };
 
         requestAnimationFrame(renderGraph);
-
         return panel;
     }
 
@@ -180,7 +179,7 @@ export class DebugGui {
         const folder = this.gui.addFolder('Render Views');
         const viewOptions = [
             'None', 'Depth', 'Normals', 'Albedo', 'Deferred', 
-            'GTAO (Noisy)', 'GTAO (Blurred)', 'SSGI (Noisy)', 'SSGI (Blurred)'
+            'GTAO (Noisy)', 'GTAO (Blurred)', 'SSGI (Noisy)', 'SSGI (Blurred)', 'Shadow Map' 
         ];
 
         folder.add(this.state, 'activeView', viewOptions).name('G-Buffer').onChange((value: string) => {
@@ -210,6 +209,31 @@ export class DebugGui {
         
         folder.add(this.state, 'selectedThrowable', throwableOptions).name('Throwable Item').onChange((value: string) => {
             globalEventBus.emit("SET_THROWABLE", { id: value });
+        });
+    }
+
+    private setupSunControls(renderer: any): void {
+        const folder = this.gui.addFolder('Sun & Shadows');
+        
+        folder.add(renderer.sunConfig, 'dirX', -1.0, 1.0, 0.01).name('Sun Dir X').onChange((v: number) => renderer.setSunDirection(v, renderer.sunConfig.dirY, renderer.sunConfig.dirZ));
+        folder.add(renderer.sunConfig, 'dirY', -1.0, 1.0, 0.01).name('Sun Dir Y').onChange((v: number) => renderer.setSunDirection(renderer.sunConfig.dirX, v, renderer.sunConfig.dirZ));
+        folder.add(renderer.sunConfig, 'dirZ', -1.0, 1.0, 0.01).name('Sun Dir Z').onChange((v: number) => renderer.setSunDirection(renderer.sunConfig.dirX, renderer.sunConfig.dirY, v));
+
+        folder.add(renderer.sunConfig, 'targetX', -2000.0, 2000.0, 10.0).name('Target X').onChange((v: number) => renderer.setSunTarget(v, renderer.sunConfig.targetY, renderer.sunConfig.targetZ));
+        folder.add(renderer.sunConfig, 'targetY', -500.0, 1000.0, 10.0).name('Target Y').onChange((v: number) => renderer.setSunTarget(renderer.sunConfig.targetX, v, renderer.sunConfig.targetZ));
+        folder.add(renderer.sunConfig, 'targetZ', -2000.0, 2000.0, 10.0).name('Target Z').onChange((v: number) => renderer.setSunTarget(renderer.sunConfig.targetX, renderer.sunConfig.targetY, v));
+
+        folder.add(renderer.sunConfig, 'frustumSize', 10.0, 1000.0, 1.0).name('Ortho Zoom (Frustum)');
+        folder.add(renderer.sunConfig, 'distance', 10.0, 1000.0, 10.0).name('Distance to Target');
+        folder.add(renderer.sunConfig, 'near', 0.1, 100.0, 0.1).name('Near Plane');
+        folder.add(renderer.sunConfig, 'far', 100.0, 2000.0, 10.0).name('Far Plane');
+
+        folder.add(renderer.sunConfig, 'colorR', 0, 255, 1).name('Sun Color R').onChange(() => renderer.updateSunColorFromGUI());
+        folder.add(renderer.sunConfig, 'colorG', 0, 255, 1).name('Sun Color G').onChange(() => renderer.updateSunColorFromGUI());
+        folder.add(renderer.sunConfig, 'colorB', 0, 255, 1).name('Sun Color B').onChange(() => renderer.updateSunColorFromGUI());
+
+        folder.add(renderer.sunConfig, 'debugSunCamera').name('Debug Sun Camera').onChange((val: boolean) => {
+            renderer.setDebugSunCamera(val);
         });
     }
 
@@ -245,7 +269,7 @@ export class DebugGui {
             globalEventBus.emit("SET_BUILD_TOOL", { tool: value });
         });
 
-        folder.add(this.state, 'sphereRadius', 1, 20, 1).name('Sculpt Radius').onChange((value: number) => {
+        folder.add(this.state, 'sphereRadius', 1, 30, 1).name('Sculpt Radius').onChange((value: number) => {
             globalEventBus.emit("SET_SPHERE_RADIUS", { radius: value });
         });
 
@@ -294,6 +318,7 @@ export class DebugGui {
 
         folder.add(renderer.gpuTimings, 'Total').listen().disable();
         folder.add(renderer.gpuTimings, 'Geometry').listen().disable();
+        folder.add(renderer.gpuTimings, 'Shadow').listen().disable();
         folder.add(renderer.gpuTimings, 'GTAO').listen().disable();
         folder.add(renderer.gpuTimings, 'Deferred').listen().disable();
         folder.add(renderer.gpuTimings, 'SSGI').listen().disable();
@@ -305,6 +330,15 @@ export class DebugGui {
     private setupSSGI(renderer: any): void {
         const folder = this.gui.addFolder('SSGI');
         const config = renderer.ssgiPass.config;
+        
+        config.rayStepSize = 0.28522;
+        config.maxSteps = 8;
+        config.thickness = 2;
+        config.normalSharpness = 120.5;
+        config.depthSharpness = 10;
+        config.blurRadius = 4;
+        config.blurIterations = 4;
+
         folder.add(config, 'rayStepSize', 0.01, 1.0).name('Ray Step Size');
         folder.add(config, 'maxSteps', 4, 64, 1).name('Max Steps');
         folder.add(config, 'thickness', 0.01, 2.0).name('Thickness');
@@ -317,6 +351,18 @@ export class DebugGui {
     private setupGTAO(renderer: any): void {
         const folder = this.gui.addFolder('GTAO');
         const config = renderer.gtaoPass.config;
+        
+        config.radius = 0.61;
+        config.falloff = 0.1;
+        config.thickness = 0.01;
+        config.blurRadius = 2;
+        config.blurSharpness = 150;
+        config.minRadiusPixels = 1;
+        config.maxRadiusPixels = 50;
+        config.numSlices = 2;
+        config.maxSteps = 3;
+        config.biasRadians = 0.05;
+
         folder.add(config, 'radius', 0.05, 5.0).name('Radius');
         folder.add(config, 'falloff', 0.01, 2.0).name('Falloff');
         folder.add(config, 'thickness', 0.01, 2.0).name('Thickness');
@@ -332,6 +378,11 @@ export class DebugGui {
     private setupTAA(renderer: any): void {
         const folder = this.gui.addFolder('TAA');
         const config = renderer.taaPass.config;
+        
+        config.alpha = 0.07;
+        config.vectorSearchRadius = 2;
+        config.colorClampRadius = 2;
+
         folder.add(config, 'alpha', 0.01, 1.0).name('Alpha');
         folder.add(config, 'vectorSearchRadius', 0, 5, 1).name('Vector Search Radius');
         folder.add(config, 'colorClampRadius', 0, 5, 1).name('Color Clamp Radius');
@@ -340,6 +391,13 @@ export class DebugGui {
     private setupPostProcess(renderer: any): void {
         const folder = this.gui.addFolder('Post Process');
         const config = renderer.postProcessPass.config;
+        
+        config.exposure = 1.5308;
+        config.gamma = 2.334;
+        config.contrast = 1.0415;
+        config.saturation = 2.124;
+        config.toneMappingMethod = 1;
+
         folder.add(config, 'exposure', 0.1, 5.0).name('Exposure');
         folder.add(config, 'gamma', 1.0, 3.0).name('Gamma');
         folder.add(config, 'contrast', 0.5, 2.0).name('Contrast');

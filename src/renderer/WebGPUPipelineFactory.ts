@@ -1,4 +1,4 @@
-export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED' | 'SMALL_DEBRI' | 'COMPOSITION';
+export type PipelineType = 'CHUNK' | 'ENTITY' | 'DEBUG_LINES' | 'DEBRI' | 'DEFERRED' | 'SMALL_DEBRI' | 'COMPOSITION' | 'CHUNK_SHADOW' | 'ENTITY_SHADOW';
 
 interface PipelineConfig {
     label: string;
@@ -61,7 +61,26 @@ const PIPELINE_CONFIGS: Record<PipelineType, PipelineConfig> = {
         label: 'Composition Pipeline',
         topology: 'triangle-list',
         buffers: [] 
-    }
+    },
+    CHUNK_SHADOW: {
+        label: 'Chunk Shadow Pipeline',
+        topology: 'triangle-list',
+        buffers: [
+            { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }] },
+            { arrayStride: 16, attributes: [{ shaderLocation: 1, offset: 0, format: "float32x4" }] },
+            { arrayStride: 16, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x4" }] },
+            { arrayStride: 8,  attributes: [{ shaderLocation: 3, offset: 0, format: "float32x2" }] }
+        ]
+    },
+    ENTITY_SHADOW: {
+        label: 'Entity Shadow Pipeline',
+        topology: 'triangle-list',
+        buffers: [
+            { arrayStride: 12, attributes: [{ shaderLocation: 0, offset: 0, format: "float32x3" }] },
+            { arrayStride: 8,  attributes: [{ shaderLocation: 1, offset: 0, format: "float32x2" }] },
+            { arrayStride: 12, attributes: [{ shaderLocation: 2, offset: 0, format: "float32x3" }] }
+        ]
+    },
 };
 
 export class WebGPUPipelineFactory {
@@ -73,7 +92,6 @@ export class WebGPUPipelineFactory {
         gBuffer: boolean = false,
         needsDepthStencil: boolean = true
     ): GPURenderPipeline {
-
         const config = PIPELINE_CONFIGS[type];
         
         if (!config) {
@@ -81,7 +99,6 @@ export class WebGPUPipelineFactory {
         }
 
         const shaderModule = device.createShaderModule({ code: shaderCode });
-
         let fragmentTargets: GPUColorTargetState[] = [{ format: presentationFormat }];
 
         if (gBuffer) {
@@ -125,6 +142,42 @@ export class WebGPUPipelineFactory {
                 frontFace: "ccw"
             },
             depthStencil: depthStencil
+        });
+    }
+
+    public static createDepthPipeline(
+        device: GPUDevice,
+        type: PipelineType,
+        shaderCode: string
+    ): GPURenderPipeline {
+        const config = PIPELINE_CONFIGS[type];
+        if (!config) throw new Error(`Unsupported pipeline type: ${type}`);
+
+        const shaderModule = device.createShaderModule({ code: shaderCode });
+
+        return device.createRenderPipeline({
+            label: `${config.label} (Depth Only)`,
+            layout: 'auto',
+            vertex: {
+                module: shaderModule,
+                entryPoint: "vs_main",
+                buffers: config.buffers
+            },
+            fragment: {
+                module: shaderModule,
+                entryPoint: "fs_main",
+                targets: [] 
+            },
+            primitive: {
+                topology: config.topology || "triangle-list",
+                cullMode: "back",
+                frontFace: "ccw"
+            },
+            depthStencil: {
+                format: "depth32float",
+                depthWriteEnabled: true,
+                depthCompare: "less"
+            }
         });
     }
 }

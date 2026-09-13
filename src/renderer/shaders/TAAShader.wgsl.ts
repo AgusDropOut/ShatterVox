@@ -127,7 +127,7 @@ export const TAAShaderWGSL = `
         let maxColor = vec3<f32>(maxY, maxCo, maxCg);
         let minColor = vec3<f32>(minY, minCo, minCg);
         
-        let pastColor = textureSample(historyTex, texSamplerLinear, pastUV);
+        let pastColor = textureSampleLevel(historyTex, texSamplerLinear, pastUV, 0.0);
         let pastColorinYCoCg = toYCoCg(pastColor.rgb);
         let validPastColorinYCoCg = clamp(pastColorinYCoCg, minColor, maxColor);
         let validPastColor = toRGB(validPastColorinYCoCg);

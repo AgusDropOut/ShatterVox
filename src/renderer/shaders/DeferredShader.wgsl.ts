@@ -72,13 +72,13 @@ export const deferredShader = `
 
     @fragment
     fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-        let depth = textureSample(depthTex, texSamplerNearest, in.uv);
+        let depth = textureSampleLevel(depthTex, texSamplerNearest, in.uv, 0);
         if (depth >= 1.0) {
             return vec4<f32>(0.0, 0.0, 0.0, 1.0);
         }
         
-        let albedo = textureSample(albedoTex, texSamplerLinear, in.uv);
-        let normal = textureSample(normalTex, texSamplerLinear, in.uv);
+        let albedo = textureSampleLevel(albedoTex, texSamplerLinear, in.uv, 0.0);
+        let normal = textureSampleLevel(normalTex, texSamplerLinear, in.uv, 0.0);
         let normalizedNormal = normalize(normal.xyz);
 
         let roughness = normal.w;
@@ -137,7 +137,7 @@ export const deferredShader = `
         let sunDirectLight = sun.color * 6.0 * shadowVisibility * NdotL * albedo.xyz;
 
         let ambient = vec3<f32>(0.4, 0.4, 0.4);
-        let gtao = textureSample(gtaoTexture, texSamplerLinear, in.uv).r;
+        let gtao = textureSampleLevel(gtaoTexture, texSamplerLinear, in.uv, 0.0).r;
         let occludedAmbient = ambient * gtao * albedo.xyz;
         
         let finalColor = lightAccum + sunDirectLight + occludedAmbient;
@@ -156,8 +156,8 @@ export const deferredShader = `
 
         let bias = max(0.001 * (1.0 - dot(normal, normalize(-sun.direction))), 0.0001);
         let currentDepth = projCoords.z - bias;
-
-        return textureSampleCompare(shadowMap, shadowSampler, uv, currentDepth);
+        
+        return textureSampleCompareLevel(shadowMap, shadowSampler, uv, currentDepth);
     }
 
     fn calculateSpecular(normal: vec3<f32>, viewDir: vec3<f32>, lightDir: vec3<f32>, roughness: f32, metallic: f32, albedo: vec4<f32>, F0: vec3<f32>) -> vec3<f32> {

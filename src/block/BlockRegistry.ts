@@ -1,7 +1,16 @@
 import { Engine } from "../core/Engine";
 import { globalEventBus } from "../core/EventBus";
 import type { IBlockBehavior } from "./BlockBehaviors";
-import { RadioactiveBehavior, SlimeBehavior, MagicOreBehavior, FireBehavior, AmbarBehavior } from "./BlockBehaviors";
+import { 
+    RadioactiveBehavior, 
+    SlimeBehavior, 
+    MagicOreBehavior, 
+    FireBehavior, 
+    AmbarBehavior,
+    LeavesWithFlowersBehavior,
+    AtmosphericDustBehavior,
+    MysticSporeBehavior
+} from "./BlockBehaviors";
 
 export interface BlockDef {
     id: number;
@@ -121,6 +130,11 @@ export class BlockRegistry {
         this.create(19).name("Stone_pattern_1").texture(17).color(0.2, 0.2, 0.2).material(0.8, 0.0).fragmentation(0.02).sound("stone_collision").register();
         this.create(20).name("metal").texture(18).color(0.35, 0.37, 0.4).material(0.25, 1.0).physics(2.0, 0.6, 0.1, 0.0).sound("metal_collision").fragmentation(0.05).toughness(90).register();
         this.create(21).name("Ambar").texture(19).color(0.8, 0.8, 0.3).material(0.4, 0.0).fragmentation(0.12).sound("glass_collision").behavior(AmbarBehavior).register();
+        
+        this.create(22).name("Leaves_with_flowers").texture(20).color(0.8, 0.8, 0.3).material(0.4, 0.0).fragmentation(0.12).transparent().sound("leaves_collision").behavior(LeavesWithFlowersBehavior).register();
+        
+        this.create(23).name("Atmospheric_Dust").texture(0).color(0.0, 0.0, 0.0).transparent().physics(0.0, 0.0, 0.0, 0.0).toughness(0).behavior(AtmosphericDustBehavior).register();
+        this.create(24).name("Mystic_Spores").texture(0).color(0.0, 0.0, 0.0).transparent().physics(0.0, 0.0, 0.0, 0.0).toughness(0).behavior(MysticSporeBehavior).register();
     }
 
     public static create(id: number): BlockBuilder {

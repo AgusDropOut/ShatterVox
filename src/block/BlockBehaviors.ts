@@ -123,7 +123,6 @@ export const AmbarBehavior: IBlockBehavior = {
 
         if (world.getBlock(x, y + 1, z) === 0 || world.getBlock(x, y - 1, z) === 0 || world.getBlock(x + 1, y, z) === 0 || world.getBlock(x - 1, y, z) === 0) {
             
-       
             if (Math.random() > 0.5) {
                 globalEventBus.emit("SPAWN_PARTICLE", {
                     position: [px + (Math.random() - 0.5) * s, py + (Math.random() - 0.5) * s, pz + (Math.random() - 0.5) * s],
@@ -142,7 +141,139 @@ export const AmbarBehavior: IBlockBehavior = {
                 ParticleSpawner.spawnAura(vec3.fromValues(px, py, pz), vec4.fromValues(1.0, 0.8, 0.2, 1.0), 3);
             }
         }
+    }
+};
 
-       
+export const LeavesWithFlowersBehavior: IBlockBehavior = {
+    onRandomTick: (x, y, z, world) => {
+        if (world.getBlock(x, y - 1, z) === 0) {
+            const s = Engine.voxelSize;
+            
+            const spawnCount = 2 + Math.floor(Math.random() * 3);
+
+            for (let i = 0; i < spawnCount; i++) {
+                const px = (x * s) + (Math.random() * s);
+                const py = (y * s); 
+                const pz = (z * s) + (Math.random() * s);
+
+                const vy = -0.0015 - (Math.random() * 0.001);
+                
+                const time = Date.now() * 0.001 + i;
+                const windX = Math.sin(time + x) * 0.0003; 
+                const windZ = Math.cos(time + z) * 0.0003;
+
+                const isYolk = Math.random() > 0.8;
+                const color = isYolk 
+                    ? [1.0, 0.75, 0.15, 0.9] 
+                    : [0.95, 0.95, 0.95, 0.8]; 
+
+                globalEventBus.emit("SPAWN_PARTICLE", {
+                    position: [px, py, pz],
+                    velocity: [windX, vy, windZ],
+                    color: color as [number, number, number, number],
+                    lifetime: 600 + Math.random() * 150, 
+                    size: isYolk ? 0.12 : 0.09, 
+                    gravity: false 
+                });
+            }
+
+            if (Math.random() < 0.08) {
+                globalEventBus.emit("SPAWN_PARTICLE", {
+                    position: [(x * s) + (Math.random() * s), (y * s) + (s / 2), (z * s) + (Math.random() * s)],
+                    velocity: [0, 0.005 + Math.random() * 0.01, 0],
+                    color: [1.0, 0.9, 0.5, 0.9], 
+                    lifetime: 180,
+                    size: 0.02,
+                    gravity: false
+                });
+            }
+        }
+    },
+    onInteract: (x, y, z, world) => {
+        const s = Engine.voxelSize;
+        const cx = (x * s) + (s / 2);
+        const cy = (y * s);
+        const cz = (z * s) + (s / 2);
+
+        for (let i = 0; i < 20; i++) {
+            const isYolk = Math.random() > 0.6;
+            const color = isYolk ? [1.0, 0.75, 0.15, 0.9] : [0.95, 0.95, 0.95, 0.9];
+            
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: [
+                    cx + (Math.random() - 0.5) * s * 1.5, 
+                    cy + (Math.random() * s), 
+                    cz + (Math.random() - 0.5) * s * 1.5
+                ],
+                velocity: [
+                    (Math.random() - 0.5) * 0.02, 
+                    -0.02 - (Math.random() * 0.04), 
+                    (Math.random() - 0.5) * 0.02
+                ],
+                color: color as [number, number, number, number],
+                lifetime: 150 + Math.random() * 100,
+                size: 0.04 + Math.random() * 0.02,
+                gravity: false
+            });
+        }
+        
+        globalEventBus.emit("PLAY_SPATIAL_SOUND", { 
+            id: "leaves_collision", 
+            position: [cx, cy, cz], 
+            volume: 0.4, 
+            pitch: 0.9 + Math.random() * 0.2 
+        });
+    }
+};
+
+export const AtmosphericDustBehavior: IBlockBehavior = {
+    onRandomTick: (x, y, z, world) => {
+        const s = Engine.voxelSize;
+        const count = 3 + Math.floor(Math.random() * 4);
+
+        for (let i = 0; i < count; i++) {
+            const px = (x * s) + (Math.random() * s);
+            const py = (y * s) + (Math.random() * s);
+            const pz = (z * s) + (Math.random() * s);
+
+            const vx = (Math.random() - 0.5) * 0.0015;
+            const vy = (Math.random() - 0.5) * 0.0015;
+            const vz = (Math.random() - 0.5) * 0.0015;
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: [px, py, pz],
+                velocity: [vx, vy, vz],
+                color: [1.0, 0.95, 0.8, 0.3],
+                lifetime: 400 + Math.random() * 400,
+                size: 0.025 + Math.random() * 0.02,
+                gravity: false
+            });
+        }
+    }
+};
+
+export const MysticSporeBehavior: IBlockBehavior = {
+    onRandomTick: (x, y, z, world) => {
+        const s = Engine.voxelSize;
+        const count = 6 + Math.floor(Math.random() * 8);
+
+        for (let i = 0; i < count; i++) {
+            const px = (x * s) + (Math.random() * s);
+            const py = (y * s) + (Math.random() * s);
+            const pz = (z * s) + (Math.random() * s);
+
+            const vx = (Math.random() - 0.5) * 0.002;
+            const vy = -0.001 - Math.random() * 0.0015;
+            const vz = (Math.random() - 0.5) * 0.002;
+
+            globalEventBus.emit("SPAWN_PARTICLE", {
+                position: [px, py, pz],
+                velocity: [vx, vy, vz],
+                color: [1.0, 0.85, 0.3, 0.6],
+                lifetime: 1000 + Math.random() * 600,
+                size: 0.02 + Math.random() * 0.03,
+                gravity: false
+            });
+        }
     }
 };

@@ -20,7 +20,6 @@ export class DetachmentChecker {
     private isBuildMode: boolean = false;
 
     constructor(device: GPUDevice, layout: GPUBindGroupLayout, world: World, physicsFacade: PhysicsFacade, shatterWorker: Worker) {
-        
         this.world = world;
         this.physicsFacade = physicsFacade;
         this.shatterWorker = shatterWorker;
@@ -189,10 +188,10 @@ export class DetachmentChecker {
                 const microDebriId = this.physicsFacade.generateId();
                 const smallDebri = new Debri(this.device, this.layout, microDebriId, this.physicsFacade, [], 0, 0, 0);
                 
-                smallDebri.offsetX = targetDebri.offsetX;
-                smallDebri.offsetY = targetDebri.offsetY;
-                smallDebri.offsetZ = targetDebri.offsetZ;
-                smallDebri.setBlock(x, y, z, blockId);
+                smallDebri.offsetX = targetDebri.offsetX - x;
+                smallDebri.offsetY = targetDebri.offsetY - y;
+                smallDebri.offsetZ = targetDebri.offsetZ - z;
+                smallDebri.setBlock(0, 0, 0, blockId);
                 
                 this.world.addDebri(smallDebri);
                 this.world.updateDebriMesh(smallDebri);

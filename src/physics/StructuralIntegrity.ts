@@ -80,17 +80,24 @@ export class StructuralIntegrity {
             const island = islands[i];
             const newDebriId = this.physicsFacade.generateId();
             
+            let minX = Infinity, minY = Infinity, minZ = Infinity;
+            for (const [lx, ly, lz] of island) {
+                if (lx < minX) minX = lx;
+                if (ly < minY) minY = ly;
+                if (lz < minZ) minZ = lz;
+            }
+
             const newDebri = new Debri(this.device, this.layout, newDebriId, this.physicsFacade, [], 0, 0, 0);
-            newDebri.offsetX = pOffsetX;
-            newDebri.offsetY = pOffsetY;
-            newDebri.offsetZ = pOffsetZ;
+            newDebri.offsetX = pOffsetX - minX;
+            newDebri.offsetY = pOffsetY - minY;
+            newDebri.offsetZ = pOffsetZ - minZ;
 
             const collidersToMove = new Float32Array(island.length * 3);
             let offset = 0;
 
             for (const [lx, ly, lz, blockId] of island) {
                 debri.setBlock(lx, ly, lz, 0);
-                newDebri.setBlock(lx, ly, lz, blockId);
+                newDebri.setBlock(lx - minX, ly - minY, lz - minZ, blockId);
 
                 collidersToMove[offset++] = (lx - pOffsetX) * Engine.voxelSize;
                 collidersToMove[offset++] = (ly - pOffsetY) * Engine.voxelSize;
@@ -145,7 +152,6 @@ export class StructuralIntegrity {
 
                 const debriId = this.physicsFacade.generateId();
                 
-            
                 globalEventBus.emit("PHYSICS_COMMAND", {
                     type: 'CREATE_DEBRI',
                     id: debriId,
@@ -203,7 +209,6 @@ export class StructuralIntegrity {
                                         localCreatedDebrisCount++;
                                         const debriId = this.physicsFacade.generateId();
                                         
-                                 
                                         const worldBlocks = [[x, y, z, blockId]];
                                         const smallDebri = new Debri(this.device, this.layout, debriId, this.physicsFacade, worldBlocks, x, y, z);
                                         
@@ -304,7 +309,6 @@ export class StructuralIntegrity {
                             if (forceAtPoint > fractureThreshold) {
                                 targetDebri.setBlock(x, y, z, 0);
 
-                               
                                 const lX = (x - targetDebri.offsetX) * Engine.voxelSize;
                                 const lY = (y - targetDebri.offsetY) * Engine.voxelSize;
                                 const lZ = (z - targetDebri.offsetZ) * Engine.voxelSize;

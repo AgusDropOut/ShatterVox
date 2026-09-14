@@ -4,15 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ShatterVox Engine</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="/styles/main.css" />
   </head>
   <body>
     <div id="loading-screen">
-        <div class="telefunken-container">
-            <span class="telefunken-text">LOADING WORLD</span><span class="dots-container"></span>
-        </div>
-        <div class="info-text">
-            A fully destructible micro-voxel environment. Everything you see is built from 12cm cubes. Physics, debris, and structural integrity are calculated in real-time. Feel free to tear it down.
+        <div class="mc-loading-percentage" id="loading-percent">0%</div>
+        <div class="mc-loading-box">
+            <div class="mc-loading-inner">
+                <div class="mc-loading-fill"></div>
+            </div>
         </div>
     </div>
     
@@ -23,31 +28,65 @@
         <div id="crosshair">+</div>
 
         <div id="escape-menu" style="display: none;">
-            <h2>Settings</h2>
-            <div class="setting-row">
-                <label for="toggle-ssgi">Enable SSGI</label>
-                <input type="checkbox" id="toggle-ssgi" checked>
+            <div id="escape-main" class="menu-screen">
+                <h2>Game Menu</h2>
+                <button id="resume-btn" class="mc-button full-width">Back to Game</button>
+                <div class="menu-row">
+                    <button id="toggle-ssgi-btn" class="mc-button half-width">SSGI: ON</button>
+                    <button id="toggle-taa-btn" class="mc-button half-width">TAA: ON</button>
+                </div>
+                <button id="help-btn" class="mc-button full-width" style="margin-top: 10px;">Controls</button>
             </div>
-            <div class="setting-row">
-                <label for="toggle-taa">Enable TAA</label>
-                <input type="checkbox" id="toggle-taa" checked>
+
+            <div id="help-menu" class="menu-screen" style="display: none;">
+                <h2>Controls</h2>
+                <ul id="help-content">
+                    <li><span class="highlight">Right Click:</span> Read Signs / Interact</li>
+                    <li><span class="highlight">Left Click:</span> Break Blocks</li>
+                    <li><span class="highlight">Hold Left Click:</span> Drag Objects</li>
+                    <li><span class="highlight">Key 'B':</span> Throw Bomb</li>
+                </ul>
+                <button id="close-help-btn" class="mc-button full-width" style="margin-top: 25px;">Done</button>
             </div>
-            <button id="resume-btn">Resume Game</button>
         </div>
         
         <div id="project-overlay">
-            <button id="close-overlay">✕</button>
+            <button id="close-overlay" class="mc-close-btn">✕</button>
             <h2 id="project-title"></h2>
             <p id="project-desc"></p>
-            <a id="project-link" href="#" target="_blank">Explore</a>
+            <a id="project-link" href="#" target="_blank" class="mc-button full-width link-btn">Explore</a>
         </div>
 
         <div id="book-overlay">
-            <button id="close-book">✕</button>
+            <button id="close-book" class="mc-close-btn">✕</button>
             <h2 id="book-title"></h2>
             <div id="book-content"></div>
         </div>
     </div>
+
+    <script>
+        const clickSound = new Audio('/assets/sounds/click.ogg');
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('mousedown', (e) => {
+                const target = e.target.closest('.mc-button, .mc-close-btn');
+                if (target) {
+                    const soundClone = clickSound.cloneNode();
+                    soundClone.volume = 0.6;
+                    soundClone.play().catch(() => {});
+                }
+            });
+
+            let percent = 0;
+            const percentEl = document.getElementById('loading-percent');
+            const interval = setInterval(() => {
+                percent += Math.floor(Math.random() * 15) + 5;
+                if (percent > 100) percent = 100;
+                if (percentEl) percentEl.innerText = percent + '%';
+                if (percent === 100) clearInterval(interval);
+            }, 100);
+        });
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

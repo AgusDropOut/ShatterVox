@@ -33,6 +33,13 @@ export class EscapeMenu {
 
         this.updateButtonText();
 
+
+        this.canvas.addEventListener('mousedown', () => {
+            if (document.pointerLockElement !== this.canvas && this.menu.style.display === 'none') {
+                this.canvas.requestPointerLock();
+            }
+        });
+
         this.ssgiBtn.addEventListener('click', () => {
             this.renderer.enableSSGI = !this.renderer.enableSSGI;
             this.updateButtonText();
@@ -67,6 +74,7 @@ export class EscapeMenu {
 
                 if (isProjOpen || isBookOpen) return;
 
+
                 if (this.menu.style.display === 'flex' && this.helpMenu.style.display === 'flex') {
                     this.helpMenu.style.display = 'none';
                     this.escapeMain.style.display = 'flex';
@@ -76,8 +84,9 @@ export class EscapeMenu {
 
                 if (document.pointerLockElement === this.canvas) {
                     document.exitPointerLock();
-                } else {
-                    this.canvas.requestPointerLock();
+                } else if (this.menu.style.display === 'flex') {
+                    this.menu.style.display = 'none';
+                    this.playClick();
                 }
             }
         });

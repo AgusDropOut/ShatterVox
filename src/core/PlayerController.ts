@@ -20,7 +20,7 @@ export class PlayerController {
     public readonly entityRepo: EntityRepository;
     public readonly playerId: number;
     
-    public walkSpeed: number = 2.8;
+    public walkSpeed: number = 2.5;
     public flySpeed: number = 8.0;
     
     public canThrowBomb: boolean = true;

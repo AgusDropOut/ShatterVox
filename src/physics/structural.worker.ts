@@ -1,8 +1,8 @@
-import { Chunk } from "../world/Chunk";
 
-const WIDTH = Chunk.WIDTH;
-const HEIGHT = Chunk.HEIGHT;
-const DEPTH = Chunk.DEPTH;
+
+const WIDTH = 32;
+const HEIGHT = 32;
+const DEPTH = 32;
 
 function inBounds(x: number, y: number, z: number, size: number): boolean {
     return x >= 0 && x < size && y >= 0 && y < size && z >= 0 && z < size;
@@ -44,7 +44,6 @@ function checkStaticSupport(data: any): void {
 
                     const absoluteY = cy + minY;
                     
-               
                     if (absoluteY <= 0 || cx === 0 || cx === size - 1 || cz === 0 || cz === size - 1) {
                         isAnchored = true;
                     }
@@ -77,6 +76,7 @@ function checkStaticSupport(data: any): void {
 
     self.postMessage({ type: 'STATIC_CHECK_RESULT', detachedBlocks: detachedIslands, minX, minY, minZ });
 }
+
 function evaluateShatter(data: any): void {
     const { debriId, blocks, rx, ry, rz } = data;
   

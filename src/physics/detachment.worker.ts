@@ -1,3 +1,5 @@
+
+
 function evaluateDynamicDetachment(debriId: number, blocks: Uint8Array, WIDTH: number, HEIGHT: number, DEPTH: number) {
     if(blocks.length <= 2) {
         self.postMessage({ type: 'DETACHMENT_RESULT_DYNAMIC', debriId, detachedBlocks: [] });
@@ -40,7 +42,6 @@ function evaluateDynamicDetachment(debriId: number, blocks: Uint8Array, WIDTH: n
                     }
                 }
 
-    
                 if (airBlocks >= 6 || (airBlocks === 5 && !supportBelow)) {
                     detachedBlocks.push([x, y, z, currentBlockId]);
                 }
@@ -67,7 +68,6 @@ function evaluateStaticDetachment(chunks: { chunkX: number, chunkY: number, chun
 
                     if (currentBlockId === 0 || visited[idx] === 1) continue;
 
-    
                     const queue: number[][] = [[x, y, z, currentBlockId]];
                     let head = 0;
                     const island: number[][] = [];
@@ -102,7 +102,6 @@ function evaluateStaticDetachment(chunks: { chunkX: number, chunkY: number, chun
                         }
                     }
 
-             
                     if (!touchesBoundary) {
                         for (let i = 0; i < island.length; i++) {
                             chunkDetachedBlocks.push(island[i]);

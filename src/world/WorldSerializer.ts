@@ -40,20 +40,19 @@ export class WorldSerializer {
         
         for (const [entityId, renderComp] of repository.renders.entries()) {
             
-            if (renderComp.modelId && renderComp.position && renderComp.rotation ) {
-                let pos = renderComp.position;
-                let rot = renderComp.rotation;
-                
-                const physComp = repository.physics.get(entityId);
-                if (physComp) {
-                    const transform = physicsFacade.transforms.get(physComp.bodyId);
-                    if (transform) {
-                        pos = transform.position;
-                        rot = transform.rotation;
-                    }
+            let pos = renderComp.position;
+            let rot = renderComp.rotation;
+            
+            const physComp = repository.physics.get(entityId);
+            if (physComp) {
+                const transform = physicsFacade.transforms.get(physComp.bodyId);
+                if (transform) {
+                    pos = transform.position;
+                    rot = transform.rotation;
                 }
+            }
 
-               
+            if (renderComp.modelId && pos && rot) {
                 const idToSave = renderComp.spawnId || renderComp.modelId;
 
                 saveableEntities.push({

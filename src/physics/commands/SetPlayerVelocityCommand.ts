@@ -11,7 +11,7 @@ export class SetPlayerVelocityCommand implements CommandHandler<Extract<PhysicsC
         let velY = currentVel.y;
 
         if (command.jump && Math.abs(currentVel.y) < 0.01) {
-            velY = 2.0; 
+            velY = 3.0; 
         }
 
         body.setLinvel({ x: command.x, y: velY, z: command.z }, true);

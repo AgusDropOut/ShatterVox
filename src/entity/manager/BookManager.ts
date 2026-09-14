@@ -17,9 +17,7 @@ export class BookManager {
             if (BookRegistry[data.modelId]) {
                 console.log(`Spawning book entity with modelId: ${data.modelId}`);
                 this.spawnBook(data);
-            } else  {
-                console.warn(`Book modelId "${data.modelId}" not found in BookRegistry.`);
-            }
+            } 
         });
 
         globalEventBus.on("REMOVE_ENTITY_BY_BODY", (data) => {

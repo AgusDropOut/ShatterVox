@@ -134,7 +134,7 @@ export const AmbarBehavior: IBlockBehavior = {
                 });
             }
 
-            if (Math.random() < 0.05) { 
+            if (Math.random() < 0.35) { 
                 world.setBlock(x, y, z, 0);
                 world.setChunkDirtyAt(x, y, z);
                 

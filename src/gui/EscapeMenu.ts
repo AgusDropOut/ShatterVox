@@ -1,4 +1,5 @@
 import type { WebGPURenderer } from "../renderer/WebGPURenderer";
+import { Debri } from "../world/Debri";
 
 export class EscapeMenu {
     private menu: HTMLElement;
@@ -7,6 +8,7 @@ export class EscapeMenu {
     
     private ssgiBtn: HTMLElement;
     private taaBtn: HTMLElement;
+    private debriBtn: HTMLElement;
     private resumeBtn: HTMLElement;
     private helpBtn: HTMLElement;
     private closeHelpBtn: HTMLElement;
@@ -25,14 +27,14 @@ export class EscapeMenu {
         
         this.ssgiBtn = document.getElementById('toggle-ssgi-btn') as HTMLElement;
         this.taaBtn = document.getElementById('toggle-taa-btn') as HTMLElement;
+        this.debriBtn = document.getElementById('toggle-debri-btn') as HTMLElement;
         this.resumeBtn = document.getElementById('resume-btn') as HTMLElement;
         this.helpBtn = document.getElementById('help-btn') as HTMLElement;
         this.closeHelpBtn = document.getElementById('close-help-btn') as HTMLElement;
 
-        if (!this.menu || !this.ssgiBtn || !this.taaBtn || !this.resumeBtn || !this.helpBtn || !this.closeHelpBtn) return;
+        if (!this.menu || !this.ssgiBtn || !this.taaBtn || !this.debriBtn || !this.resumeBtn || !this.helpBtn || !this.closeHelpBtn) return;
 
         this.updateButtonText();
-
 
         this.canvas.addEventListener('mousedown', () => {
             if (document.pointerLockElement !== this.canvas && this.menu.style.display === 'none') {
@@ -47,6 +49,17 @@ export class EscapeMenu {
 
         this.taaBtn.addEventListener('click', () => {
             this.renderer.enableTAA = !this.renderer.enableTAA;
+            this.updateButtonText();
+        });
+
+        this.debriBtn.addEventListener('click', () => {
+            if (Debri.lifetimeMode === 'DEFAULT') {
+                Debri.lifetimeMode = 'LONG';
+            } else if (Debri.lifetimeMode === 'LONG') {
+                Debri.lifetimeMode = 'PERSISTENT';
+            } else {
+                Debri.lifetimeMode = 'DEFAULT';
+            }
             this.updateButtonText();
         });
 
@@ -74,18 +87,22 @@ export class EscapeMenu {
 
                 if (isProjOpen || isBookOpen) return;
 
-
-                if (this.menu.style.display === 'flex' && this.helpMenu.style.display === 'flex') {
-                    this.helpMenu.style.display = 'none';
-                    this.escapeMain.style.display = 'flex';
-                    this.playClick();
+                if (document.pointerLockElement === this.canvas) {
                     return;
                 }
 
-                if (document.pointerLockElement === this.canvas) {
-                    document.exitPointerLock();
-                } else if (this.menu.style.display === 'flex') {
-                    this.menu.style.display = 'none';
+                if (this.menu.style.display === 'flex' || this.menu.style.display === '') {
+                    if (this.helpMenu.style.display === 'flex') {
+                        this.helpMenu.style.display = 'none';
+                        this.escapeMain.style.display = 'flex';
+                    } else {
+                        this.menu.style.display = 'none';
+                    }
+                    this.playClick();
+                } else {
+                    this.menu.style.display = 'flex';
+                    this.escapeMain.style.display = 'flex';
+                    this.helpMenu.style.display = 'none';
                     this.playClick();
                 }
             }
@@ -103,6 +120,8 @@ export class EscapeMenu {
                 if ((!projOverlay || projOverlay.style.display !== 'block') && 
                     (!bookOverlay || bookOverlay.style.display !== 'block')) {
                     this.menu.style.display = 'flex';
+                    this.escapeMain.style.display = 'flex';
+                    this.helpMenu.style.display = 'none';
                 }
             }
         });
@@ -117,5 +136,6 @@ export class EscapeMenu {
     private updateButtonText(): void {
         this.ssgiBtn.innerText = `SSGI: ${this.renderer.enableSSGI ? 'ON' : 'OFF'}`;
         this.taaBtn.innerText = `TAA: ${this.renderer.enableTAA ? 'ON' : 'OFF'}`;
+        this.debriBtn.innerText = `Debris: ${Debri.lifetimeMode}`;
     }
 }

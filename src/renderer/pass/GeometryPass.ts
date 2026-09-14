@@ -157,9 +157,14 @@ export class GeometryPass {
 
         for (let i = world.debri.length - 1; i >= 0; i--) {
             const debri = world.debri[i];
-            if (!debri.isPersistent) { 
+          
+            if (!debri.isPersistent && Debri.lifetimeMode !== 'PERSISTENT') { 
                 debri.lifeTime += 16.67;
-                if (debri.lifeTime > Debri.MAX_LIFETIME) {
+                
+       
+                const currentMaxLife = Debri.lifetimeMode === 'LONG' ? 60000 : 15000;
+                
+                if (debri.lifeTime > currentMaxLife) {
                     world.removeDebri(debri);
                     globalEventBus.emit("PHYSICS_COMMAND", { type: 'REMOVE_BODY', id: debri.id});
                     debri.deleteGraphics();

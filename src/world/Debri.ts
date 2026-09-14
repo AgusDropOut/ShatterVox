@@ -12,7 +12,9 @@ export class Debri implements Mesheable {
     public static readonly WIDTH = 32;
     public static readonly HEIGHT = 32;
     public static readonly DEPTH = 32;
-    public static readonly MAX_LIFETIME = 15000; 
+    
+  
+    public static lifetimeMode: 'DEFAULT' | 'LONG' | 'PERSISTENT' = 'DEFAULT';
 
     public lifeTime: number = 0;
 

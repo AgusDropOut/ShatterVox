@@ -21,6 +21,7 @@ import { ModelLoader } from "../resources/ModelLoader";
 import { WorldModifier } from "../world/WorldModifier";
 import { SingularityManager } from "../entity/manager/SingularityManager";
 import { BookManager } from "../entity/manager/BookManager";
+import { EscapeMenu } from "../gui/EscapeMenu";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -54,6 +55,7 @@ export class Engine {
     private buildManager!: BuildManager;
     private debugGui!: DebugGui;
     private worldModifier!: WorldModifier;
+    private escapeMenu!: EscapeMenu;
 
     public static projectionMatrix: mat4 = mat4.create();
     public static zNear: number = 0.1;
@@ -102,6 +104,8 @@ export class Engine {
         mat4.perspectiveZO(Engine.projectionMatrix, Math.PI / 4, this.canvas.width / this.canvas.height, Engine.zNear, Engine.zFar);
         Engine.screenWidth = this.canvas.width;
         Engine.screenHeight = this.canvas.height;
+        
+        this.escapeMenu = new EscapeMenu(this.canvas, this.renderer);
     }
 
     public async start(): Promise<void> {

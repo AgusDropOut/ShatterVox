@@ -167,24 +167,23 @@ export class ParticlePass {
             this.device.queue.writeBuffer(this.normalBuffer, 0, GeometryGenerator.getCubeNormals());
     }
 
-    public updateParams(width: number, height: number, viewMatrix: Float32Array, projMatrix: Float32Array, invProjMatrix: Float32Array, frameCounter: number): void {
-        let jaltonX = (this.halton(frameCounter, 2) - 0.5) / Engine.screenWidth;
-        let jaltonY = (this.halton(frameCounter, 3) - 0.5) / Engine.screenHeight;
+    public updateParams(width: number, height: number, viewMatrix: Float32Array, projMatrix: Float32Array, invProjMatrix: Float32Array, frameCounter: number, useTAA: boolean): void {
         const jitteredProjectionMatrix = mat4.clone(projMatrix);
                 
-        const stableViewProjMattrix = mat4.create();
-        mat4.multiply(stableViewProjMattrix, projMatrix, viewMatrix);
-        //this.frustumCulling.updateViewProjMatrix(stableViewProjMattrix);
-        jitteredProjectionMatrix[8] = jaltonX;
-        jitteredProjectionMatrix[9] = jaltonY;
+        if (useTAA) {
+            let jaltonX = (this.halton(frameCounter, 2) - 0.5) / Engine.screenWidth;
+            let jaltonY = (this.halton(frameCounter, 3) - 0.5) / Engine.screenHeight;
+            jitteredProjectionMatrix[8] = jaltonX;
+            jitteredProjectionMatrix[9] = jaltonY;
+        }
+
         const currentViewProj = this.cameraData.subarray(0, 16);
         const newViewProj = mat4.create();
+        //this.frustumCulling.updateViewProjMatrix(stableViewProjMattrix);
         mat4.multiply(newViewProj, jitteredProjectionMatrix, viewMatrix);
         this.cameraData.set(currentViewProj, 16); 
         this.cameraData.set(newViewProj, 0);   
         
-        
-
         this.paramsView.set({
             screenResolution: [width, height],
             inverseProjectionMatrix: invProjMatrix,
@@ -196,7 +195,6 @@ export class ParticlePass {
         });
         this.device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsView.arrayBuffer);
     }
-
 
     private halton(index: number, base: number): number {
         let f = 1;
@@ -279,7 +277,4 @@ export class ParticlePass {
         passEncoder.setVertexBuffer(1, this.normalBuffer);
         passEncoder.draw(36, this.particleManager.maxParticles, 0, 0);
     }
-
-
 }
-        

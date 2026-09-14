@@ -74,6 +74,9 @@ export class WebGPURenderer {
 
     private sunColor: vec3 = vec3.fromValues(251.0 / 255.0, 234.0 / 255.0, 202.0 / 255.0);
 
+    public enableSSGI: boolean = true;
+    public enableTAA: boolean = true;
+
     public sunConfig = {
         dirX: 0.5,
         dirY: -0.89,
@@ -220,11 +223,13 @@ export class WebGPURenderer {
         this.ssgiPass.resize(width, height, this.depthView, this.normalView, this.deferredPass.getResultView(), this.linearSampler, this.nearestSampler);
         this.compositionPass.resize(width, height, this.deferredPass.getResultView(), this.albedoView, this.ssgiPass.getResultView(), this.linearSampler);
         this.taaPass.resize(width, height, this.compositionPass.getResultView(), this.linearSampler);
-        this.postProcessPass.resize(this.taaOutputView, this.linearSampler);
+        
+        this.postProcessPass.resize(this.compositionPass.getResultView(), this.taaOutputView, this.linearSampler);
     }
 
     public beginFrame(viewProjMatrix: Float32Array, invViewProjMatrix: Float32Array, viewMatrix: Float32Array, frameCounter: number, cameraPosition: vec3): void {
-        this.geometryPass.updateCamera(viewMatrix as mat4, Engine.projectionMatrix, frameCounter);
+       
+        this.geometryPass.updateCamera(viewMatrix as mat4, Engine.projectionMatrix, frameCounter, this.enableTAA);
 
         const currentSunDir = vec3.fromValues(this.sunConfig.dirX, this.sunConfig.dirY, this.sunConfig.dirZ);
         vec3.normalize(currentSunDir, currentSunDir);
@@ -249,7 +254,9 @@ export class WebGPURenderer {
         mat4.invert(invViewMatrix, viewMatrix);
 
         this.particleManager.flushParticles();
-        this.particlePass.updateParams(this.canvas.width, this.canvas.height, viewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter);
+        
+       
+        this.particlePass.updateParams(this.canvas.width, this.canvas.height, viewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter, this.enableTAA);
 
         this.gtaoPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, Engine.zNear, Engine.zFar);
         this.ssgiPass.updateParams(this.canvas.width, this.canvas.height, viewMatrix, invViewMatrix as Float32Array, Engine.projectionMatrix as Float32Array, invProjMatrix as Float32Array, frameCounter, Engine.zNear, Engine.zFar);
@@ -307,9 +314,22 @@ export class WebGPURenderer {
     }
 
     public computeSSGI(): void {
-        if (this.commandEncoder) {
-            this.ssgiPass.compute(this.commandEncoder, this.canvas.width, this.canvas.height, this.isTimerSupported ? this.timer.getTimestampWrites('SSGI') : undefined);
+        if (!this.commandEncoder) return;
+        
+        if (!this.enableSSGI) {
+            const pass = this.commandEncoder.beginRenderPass({
+                colorAttachments: [{
+                    view: this.ssgiPass.getResultView(),
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 0.0 },
+                    loadOp: 'clear',
+                    storeOp: 'store'
+                }]
+            });
+            pass.end();
+            return;
         }
+        
+        this.ssgiPass.compute(this.commandEncoder, this.canvas.width, this.canvas.height, this.isTimerSupported ? this.timer.getTimestampWrites('SSGI') : undefined);
     }
 
     public drawComposition(): void {
@@ -319,13 +339,17 @@ export class WebGPURenderer {
 
     public drawTAA(frameCounter: number): void {
         if (!this.commandEncoder) return;
+        
+        if (!this.enableTAA) return;
+
         this.taaPass.draw(this.commandEncoder, this.taaOutputView, frameCounter, this.isTimerSupported ? this.timer.getTimestampWrites('TAA') : undefined);
     }
 
     public drawPostProcess(): void {
         if (!this.commandEncoder) return;
         const screenTextureView = this.context.getCurrentTexture().createView();
-        this.postProcessPass.draw(this.commandEncoder, screenTextureView, this.isTimerSupported ? this.timer.getTimestampWrites('PostProcess') : undefined);
+        
+        this.postProcessPass.draw(this.commandEncoder, screenTextureView, this.enableTAA, this.isTimerSupported ? this.timer.getTimestampWrites('PostProcess') : undefined);
     }
 
     public drawPhysicsDebug(vertices: Float32Array | null, colors: Float32Array | null): void {

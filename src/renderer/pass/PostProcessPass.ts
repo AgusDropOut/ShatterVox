@@ -7,7 +7,9 @@ export class PostProcessPass {
     
     private paramsBuffer!: GPUBuffer;
     private paramsView!: StructuredView;
-    private bindGroup!: GPUBindGroup;
+    
+    private bindGroupWithTAA!: GPUBindGroup;
+    private bindGroupWithoutTAA!: GPUBindGroup;
 
     public config = {
         exposure: 1.0850,
@@ -59,12 +61,21 @@ export class PostProcessPass {
         });
     }
 
-    public resize(inputView: GPUTextureView, linearSampler: GPUSampler): void {
-        this.bindGroup = this.device.createBindGroup({
+    public resize(compositionView: GPUTextureView, taaView: GPUTextureView, linearSampler: GPUSampler): void {
+        this.bindGroupWithTAA = this.device.createBindGroup({
             layout: this.pipeline.getBindGroupLayout(0),
             entries: [
                 { binding: 0, resource: linearSampler },
-                { binding: 1, resource: inputView },
+                { binding: 1, resource: taaView },
+                { binding: 2, resource: { buffer: this.paramsBuffer } }
+            ]
+        });
+
+        this.bindGroupWithoutTAA = this.device.createBindGroup({
+            layout: this.pipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: linearSampler },
+                { binding: 1, resource: compositionView },
                 { binding: 2, resource: { buffer: this.paramsBuffer } }
             ]
         });
@@ -81,7 +92,7 @@ export class PostProcessPass {
         this.device.queue.writeBuffer(this.paramsBuffer, 0, this.paramsView.arrayBuffer);
     }
 
-    public draw(commandEncoder: GPUCommandEncoder, outputView: GPUTextureView, timestampWrites?: any): void {
+    public draw(commandEncoder: GPUCommandEncoder, outputView: GPUTextureView, useTAA: boolean, timestampWrites?: any): void {
         const pass = commandEncoder.beginRenderPass({
             colorAttachments: [
                 {
@@ -95,7 +106,7 @@ export class PostProcessPass {
         });
 
         pass.setPipeline(this.pipeline);
-        pass.setBindGroup(0, this.bindGroup);
+        pass.setBindGroup(0, useTAA ? this.bindGroupWithTAA : this.bindGroupWithoutTAA);
         pass.draw(6, 1, 0, 0);
         pass.end();
     }

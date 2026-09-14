@@ -124,21 +124,21 @@ export class SSGIPass {
         this.noisyTexture = this.device.createTexture({
             size: [width, height],
             format: "rgba16float",
-            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
         });
         this.noisyView = this.noisyTexture.createView();
 
         this.intermediateTexture = this.device.createTexture({
             size: [width, height],
             format: "rgba16float",
-            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
         });
         this.intermediateView = this.intermediateTexture.createView();
 
         this.blurredTexture = this.device.createTexture({
             size: [width, height],
             format: "rgba16float",
-            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
         });
         this.blurredView = this.blurredTexture.createView();
 
@@ -227,7 +227,6 @@ export class SSGIPass {
         });
         this.device.queue.writeBuffer(this.ssgiParamsBuffer, 0, this.ssgiParamsView.arrayBuffer);
 
-        
         this.blurredParamsView.set({
             normalSharpness: this.config.normalSharpness,
             depthSharpness: this.config.depthSharpness,
@@ -257,7 +256,6 @@ export class SSGIPass {
             for(let i = 0; i < this.config.blurIterations; i++) {
                 const isFirstPass = (i === 0);
                 
-           
                 this.blurredParamsView.set({ stride: Math.pow(2, i) });
                 this.device.queue.writeBuffer(this.blurredParamsBuffer, 0, this.blurredParamsView.arrayBuffer);
 

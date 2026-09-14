@@ -83,16 +83,20 @@ export class GeometryPass {
         await AssetManager.loadAsset(id, objUrl, textureUrls, this.device, materialLayout);
     }
 
-    public updateCamera(viewMatrix: mat4, projectionMatrix: mat4, frameCounter: number): void {
-        let jaltonX = (this.halton(frameCounter, 2) - 0.5) / Engine.screenWidth;
-        let jaltonY = (this.halton(frameCounter, 3) - 0.5) / Engine.screenHeight;
+    public updateCamera(viewMatrix: mat4, projectionMatrix: mat4, frameCounter: number, useTAA: boolean): void {
         const jitteredProjectionMatrix = mat4.clone(projectionMatrix);
+
+        if (useTAA) {
+            let jaltonX = (this.halton(frameCounter, 2) - 0.5) / Engine.screenWidth;
+            let jaltonY = (this.halton(frameCounter, 3) - 0.5) / Engine.screenHeight;
+            jitteredProjectionMatrix[8] = jaltonX;
+            jitteredProjectionMatrix[9] = jaltonY;
+        }
         
         const stableViewProjMattrix = mat4.create();
         mat4.multiply(stableViewProjMattrix, projectionMatrix, viewMatrix);
         this.frustumCulling.updateViewProjMatrix(stableViewProjMattrix);
-        jitteredProjectionMatrix[8] = jaltonX;
-        jitteredProjectionMatrix[9] = jaltonY;
+        
         const currentViewProj = this.cameraData.subarray(0, 16);
         const newViewProj = mat4.create();
         mat4.multiply(newViewProj, jitteredProjectionMatrix, viewMatrix);

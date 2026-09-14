@@ -21,6 +21,19 @@
     <div id="ui-layer">
         <div id="fps-counter">FPS: 0</div>
         <div id="crosshair">+</div>
+
+        <div id="escape-menu" style="display: none;">
+            <h2>Settings</h2>
+            <div class="setting-row">
+                <label for="toggle-ssgi">Enable SSGI</label>
+                <input type="checkbox" id="toggle-ssgi" checked>
+            </div>
+            <div class="setting-row">
+                <label for="toggle-taa">Enable TAA</label>
+                <input type="checkbox" id="toggle-taa" checked>
+            </div>
+            <button id="resume-btn">Resume Game</button>
+        </div>
         
         <div id="project-overlay">
             <button id="close-overlay">✕</button>

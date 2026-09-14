@@ -56,7 +56,7 @@ export class SSGIPass {
     }
 
     private async initTextures(){
-        this.noise = await WebGPUTexture.create(this.device, "/assets/LDR_RGB1_6.png");
+        this.noise = await WebGPUTexture.create(this.device, "./assets/LDR_RGB1_6.png");
     }
 
     private initPipelines(): void {

@@ -143,7 +143,7 @@ export class Engine {
         const modelsPromise = ModelLoader.loadAll(this.renderer);
 
         try {
-            const response = await fetch('/assets/portfolio.bin');
+            const response = await fetch('./assets/portfolio.bin');
             const contentType = response.headers.get("content-type");
             
             if (response.ok && contentType && !contentType.includes("text/html")) {

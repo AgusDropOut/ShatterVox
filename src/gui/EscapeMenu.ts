@@ -15,7 +15,7 @@ export class EscapeMenu {
     
     private canvas: HTMLCanvasElement;
     private renderer: WebGPURenderer;
-    private clickSound = new Audio('/assets/click.ogg');
+    private clickSound = new Audio('./assets/click.ogg');
 
     constructor(canvas: HTMLCanvasElement, renderer: WebGPURenderer) {
         this.canvas = canvas;

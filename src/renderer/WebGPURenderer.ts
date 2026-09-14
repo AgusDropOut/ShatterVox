@@ -132,8 +132,8 @@ export class WebGPURenderer {
             alphaMode: 'opaque', 
         });
 
-        this.normalAtlas = await WebGPUTexture.create(this.device, "/assets/normal_atlas.png");
-        this.atlas = await WebGPUTexture.create(this.device, "/assets/atlas.png");
+        this.normalAtlas = await WebGPUTexture.create(this.device, "./assets/normal_atlas.png");
+        this.atlas = await WebGPUTexture.create(this.device, "./assets/atlas.png");
 
         this.initDebugPipelines();
 

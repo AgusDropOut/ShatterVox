@@ -111,9 +111,14 @@ export class WebGPURenderer {
     }
 
     public async init(): Promise<boolean> {
-        if (!navigator.gpu) return false;
+        if (!navigator.gpu) {
+            throw new Error("WebGPU is not supported in this browser. Please use Chrome, Edge, or a browser with WebGPU enabled.");
+        }
+        
         const adapter = await navigator.gpu.requestAdapter();
-        if (!adapter) return false;
+        if (!adapter) {
+            throw new Error("No appropriate WebGPU adapter found. Check if hardware acceleration is enabled.");
+        }
         
         const requiredFeatures: GPUFeatureName[] = [];
         this.isTimerSupported = adapter.features.has('timestamp-query');
@@ -121,9 +126,17 @@ export class WebGPURenderer {
             requiredFeatures.push('timestamp-query');
         }
 
-        this.device = await adapter.requestDevice({ requiredFeatures });
+        try {
+            this.device = await adapter.requestDevice({ requiredFeatures });
+        } catch (e) {
+            throw new Error("Failed to request WebGPU device. Your GPU drivers might be outdated.");
+        }
 
         this.context = this.canvas.getContext('webgpu') as GPUCanvasContext;
+        if (!this.context) {
+            throw new Error("Failed to get WebGPU context from canvas.");
+        }
+
         this.presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
         this.context.configure({

@@ -55,7 +55,7 @@ export class ModelLoader {
                 "book_model_1", 
                 "./assets/models/book_model.obj", 
                 [
-                    "/.assets/textures/book_texture_1.png", 
+                    "./assets/textures/book_texture_1.png", 
                 ]
             ),
 

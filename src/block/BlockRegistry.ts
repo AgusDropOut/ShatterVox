@@ -9,7 +9,10 @@ import {
     AmbarBehavior,
     LeavesWithFlowersBehavior,
     AtmosphericDustBehavior,
-    MysticSporeBehavior
+    MysticSporeBehavior,
+    RedLeavesBehavior,
+    RedLeavesWithFlowersBehavior,
+    FireflySpawnerBehavior
 } from "./BlockBehaviors";
 
 export interface BlockDef {
@@ -135,6 +138,10 @@ export class BlockRegistry {
         
         this.create(23).name("Atmospheric_Dust").texture(0).color(0.0, 0.0, 0.0).transparent().physics(0.0, 0.0, 0.0, 0.0).toughness(0).behavior(AtmosphericDustBehavior).register();
         this.create(24).name("Mystic_Spores").texture(0).color(0.0, 0.0, 0.0).transparent().physics(0.0, 0.0, 0.0, 0.0).toughness(0).behavior(MysticSporeBehavior).register();
+        
+        this.create(25).name("Red_Leaves").texture(21).color(0.65, 0.15, 0.15).material(0.9, 0.0).fragmentation(0.3).transparent().sound("leaves_collision").behavior(RedLeavesBehavior).register();
+        this.create(26).name("Red_Leaves_with_flowers").texture(22).color(0.85, 0.1, 0.15).material(0.4, 0.0).fragmentation(0.12).transparent().sound("leaves_collision").behavior(RedLeavesWithFlowersBehavior).register();
+        this.create(27).name("Firefly_Spawner").texture(0).color(0.0, 0.0, 0.0).transparent().physics(0.0, 0.0, 0.0, 0.0).toughness(0).behavior(FireflySpawnerBehavior).register();
     }
 
     public static create(id: number): BlockBuilder {

@@ -53,8 +53,11 @@ export class WorldSerializer {
                     }
                 }
 
+               
+                const idToSave = renderComp.spawnId || renderComp.modelId;
+
                 saveableEntities.push({
-                    modelIdBytes: encoder.encode(renderComp.modelId),
+                    modelIdBytes: encoder.encode(idToSave),
                     pos: pos,
                     rot: rot
                 });

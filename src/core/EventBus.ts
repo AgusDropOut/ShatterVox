@@ -25,6 +25,7 @@ export interface GameEvents {
     "SET_THROWABLE": { id: string };
     "VOID_IMPLOSION": { x: number, y: number, z: number, radius: number }; 
     "MAGIC_BURST": { x: number, y: number, z: number, radius: number };   
+    "SHOW_BOOK": { title: string, content: string, color: [number, number, number] };
 }
 
 class EventBus {

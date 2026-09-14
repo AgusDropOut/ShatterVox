@@ -8,6 +8,8 @@ import type { EntityRepository } from '../entity/EntityRepository';
 import { PhysicsFacade } from '../physics/PhysicsFacade';
 import { PlayerController } from './PlayerController';
 import { ProjectRegistry } from '../entity/data/ProjectRegistry';
+import { ExplosiveRegistry } from '../entity/data/ExplosiveRegistry';
+import { BookRegistry } from '../entity/data/BookRegistry';
 
 export class DebugGui {
     private gui: GUI;
@@ -22,7 +24,7 @@ export class DebugGui {
         destructionRadius: 3,
         mineCooldownMs: 100,
         buildCooldownMs: 100,
-        selectedThrowable: 'bomb'
+        selectedThrowable: ''
     };
 
     constructor(
@@ -201,12 +203,19 @@ export class DebugGui {
 
     private setupGameplay(): void {
         const folder = this.gui.addFolder('Gameplay');
-        const throwableOptions = {
-            'Standard Bomb': 'bomb',
-            'Blackhole Bomb': 'blackhole',
-            'Magic Crystal': 'magic_crystal'
-        };
-        
+        const throwableOptions: Record<string, string> = {};
+
+        for (const key of Object.keys(ExplosiveRegistry)) {
+            const name = key.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            throwableOptions[name] = key;
+        }
+
+        for (const [key, book] of Object.entries(BookRegistry)) {
+            throwableOptions[`Book: ${book.title}`] = key;
+        }
+
+        this.state.selectedThrowable = Object.values(throwableOptions)[0] as string;
+
         folder.add(this.state, 'selectedThrowable', throwableOptions).name('Throwable Item').onChange((value: string) => {
             globalEventBus.emit("SET_THROWABLE", { id: value });
         });

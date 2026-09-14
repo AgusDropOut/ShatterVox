@@ -20,6 +20,7 @@ import { AudioLoader } from "../resources/AudioLoader";
 import { ModelLoader } from "../resources/ModelLoader";
 import { WorldModifier } from "../world/WorldModifier";
 import { SingularityManager } from "../entity/manager/SingularityManager";
+import { BookManager } from "../entity/manager/BookManager";
 
 export class Engine {
     private readonly canvas: HTMLCanvasElement;
@@ -48,6 +49,7 @@ export class Engine {
     private entityRepository: EntityRepository;
     private explosiveManager!: ExplosiveManager;
     private billboardManager!: BillBoardManager;
+    private bookManager!: BookManager;
     private singularityManager!: SingularityManager;
     private buildManager!: BuildManager;
     private debugGui!: DebugGui;
@@ -128,6 +130,7 @@ export class Engine {
         
         this.explosiveManager = new ExplosiveManager(this.entityRepository, this.physicsFacade, this.world);
         this.billboardManager = new BillBoardManager(this.entityRepository, this.physicsFacade, this.world);
+        this.bookManager = new BookManager(this.entityRepository, this.physicsFacade);
         this.singularityManager = new SingularityManager(this.entityRepository);
         this.debugGui = new DebugGui(this.renderer, this.world, this.entityRepository, this.physicsFacade, this.player);
         this.worldModifier = new WorldModifier(this.world, this.physicsFacade);

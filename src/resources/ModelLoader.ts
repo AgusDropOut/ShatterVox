@@ -43,7 +43,22 @@ export class ModelLoader {
                     "/assets/textures/magic_crystal_base.png", 
                     "/assets/textures/magic_crystal_outline.png" 
                 ]
-            )
+            ),
+            renderer.loadEntityAsset(
+                "book_model", 
+                "/assets/models/book_model.obj", 
+                [
+                    "/assets/textures/book_texture.png", 
+                ]
+            ),
+            renderer.loadEntityAsset(
+                "book_model_1", 
+                "/assets/models/book_model.obj", 
+                [
+                    "/assets/textures/book_texture_1.png", 
+                ]
+            ),
+
         ];
 
         await Promise.all(loadPromises);

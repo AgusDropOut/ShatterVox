@@ -6,6 +6,7 @@ export interface PhysicsComponent {
 
 export interface RenderComponent {
     modelId: string; 
+    spawnId?: string; 
     color: [number, number, number];
     scale: vec3;
     visualOffset?: vec3;

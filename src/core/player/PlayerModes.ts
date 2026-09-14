@@ -1,9 +1,10 @@
-import { vec3 } from "gl-matrix";
+import { vec3, quat } from "gl-matrix";
 import { globalEventBus } from "../EventBus";
 import { VoxelRaycaster } from "../../physics/VoxelRaycaster";
 import { ProjectRegistry } from "../../entity/data/ProjectRegistry";
 import type { PlayerController } from "../PlayerController";
 import type { IPlayerMode } from "../../types/PlayerMode";
+import { Engine } from "../../core/Engine";
 
 export class GameplayMode implements IPlayerMode {
     private clickTimer: number = 0;
@@ -134,25 +135,31 @@ export class GameplayMode implements IPlayerMode {
         setTimeout(() => player.canMine = true, player.mineCooldownMs);
 
         const reach = 10.0;
-        const gridHit = VoxelRaycaster.raycastGrid(player.camera.position, player.camera.front, reach, player.world);
         const physicsHit = await player.physicsFacade.raycast(player.camera.position, player.camera.front, reach, player.playerId);
 
-        let hitGridFirst = false;
-        if (gridHit.hit && !physicsHit.hit) hitGridFirst = true;
-        else if (gridHit.hit && physicsHit.hit && gridHit.distance < physicsHit.distance) hitGridFirst = true;
-
-        if (hitGridFirst) {
-            const [x, y, z] = gridHit.blockPos;
-            const blockType = player.world.getBlock(x, y, z);
-            globalEventBus.emit("BLOCK_MINED_STATIC", { x, y, z, radius: player.destructionRadius, blockType });
-        } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
-            globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
-                debriId: physicsHit.hitId,
-                localX: physicsHit.localX!,
-                localY: physicsHit.localY!,
-                localZ: physicsHit.localZ!,
-                radius: player.destructionRadius
-            });
+        if (physicsHit.hit) {
+            if (physicsHit.hitId !== undefined) {
+                globalEventBus.emit("BLOCK_MINED_DYNAMIC", {
+                    debriId: physicsHit.hitId,
+                    localX: physicsHit.localX!,
+                    localY: physicsHit.localY!,
+                    localZ: physicsHit.localZ!,
+                    radius: player.destructionRadius
+                });
+            } else {
+             
+                const hitPos = vec3.create();
+                vec3.scaleAndAdd(hitPos, player.camera.position, player.camera.front, physicsHit.distance + 0.001);
+                
+                const bx = Math.floor(hitPos[0] / Engine.voxelSize);
+                const by = Math.floor(hitPos[1] / Engine.voxelSize);
+                const bz = Math.floor(hitPos[2] / Engine.voxelSize);
+                
+                const blockType = player.world.getBlock(bx, by, bz);
+                if (blockType !== 0) {
+                    globalEventBus.emit("BLOCK_MINED_STATIC", { x: bx, y: by, z: bz, radius: player.destructionRadius, blockType });
+                }
+            }
         }
     }
 
@@ -236,20 +243,23 @@ export class BuildMode implements IPlayerMode {
         setTimeout(() => player.canMine = true, player.mineCooldownMs);
 
         const reach = 40.0;
-        const gridHit = VoxelRaycaster.raycastGrid(player.camera.position, player.camera.front, reach, player.world);
         const physicsHit = await player.physicsFacade.raycast(player.camera.position, player.camera.front, reach, player.playerId);
 
-        let hitGridFirst = false;
-        if (gridHit.hit && !physicsHit.hit) hitGridFirst = true;
-        else if (gridHit.hit && physicsHit.hit && gridHit.distance < physicsHit.distance) hitGridFirst = true;
-
         if (player.buildManager.activeTool === 'SINGLE') {
-            if (hitGridFirst) {
-                const [x, y, z] = gridHit.blockPos;
-                player.buildManager.removeSingle(x, y, z);
-            } else if (physicsHit.hit && physicsHit.hitId !== undefined) {
-                globalEventBus.emit("REMOVE_ENTITY_BY_BODY", { bodyId: physicsHit.hitId });
-                player.buildManager.removeSingleDebri(physicsHit.hitId, physicsHit.localX!, physicsHit.localY!, physicsHit.localZ!);
+            if (physicsHit.hit) {
+                if (physicsHit.hitId !== undefined) {
+                    globalEventBus.emit("REMOVE_ENTITY_BY_BODY", { bodyId: physicsHit.hitId });
+                    player.buildManager.removeSingleDebri(physicsHit.hitId, physicsHit.localX!, physicsHit.localY!, physicsHit.localZ!);
+                } else {
+                    const hitPos = vec3.create();
+                    vec3.scaleAndAdd(hitPos, player.camera.position, player.camera.front, physicsHit.distance + 0.001);
+                    
+                    const bx = Math.floor(hitPos[0] / Engine.voxelSize);
+                    const by = Math.floor(hitPos[1] / Engine.voxelSize);
+                    const bz = Math.floor(hitPos[2] / Engine.voxelSize);
+                    
+                    player.buildManager.removeSingle(bx, by, bz);
+                }
             }
         }
     }

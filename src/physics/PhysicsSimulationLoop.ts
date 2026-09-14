@@ -8,6 +8,9 @@ export class PhysicsSimulationLoop {
     private context: PhysicsContext;
     private lastReportTime: number = performance.now();
     private historyBuffer: number[] = [];
+    
+
+    private soundCooldowns: Map<number, number> = new Map();
 
     constructor(context: PhysicsContext) {
         this.context = context;
@@ -40,18 +43,23 @@ export class PhysicsSimulationLoop {
         }
 
         this.syncTransforms();
-        this.processCollisions();
+        this.processCollisions(now);
         
-  
         if (this.context.debugEnabled) {
             this.syncDebugLines();
+        }
+        
+    
+        for (const [handle, time] of this.soundCooldowns.entries()) {
+            if (now - time > 100) { 
+                this.soundCooldowns.delete(handle);
+            }
         }
     }
 
     private syncTransforms(): void {
         if (this.context.dynamicBodies.size === 0) return; 
 
-       
         let activeCount = 0;
         for (const body of this.context.dynamicBodies.values()) {
             if (!body.isSleeping()) {
@@ -61,7 +69,6 @@ export class PhysicsSimulationLoop {
 
         if (activeCount === 0) return;
 
-   
         const buffer = new Float32Array(activeCount * 8);
         let offset = 0;
 
@@ -98,12 +105,20 @@ export class PhysicsSimulationLoop {
         return 0;
     }
 
-    private processCollisions(): void {
+    private processCollisions(now: number): void {
         const soundEvents: SpatialSoundMsg[] = [];
+        
+    
+        const soundsThisFrame: Set<string> = new Set();
 
         this.context.rapierEventQueue!.drainCollisionEvents((handle1, handle2, started) => {
             if (!started) return;
             
+         
+            const t1 = this.soundCooldowns.get(handle1);
+            const t2 = this.soundCooldowns.get(handle2);
+            if ((t1 && now - t1 < 100) || (t2 && now - t2 < 100)) return;
+
             const col1 = this.context.world!.getCollider(handle1);
             const col2 = this.context.world!.getCollider(handle2);
             
@@ -111,10 +126,13 @@ export class PhysicsSimulationLoop {
             if (col1) maxSpeed = Math.max(maxSpeed, this.getSpeed(col1));
             if (col2) maxSpeed = Math.max(maxSpeed, this.getSpeed(col2));
 
-            if (maxSpeed < 2.0) return;
+          
+            if (maxSpeed < 1.0) return;
 
             const basePos = col1 ? col1.translation() : col2!.translation();
-            const volume = Math.min(maxSpeed / 15.0, 1.0);
+            
+           
+            const volume = Math.max(0.1, Math.min(maxSpeed / 15.0, 1.0)); 
             const pitch = 0.8 + Math.random() * 0.4;
 
             const material1 = this.context.colliderMaterials.get(handle1) ?? 0;
@@ -124,6 +142,12 @@ export class PhysicsSimulationLoop {
                          || this.context.blockDefs[material2]?.soundId 
                          || 'stone_collision'; 
             
+            if (soundsThisFrame.has(soundId)) return;
+            soundsThisFrame.add(soundId);
+
+            this.soundCooldowns.set(handle1, now);
+            this.soundCooldowns.set(handle2, now);
+
             soundEvents.push({ 
                 type: 'PLAY_SPATIAL_SOUND',
                 id: soundId,
@@ -136,7 +160,9 @@ export class PhysicsSimulationLoop {
         if (soundEvents.length === 0) return;
 
         soundEvents.sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
-        const topSounds = soundEvents.slice(0, 3);
+        
+      
+        const topSounds = soundEvents.slice(0, 5);
 
         for (const msg of topSounds) {
             (self as any).postMessage(msg); 

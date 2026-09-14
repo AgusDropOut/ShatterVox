@@ -12,26 +12,28 @@ export class RaycastCommand implements CommandHandler<Extract<PhysicsCommand, { 
             { x: command.direction[0], y: command.direction[1], z: command.direction[2] }
         );
 
+      
         const playerBody = context.dynamicBodies.get(command.excludeId);
         let excludeCollider: RAPIER.Collider | undefined;
         if (playerBody && playerBody.numColliders() > 0) {
             excludeCollider = playerBody.collider(0);
         }
 
+      
         const hit = context.world.castRay(ray, command.maxDistance, true, undefined, undefined, excludeCollider);
 
-        let hitId: number | undefined;
-        let localX: number | undefined;
-        let localY: number | undefined;
-        let localZ: number | undefined;
+        let hitId: number | undefined = undefined;
+        let localX: number | undefined = undefined;
+        let localY: number | undefined = undefined;
+        let localZ: number | undefined = undefined;
 
         if (hit) {
             const hitParent = hit.collider.parent();
             if (hitParent) {
-            
+              
                 for (const [id, body] of context.dynamicBodies.entries()) {
                     if (body.handle === hitParent.handle) {
-                        hitId = id;
+                        hitId = id; 
                         const localPos = hit.collider.translationWrtParent();
                         if (localPos) {
                             localX = localPos.x;
@@ -41,22 +43,9 @@ export class RaycastCommand implements CommandHandler<Extract<PhysicsCommand, { 
                         break;
                     }
                 }
-                
-         
-                if (hitId === undefined && context.terrainCollidersMap) {
-                    for (const [id, collider] of context.terrainCollidersMap.entries()) {
-                        if (collider.handle === hit.collider.handle) {
-                            hitId = id;
-                            const globalHitPos = ray.pointAt(hit.timeOfImpact);
-                            const colTranslation = collider.translation();
-                            localX = globalHitPos.x - colTranslation.x;
-                            localY = globalHitPos.y - colTranslation.y;
-                            localZ = globalHitPos.z - colTranslation.z;
-                            break;
-                        }
-                    }
-                }
             }
+            
+           
         }
 
         (self as any).postMessage({

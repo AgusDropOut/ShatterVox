@@ -120,7 +120,19 @@ export class PlayerController {
     }
 
     public spawn(): void {
-        
+        const spawnX = 21.00;
+        const spawnY = 5.0;
+        const spawnZ = 3.0;
+
+        this.camera.position = vec3.fromValues(spawnX, spawnY, spawnZ);
+        this.targetPosition = vec3.clone(this.camera.position);
+
+       
+        globalEventBus.emit("PHYSICS_COMMAND", {
+            type: 'SET_POSITION', 
+            id: this.playerId,
+            position: { x: spawnX, y: spawnY, z: spawnZ }
+        });
     }
 
     public getCameraPosition(): vec3 {

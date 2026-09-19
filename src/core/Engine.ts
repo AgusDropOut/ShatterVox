@@ -164,7 +164,7 @@ export class Engine {
         }
 
         this.world.updateAllMeshes();
-        this.player.spawn();
+       
         
         await Promise.all([audioPromise, modelsPromise]);
 
@@ -173,6 +173,11 @@ export class Engine {
             loadingScreen.style.opacity = '0';
             setTimeout(() => {
                 loadingScreen.style.display = 'none';
+                this.player.spawn();
+            }, 800);
+        } else {
+            setTimeout(() => {
+                this.player.spawn();
             }, 800);
         }
 

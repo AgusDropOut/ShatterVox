@@ -23,6 +23,7 @@ import { ApplyRadialPullCommand } from "./commands/ApplyRadialPullCommand";
 import { QueryIntersectionsCommand } from "./commands/QueryIntersectionsCommand";
 import { UpdateChunkCollidersCommand } from "./commands/UpdateChunkCollidersCommand";
 import { EnableDebugCommand } from "./commands/EnableDebugCommand";
+import { SetPositionCommand } from "./commands/SetPositionCommand";
 
 
 const context = new PhysicsContext();
@@ -49,6 +50,7 @@ registry.register('APPLY_RADIAL_PULL', new ApplyRadialPullCommand());
 registry.register('QUERY_INTERSECTIONS', new QueryIntersectionsCommand());
 registry.register('UPDATE_CHUNK_COLLIDERS', new UpdateChunkCollidersCommand());
 registry.register('ENABLE_DEBUG', new EnableDebugCommand());
+registry.register('SET_POSITION', new SetPositionCommand());
 
 const simulationLoop = new PhysicsSimulationLoop(context);
 simulationLoop.start();

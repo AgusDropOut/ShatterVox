@@ -21,6 +21,7 @@ export type PhysicsCommand =
     | { type: 'QUERY_INTERSECTIONS', reqId: number, x: number, y: number, z: number, radius: number }
     | {  type: 'UPDATE_CHUNK_COLLIDERS'; chunkKey: string; colliderData: Float32Array; }
     | { type: 'DRAG_ENTITY', id: number, targetX: number, targetY: number, targetZ: number }
+    | { type: 'SET_POSITION', id: number, position: { x: number, y: number, z: number } }    
     | { type: 'ENABLE_DEBUG'};
 
 export type WorkerToMainMsg = 

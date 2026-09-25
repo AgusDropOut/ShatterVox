@@ -13,8 +13,20 @@
   </head>
   <body>
     <div id="loading-screen">
-        <div class="mc-loading-percentage" id="loading-percent">0%</div>
-        <div class="mc-loading-box">
+      
+        <div id="graphics-prompt" class="menu-screen" style="z-index: 10002; pointer-events: all;">
+            <h2 style="color: white; text-shadow: 2px 2px 0px #3f3f3f; margin-bottom: 10px;">Select Graphics Quality</h2>
+            <p style="color: #ccc; text-align: center; width: 400px; margin-bottom: 30px; font-family: sans-serif; line-height: 1.5;">
+                Does your computer have a Dedicated GPU?<br>
+                <span style="font-size: 14px; color: #aaa;">(Select 'Performance' if you use a laptop or integrated graphics to ensure good FPS).</span>
+            </p>
+            <button id="btn-quality" class="mc-button full-width">High Quality (Dedicated GPU)</button>
+            <button id="btn-performance" class="mc-button full-width" style="margin-top: 15px;">Performance (Integrated GPU)</button>
+        </div>
+
+     
+        <div class="mc-loading-percentage" id="loading-percent" style="display: none;">0%</div>
+        <div class="mc-loading-box" id="loading-box" style="display: none;">
             <div class="mc-loading-inner">
                 <div class="mc-loading-fill"></div>
             </div>

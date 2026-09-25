@@ -45,11 +45,42 @@ if (closeBookBtn && bookOverlay) {
         bookOverlay.style.display = "none";
     });
 }
-
-async function run() {
+async function run(highQuality: boolean) {
     await RAPIER.init();
     const engine = new Engine("glcanvas");
+    engine.setGraphicsQuality(highQuality);
     engine.start();
 }
 
-run();
+const btnQuality = document.getElementById("btn-quality");
+const btnPerformance = document.getElementById("btn-performance");
+const promptUi = document.getElementById("graphics-prompt");
+const loadingBox = document.getElementById("loading-box");
+const loadingPercent = document.getElementById("loading-percent");
+
+const startEngine = (highQuality: boolean) => {
+   
+    if (promptUi) promptUi.style.display = 'none';
+    if (loadingBox) loadingBox.style.display = 'block';
+    if (loadingPercent) loadingPercent.style.display = 'block';
+
+   
+    let percent = 0;
+    const interval = setInterval(() => {
+        percent += Math.floor(Math.random() * 15) + 5;
+        if (percent > 100) percent = 100;
+        if (loadingPercent) loadingPercent.innerText = percent + '%';
+        if (percent === 100) clearInterval(interval);
+    }, 100);
+
+   
+    run(highQuality);
+};
+
+
+if (btnQuality && btnPerformance) {
+    btnQuality.addEventListener("click", () => startEngine(true));
+    btnPerformance.addEventListener("click", () => startEngine(false));
+} else {
+    run(true); 
+}

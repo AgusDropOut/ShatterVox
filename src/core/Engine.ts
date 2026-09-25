@@ -209,6 +209,11 @@ export class Engine {
         requestAnimationFrame((time) => this.loop(time));
     }
 
+    public setGraphicsQuality(highQuality: boolean): void {
+        this.renderer.enableSSGI = highQuality;
+        this.renderer.enableTAA = highQuality;
+    }
+
     private update(deltaTime: number): void {
         if (!this.physicsFacade || this.physicsFacade.transforms.size === 0) {
             return;

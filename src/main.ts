@@ -45,11 +45,40 @@ if (closeBookBtn && bookOverlay) {
         bookOverlay.style.display = "none";
     });
 }
+
+
+let loadingInterval: number | null = null;
+
 async function run(highQuality: boolean) {
-    await RAPIER.init();
-    const engine = new Engine("glcanvas");
-    engine.setGraphicsQuality(highQuality);
-    engine.start();
+    try {
+        await RAPIER.init();
+        const engine = new Engine("glcanvas");
+        engine.setGraphicsQuality(highQuality);
+     
+        await engine.start();
+    } catch (error: any) {
+      
+        if (loadingInterval) clearInterval(loadingInterval);
+        
+        const loadingBox = document.getElementById("loading-box");
+        const loadingPercent = document.getElementById("loading-percent");
+        
+        if (loadingBox) loadingBox.style.display = 'none';
+        
+        if (loadingPercent) {
+            loadingPercent.style.color = '#ff5555'; 
+            loadingPercent.style.fontSize = '18px';
+            loadingPercent.style.maxWidth = '500px';
+            loadingPercent.style.textAlign = 'center';
+            loadingPercent.style.lineHeight = '1.5';
+            loadingPercent.style.padding = '20px';
+            loadingPercent.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            loadingPercent.style.border = '2px solid #ff5555';
+           
+            loadingPercent.innerText = `CRITICAL ERROR:\n\n${error.message || "Failed to initialize WebGPU. Hardware acceleration might be disabled."}`;
+        }
+        console.error(error);
+    }
 }
 
 const btnQuality = document.getElementById("btn-quality");
@@ -59,24 +88,19 @@ const loadingBox = document.getElementById("loading-box");
 const loadingPercent = document.getElementById("loading-percent");
 
 const startEngine = (highQuality: boolean) => {
-   
     if (promptUi) promptUi.style.display = 'none';
     if (loadingBox) loadingBox.style.display = 'block';
     if (loadingPercent) loadingPercent.style.display = 'block';
 
-   
     let percent = 0;
-    const interval = setInterval(() => {
+    loadingInterval = setInterval(() => {
         percent += Math.floor(Math.random() * 15) + 5;
-        if (percent > 100) percent = 100;
+        if (percent > 99) percent = 99; 
         if (loadingPercent) loadingPercent.innerText = percent + '%';
-        if (percent === 100) clearInterval(interval);
-    }, 100);
+    }, 100) as unknown as number;
 
-   
     run(highQuality);
 };
-
 
 if (btnQuality && btnPerformance) {
     btnQuality.addEventListener("click", () => startEngine(true));
